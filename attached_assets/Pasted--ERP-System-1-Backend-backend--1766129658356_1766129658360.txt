@@ -1,0 +1,2405 @@
+# 🚀 ERP System - Бүрэн Заавар (Үргэлжлэл)
+
+## 📋 Агуулга
+
+1. [Backend бүрэн код](#backend-бүрэн-код)
+2. [Frontend бүрэн код](#frontend-бүрэн-код)
+3. [Ажиллуулах заавар](#ажиллуулах-заавар)
+4. [Код тайлбар](#код-тайлбар)
+
+---
+
+## 🐍 BACKEND БҮРЭН КОД
+
+### Файлын бүтэц
+
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── database.py
+│   ├── main.py
+│   │
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── user.py
+│   │   ├── employee.py
+│   │   ├── attendance.py
+│   │   ├── payroll.py
+│   │   ├── document.py
+│   │   └── signature.py
+│   │
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   └── user.py
+│   │
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── employees.py
+│   │   ├── attendance.py
+│   │   ├── payroll.py
+│   │   ├── documents.py
+│   │   ├── signatures.py
+│   │   └── dashboard.py
+│   │
+│   └── utils/
+│       ├── __init__.py
+│       └── security.py
+│
+├── uploads/
+├── requirements.txt
+└── run.py
+```
+
+### 1. requirements.txt
+
+```text
+# backend/requirements.txt
+
+fastapi==0.109.0
+uvicorn[standard]==0.25.0
+sqlalchemy==2.0.25
+pydantic==2.5.3
+pydantic-settings==2.1.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+bcrypt==4.1.2
+Pillow==10.2.0
+```
+
+### 2. app/\_\_init\_\_.py
+
+```python
+# backend/app/__init__.py
+# Хоосон файл - Python package болгоно
+```
+
+### 3. app/config.py
+
+```python
+# backend/app/config.py
+"""
+⚙️ Тохиргооны файл
+Бүх тохиргоог нэг дор хадгална
+"""
+from pydantic_settings import BaseSettings
+import secrets
+
+class Settings(BaseSettings):
+    # Аппын мэдээлэл
+    APP_NAME: str = "Enterprise ERP System"
+    VERSION: str = "2.0.0"
+    DEBUG: bool = True
+    
+    # Database - SQLite (хөгжүүлэлтийн үед)
+    DATABASE_URL: str = "sqlite:///./erp.db"
+    
+    # JWT Token тохиргоо
+    SECRET_KEY: str = secrets.token_urlsafe(32)
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 цаг
+    
+    class Config:
+        env_file = ".env"
+
+# Глобал тохиргоо
+settings = Settings()
+```
+
+### 4. app/database.py
+
+```python
+# backend/app/database.py
+"""
+🗄️ Database холболт
+SQLAlchemy ORM ашиглана
+"""
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from .config import settings
+
+# SQLite холболт
+engine = create_engine(
+    settings.DATABASE_URL,
+    connect_args={"check_same_thread": False}  # SQLite-д хэрэгтэй
+)
+
+# Session үүсгэгч
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Бүх model-ийн base class
+Base = declarative_base()
+
+def get_db():
+    """
+    Database session авах
+    FastAPI Depends-д ашиглана
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+### 5. app/models/\_\_init\_\_.py
+
+```python
+# backend/app/models/__init__.py
+"""
+Бүх model-уудыг import хийнэ
+"""
+from .user import User, PasswordResetRequest
+from .employee import Employee, Department, Company
+from .attendance import Attendance
+from .payroll import Payroll, LeaveRequest
+from .document import Document, DocumentCategory, DocumentSignature
+from .signature import UserSignature, SignatureRequest, Contract
+```
+
+### 6. app/models/user.py
+
+```python
+# backend/app/models/user.py
+"""
+👤 User Model - Хэрэглэгчийн мэдээлэл
+"""
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from ..database import Base
+
+class User(Base):
+    """Хэрэглэгчийн хүснэгт"""
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(100), unique=True, nullable=False, index=True)
+    password = Column(String(200), nullable=False)
+    role = Column(String(50), default="Employee")  # Admin, Manager, HR, Employee
+    is_active = Column(Boolean, default=True)
+    last_login = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Нууц үг сэргээх
+    security_question = Column(String(255))
+    security_answer = Column(String(255))
+    
+    # Relationship
+    employee = relationship("Employee", back_populates="user", uselist=False)
+
+class PasswordResetRequest(Base):
+    """Нууц үг сэргээх хүсэлт"""
+    __tablename__ = "password_reset_requests"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    token = Column(String(100), unique=True, nullable=False)
+    is_used = Column(Boolean, default=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+```
+
+### 7. app/models/employee.py
+
+```python
+# backend/app/models/employee.py
+"""
+👥 Employee, Department, Company Models
+"""
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from ..database import Base
+
+class Company(Base):
+    """Компани"""
+    __tablename__ = "companies"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), unique=True, nullable=False)
+    code = Column(String(50), unique=True, nullable=False)
+    address = Column(Text)
+    phone = Column(String(50))
+    email = Column(String(100))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    employees = relationship("Employee", back_populates="company")
+    departments = relationship("Department", back_populates="company")
+
+class Department(Base):
+    """Хэлтэс"""
+    __tablename__ = "departments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"))
+    name = Column(String(100), nullable=False)
+    code = Column(String(50))
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    company = relationship("Company", back_populates="departments")
+    employees = relationship("Employee", back_populates="department")
+
+class Employee(Base):
+    """Ажилтан"""
+    __tablename__ = "employees"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    department_id = Column(Integer, ForeignKey("departments.id"))
+    
+    employee_code = Column(String(50), unique=True, nullable=False, index=True)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    phone = Column(String(50))
+    personal_email = Column(String(100))
+    
+    position = Column(String(100))
+    hire_date = Column(DateTime)
+    birth_date = Column(DateTime)
+    gender = Column(String(20))
+    
+    base_salary = Column(Float, default=0)
+    hourly_rate = Column(Float, default=0)
+    
+    bank_name = Column(String(100))
+    bank_account = Column(String(100))
+    address = Column(Text)
+    
+    emergency_contact_name = Column(String(100))
+    emergency_contact_phone = Column(String(50))
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    company = relationship("Company", back_populates="employees")
+    user = relationship("User", back_populates="employee")
+    department = relationship("Department", back_populates="employees")
+    attendance_records = relationship("Attendance", back_populates="employee")
+    payroll_records = relationship("Payroll", back_populates="employee")
+    leave_requests = relationship("LeaveRequest", back_populates="employee")
+```
+
+### 8. app/models/attendance.py
+
+```python
+# backend/app/models/attendance.py
+"""
+🕐 Attendance Model - Ирц
+"""
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from ..database import Base
+
+class Attendance(Base):
+    """Ирцийн бүртгэл"""
+    __tablename__ = "attendance"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    date = Column(DateTime, nullable=False, index=True)
+    check_in = Column(DateTime)
+    check_out = Column(DateTime)
+    work_hours = Column(Float, default=0)
+    overtime_hours = Column(Float, default=0)
+    status = Column(String(50), default="Present")  # Present, Absent, Late
+    location = Column(String(200))
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    employee = relationship("Employee", back_populates="attendance_records")
+```
+
+### 9. app/models/payroll.py
+
+```python
+# backend/app/models/payroll.py
+"""
+💰 Payroll & Leave Models
+"""
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from ..database import Base
+
+class Payroll(Base):
+    """Цалин"""
+    __tablename__ = "payroll"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    period_start = Column(DateTime, nullable=False)
+    period_end = Column(DateTime, nullable=False)
+    
+    base_salary = Column(Float, default=0)
+    overtime_pay = Column(Float, default=0)
+    bonus = Column(Float, default=0)
+    allowances = Column(Float, default=0)
+    
+    tax = Column(Float, default=0)
+    social_insurance = Column(Float, default=0)
+    health_insurance = Column(Float, default=0)
+    
+    gross_salary = Column(Float, default=0)
+    net_salary = Column(Float, default=0)
+    
+    payment_date = Column(DateTime)
+    payment_method = Column(String(50))
+    status = Column(String(50), default="Pending")
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    employee = relationship("Employee", back_populates="payroll_records")
+
+class LeaveRequest(Base):
+    """Чөлөөний хүсэлт"""
+    __tablename__ = "leave_requests"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    leave_type = Column(String(100), nullable=False)
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime, nullable=False)
+    days = Column(Integer, nullable=False)
+    reason = Column(Text)
+    status = Column(String(50), default="Pending")
+    approved_by = Column(Integer, ForeignKey("users.id"))
+    approved_at = Column(DateTime)
+    rejection_reason = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    employee = relationship("Employee", back_populates="leave_requests")
+```
+
+### 10. app/models/document.py
+
+```python
+# backend/app/models/document.py
+"""
+📁 Document Model - Файл
+"""
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from ..database import Base
+
+class DocumentCategory(Base):
+    """Файлын ангилал"""
+    __tablename__ = "document_categories"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    code = Column(String(50), unique=True)
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    documents = relationship("Document", back_populates="category")
+
+class Document(Base):
+    """Файл"""
+    __tablename__ = "documents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    category_id = Column(Integer, ForeignKey("document_categories.id"))
+    uploaded_by = Column(Integer, ForeignKey("users.id"))
+    employee_id = Column(Integer, ForeignKey("employees.id"))
+    
+    name = Column(String(255), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    file_type = Column(String(100))
+    file_size = Column(Float)
+    mime_type = Column(String(100))
+    
+    description = Column(Text)
+    version = Column(Integer, default=1)
+    
+    is_public = Column(Boolean, default=False)
+    is_archived = Column(Boolean, default=False)
+    requires_signature = Column(Boolean, default=False)
+    is_signed = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    category = relationship("DocumentCategory", back_populates="documents")
+    signatures = relationship("DocumentSignature", back_populates="document")
+
+class DocumentSignature(Base):
+    """Файлын гарын үсэг"""
+    __tablename__ = "document_signatures"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    signature_image = Column(Text)
+    signature_type = Column(String(50))
+    position_x = Column(Float, default=0)
+    position_y = Column(Float, default=0)
+    page = Column(Integer, default=1)
+    
+    ip_address = Column(String(50))
+    is_verified = Column(Boolean, default=True)
+    signed_at = Column(DateTime, default=datetime.utcnow)
+    
+    document = relationship("Document", back_populates="signatures")
+```
+
+### 11. app/models/signature.py
+
+```python
+# backend/app/models/signature.py
+"""
+✍️ Signature Models - Гарын үсэг
+"""
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey
+from datetime import datetime
+from ..database import Base
+
+class UserSignature(Base):
+    """Хэрэглэгчийн гарын үсэг"""
+    __tablename__ = "user_signatures"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    signature_data = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class SignatureRequest(Base):
+    """Гарын үсэг зурах хүсэлт"""
+    __tablename__ = "signature_requests"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+    requested_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    requested_to = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String(50), default="Pending")
+    message = Column(Text)
+    due_date = Column(DateTime)
+    signed_at = Column(DateTime)
+    rejected_at = Column(DateTime)
+    rejection_reason = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class Contract(Base):
+    """Гэрээ"""
+    __tablename__ = "contracts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    contract_number = Column(String(100), unique=True)
+    contract_type = Column(String(100))
+    title = Column(String(255), nullable=False)
+    content = Column(Text)
+    document_id = Column(Integer, ForeignKey("documents.id"))
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime)
+    status = Column(String(50), default="Draft")
+    employee_signed = Column(Boolean, default=False)
+    employee_signed_at = Column(DateTime)
+    employer_signed = Column(Boolean, default=False)
+    employer_signed_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+```
+
+### 12. app/schemas/\_\_init\_\_.py
+
+```python
+# backend/app/schemas/__init__.py
+# Хоосон
+```
+
+### 13. app/schemas/user.py
+
+```python
+# backend/app/schemas/user.py
+"""
+📝 Pydantic Schemas - Data validation
+"""
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    role: str = "Employee"
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    role: str
+    employee_id: Optional[int] = None
+    employee_name: Optional[str] = None
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
+```
+
+### 14. app/utils/\_\_init\_\_.py
+
+```python
+# backend/app/utils/__init__.py
+# Хоосон
+```
+
+### 15. app/utils/security.py
+
+```python
+# backend/app/utils/security.py
+"""
+🔐 Security - JWT, Password хэшлэх
+"""
+from datetime import datetime, timedelta
+from typing import Optional
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+from ..config import settings
+from ..database import get_db
+from ..models.user import User
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+def hash_password(password: str) -> str:
+    """Password hash болгох"""
+    return pwd_context.hash(password)
+
+def verify_password(plain: str, hashed: str) -> bool:
+    """Password шалгах"""
+    return pwd_context.verify(plain, hashed)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """JWT token үүсгэх"""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> User:
+    """Token-оос хэрэглэгч авах"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token хүчингүй",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise credentials_exception
+    
+    return user
+```
+
+### 16. app/routers/\_\_init\_\_.py
+
+```python
+# backend/app/routers/__init__.py
+# Хоосон
+```
+
+### 17. app/routers/auth.py
+
+```python
+# backend/app/routers/auth.py
+"""
+🔐 Authentication Router
+"""
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+from pydantic import BaseModel, EmailStr
+import secrets
+
+from ..database import get_db
+from ..models.user import User, PasswordResetRequest
+from ..models.employee import Employee
+from ..schemas.user import UserLogin, UserCreate, Token
+from ..utils.security import hash_password, verify_password, create_access_token, get_current_user
+
+router = APIRouter(prefix="/api/auth", tags=["Auth"])
+
+# === Schemas ===
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class VerifySecurityAnswer(BaseModel):
+    email: EmailStr
+    answer: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+class SetSecurityQuestion(BaseModel):
+    question: str
+    answer: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+# === Endpoints ===
+@router.post("/login", response_model=Token)
+def login(credentials: UserLogin, db: Session = Depends(get_db)):
+    """Нэвтрэх"""
+    user = db.query(User).filter(User.email == credentials.email).first()
+    
+    if not user or not verify_password(credentials.password, user.password):
+        raise HTTPException(status_code=401, detail="Имэйл эсвэл нууц үг буруу")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="Хэрэглэгч идэвхгүй")
+    
+    user.last_login = datetime.utcnow()
+    db.commit()
+    
+    token = create_access_token(data={"sub": user.email})
+    employee = db.query(Employee).filter(Employee.user_id == user.id).first()
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "employee_id": employee.id if employee else None,
+            "employee_name": f"{employee.first_name} {employee.last_name}" if employee else None
+        }
+    }
+
+@router.post("/register", response_model=Token)
+def register(data: UserCreate, db: Session = Depends(get_db)):
+    """Бүртгүүлэх"""
+    if db.query(User).filter(User.email == data.email).first():
+        raise HTTPException(status_code=400, detail="Энэ имэйл бүртгэлтэй")
+    
+    user = User(
+        email=data.email,
+        password=hash_password(data.password),
+        role=data.role
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    token = create_access_token(data={"sub": user.email})
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {"id": user.id, "email": user.email, "role": user.role}
+    }
+
+@router.get("/me")
+def get_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Миний мэдээлэл"""
+    employee = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+    
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "role": current_user.role,
+        "employee_id": employee.id if employee else None,
+        "employee_name": f"{employee.first_name} {employee.last_name}" if employee else None,
+        "has_security_question": bool(current_user.security_question)
+    }
+
+# === Password Reset ===
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Нууц үг сэргээх эхлүүлэх"""
+    user = db.query(User).filter(User.email == data.email).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Хэрэглэгч олдсонгүй")
+    
+    if not user.security_question:
+        raise HTTPException(status_code=400, detail="Нууц асуулт тохируулаагүй")
+    
+    return {"email": user.email, "security_question": user.security_question}
+
+@router.post("/verify-security-answer")
+def verify_security_answer(data: VerifySecurityAnswer, db: Session = Depends(get_db)):
+    """Нууц асуултын хариулт шалгах"""
+    user = db.query(User).filter(User.email == data.email).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Хэрэглэгч олдсонгүй")
+    
+    if user.security_answer.lower() != data.answer.lower():
+        raise HTTPException(status_code=400, detail="Хариулт буруу")
+    
+    token = secrets.token_urlsafe(32)
+    expires = datetime.utcnow() + timedelta(hours=1)
+    
+    # Хуучин хүсэлтүүд устгах
+    db.query(PasswordResetRequest).filter(
+        PasswordResetRequest.user_id == user.id,
+        PasswordResetRequest.is_used == False
+    ).delete()
+    
+    # Шинэ хүсэлт
+    reset = PasswordResetRequest(user_id=user.id, token=token, expires_at=expires)
+    db.add(reset)
+    db.commit()
+    
+    return {"message": "Хариулт зөв", "reset_token": token}
+
+@router.post("/reset-password")
+def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Шинэ нууц үг тохируулах"""
+    reset = db.query(PasswordResetRequest).filter(
+        PasswordResetRequest.token == data.token,
+        PasswordResetRequest.is_used == False,
+        PasswordResetRequest.expires_at > datetime.utcnow()
+    ).first()
+    
+    if not reset:
+        raise HTTPException(status_code=400, detail="Токен хүчингүй")
+    
+    user = db.query(User).filter(User.id == reset.user_id).first()
+    user.password = hash_password(data.new_password)
+    reset.is_used = True
+    db.commit()
+    
+    return {"message": "Нууц үг солигдлоо"}
+
+@router.post("/set-security-question")
+def set_security_question(
+    data: SetSecurityQuestion,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Нууц асуулт тохируулах"""
+    current_user.security_question = data.question
+    current_user.security_answer = data.answer.lower()
+    db.commit()
+    return {"message": "Нууц асуулт тохируулагдлаа"}
+
+@router.post("/change-password")
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Нууц үг солих"""
+    if not verify_password(data.current_password, current_user.password):
+        raise HTTPException(status_code=400, detail="Одоогийн нууц үг буруу")
+    
+    current_user.password = hash_password(data.new_password)
+    db.commit()
+    return {"message": "Нууц үг солигдлоо"}
+
+@router.post("/admin-reset-password/{user_id}")
+def admin_reset_password(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Админ нууц үг сэргээх"""
+    if current_user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Зөвхөн админ")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    temp_password = secrets.token_urlsafe(8)
+    user.password = hash_password(temp_password)
+    db.commit()
+    
+    return {"message": "Сэргээгдлээ", "temp_password": temp_password}
+```
+
+### 18. app/routers/employees.py
+
+```python
+# backend/app/routers/employees.py
+"""
+👥 Employees Router
+"""
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Optional
+from datetime import datetime
+from pydantic import BaseModel, EmailStr
+import secrets
+
+from ..database import get_db
+from ..models.user import User
+from ..models.employee import Employee, Department, Company
+from ..utils.security import get_current_user, hash_password
+
+router = APIRouter(prefix="/api/employees", tags=["Employees"])
+
+class EmployeeCreate(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    department_id: Optional[int] = None
+    position: Optional[str] = None
+    base_salary: float = 0
+    gender: Optional[str] = None
+
+def generate_code(db: Session) -> str:
+    count = db.query(Employee).count()
+    return f"EMP{count + 1:06d}"
+
+@router.get("")
+def get_employees(
+    search: Optional[str] = None,
+    department_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Бүх ажилтнууд"""
+    query = db.query(Employee).filter(Employee.is_active == True)
+    
+    if search:
+        s = f"%{search}%"
+        query = query.filter(
+            (Employee.first_name.ilike(s)) |
+            (Employee.last_name.ilike(s)) |
+            (Employee.employee_code.ilike(s))
+        )
+    
+    if department_id:
+        query = query.filter(Employee.department_id == department_id)
+    
+    employees = query.offset(skip).limit(limit).all()
+    
+    result = []
+    for emp in employees:
+        dept = db.query(Department).filter(Department.id == emp.department_id).first()
+        result.append({
+            "id": emp.id,
+            "employee_code": emp.employee_code,
+            "first_name": emp.first_name,
+            "last_name": emp.last_name,
+            "full_name": f"{emp.first_name} {emp.last_name}",
+            "position": emp.position,
+            "department": dept.name if dept else None,
+            "department_id": emp.department_id,
+            "phone": emp.phone,
+            "base_salary": emp.base_salary,
+            "hire_date": emp.hire_date.isoformat() if emp.hire_date else None,
+            "gender": emp.gender
+        })
+    
+    return result
+
+@router.get("/{employee_id}")
+def get_employee(
+    employee_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Нэг ажилтны дэлгэрэнгүй"""
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    dept = db.query(Department).filter(Department.id == emp.department_id).first()
+    user = db.query(User).filter(User.id == emp.user_id).first()
+    
+    return {
+        "id": emp.id,
+        "employee_code": emp.employee_code,
+        "first_name": emp.first_name,
+        "last_name": emp.last_name,
+        "full_name": f"{emp.first_name} {emp.last_name}",
+        "email": user.email if user else emp.personal_email,
+        "phone": emp.phone,
+        "position": emp.position,
+        "department": dept.name if dept else None,
+        "department_id": emp.department_id,
+        "base_salary": emp.base_salary,
+        "hire_date": emp.hire_date.isoformat() if emp.hire_date else None,
+        "birth_date": emp.birth_date.isoformat() if emp.birth_date else None,
+        "gender": emp.gender,
+        "bank_account": emp.bank_account,
+        "address": emp.address,
+    }
+
+@router.post("")
+def create_employee(
+    data: EmployeeCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Ажилтан нэмэх"""
+    if current_user.role not in ["Admin", "HR"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    if db.query(User).filter(User.email == data.email).first():
+        raise HTTPException(status_code=400, detail="Имэйл бүртгэлтэй")
+    
+    # User үүсгэх
+    temp_password = secrets.token_urlsafe(8)
+    user = User(
+        email=data.email,
+        password=hash_password(temp_password),
+        role="Employee"
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    # Company авах
+    company = db.query(Company).filter(Company.code == "MAIN").first()
+    
+    # Employee үүсгэх
+    code = generate_code(db)
+    employee = Employee(
+        company_id=company.id if company else None,
+        user_id=user.id,
+        department_id=data.department_id,
+        employee_code=code,
+        first_name=data.first_name,
+        last_name=data.last_name,
+        phone=data.phone,
+        personal_email=data.email,
+        position=data.position,
+        hire_date=datetime.utcnow(),
+        base_salary=data.base_salary,
+        gender=data.gender
+    )
+    db.add(employee)
+    db.commit()
+    
+    return {
+        "id": employee.id,
+        "employee_code": code,
+        "temp_password": temp_password,
+        "message": "Ажилтан нэмэгдлээ"
+    }
+
+@router.put("/{employee_id}")
+def update_employee(
+    employee_id: int,
+    data: EmployeeCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Ажилтан засах"""
+    if current_user.role not in ["Admin", "HR"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    emp.first_name = data.first_name
+    emp.last_name = data.last_name
+    emp.phone = data.phone
+    emp.department_id = data.department_id
+    emp.position = data.position
+    emp.base_salary = data.base_salary
+    emp.gender = data.gender
+    db.commit()
+    
+    return {"message": "Заслаа"}
+
+@router.delete("/{employee_id}")
+def delete_employee(
+    employee_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Ажилтан устгах"""
+    if current_user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    emp.is_active = False
+    db.commit()
+    
+    return {"message": "Устгагдлаа"}
+```
+
+### 19. app/routers/attendance.py
+
+```python
+# backend/app/routers/attendance.py
+"""
+🕐 Attendance Router
+"""
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Optional
+from datetime import datetime, timedelta
+from pydantic import BaseModel
+
+from ..database import get_db
+from ..models.user import User
+from ..models.employee import Employee, Department
+from ..models.attendance import Attendance
+from ..utils.security import get_current_user
+
+router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
+
+class AttendanceCreate(BaseModel):
+    employee_id: int
+    date: datetime
+    check_in: Optional[datetime] = None
+    status: str = "Present"
+
+@router.get("")
+def get_attendance(
+    date: Optional[str] = None,
+    employee_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Ирц авах"""
+    query = db.query(Attendance)
+    
+    if employee_id:
+        query = query.filter(Attendance.employee_id == employee_id)
+    
+    if date:
+        date_obj = datetime.strptime(date, "%Y-%m-%d")
+        query = query.filter(
+            Attendance.date >= date_obj,
+            Attendance.date < date_obj + timedelta(days=1)
+        )
+    
+    records = query.order_by(Attendance.date.desc()).limit(100).all()
+    
+    result = []
+    for r in records:
+        emp = db.query(Employee).filter(Employee.id == r.employee_id).first()
+        dept = db.query(Department).filter(Department.id == emp.department_id).first() if emp else None
+        
+        result.append({
+            "id": r.id,
+            "employee_id": r.employee_id,
+            "employee_name": f"{emp.first_name} {emp.last_name}" if emp else None,
+            "employee_code": emp.employee_code if emp else None,
+            "department": dept.name if dept else None,
+            "date": r.date.isoformat(),
+            "check_in": r.check_in.isoformat() if r.check_in else None,
+            "check_out": r.check_out.isoformat() if r.check_out else None,
+            "work_hours": r.work_hours,
+            "overtime_hours": r.overtime_hours,
+            "status": r.status,
+        })
+    
+    return result
+
+@router.post("/check-in")
+def check_in(
+    data: AttendanceCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Ирц бүртгэх"""
+    today = datetime.utcnow().date()
+    
+    existing = db.query(Attendance).filter(
+        Attendance.employee_id == data.employee_id,
+        Attendance.date >= datetime.combine(today, datetime.min.time()),
+        Attendance.date < datetime.combine(today, datetime.min.time()) + timedelta(days=1)
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Өнөөдөр бүртгүүлсэн")
+    
+    now = datetime.utcnow()
+    status = "Late" if now.hour >= 9 else "Present"
+    
+    attendance = Attendance(
+        employee_id=data.employee_id,
+        date=now,
+        check_in=now,
+        status=status
+    )
+    db.add(attendance)
+    db.commit()
+    
+    return {"message": f"Бүртгэгдлээ. Төлөв: {status}"}
+
+@router.put("/{attendance_id}/check-out")
+def check_out(
+    attendance_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Явах бүртгэл"""
+    record = db.query(Attendance).filter(Attendance.id == attendance_id).first()
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    if record.check_out:
+        raise HTTPException(status_code=400, detail="Бүртгүүлсэн")
+    
+    now = datetime.utcnow()
+    record.check_out = now
+    
+    if record.check_in:
+        delta = now - record.check_in
+        work_hours = delta.total_seconds() / 3600
+        record.work_hours = round(work_hours, 2)
+        record.overtime_hours = max(0, round(work_hours - 8, 2))
+    
+    db.commit()
+    
+    return {
+        "message": "Бүртгэгдлээ",
+        "work_hours": record.work_hours,
+        "overtime_hours": record.overtime_hours
+    }
+```
+
+### 20. app/routers/payroll.py
+
+```python
+# backend/app/routers/payroll.py
+"""
+💰 Payroll Router
+"""
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Optional
+from datetime import datetime
+from pydantic import BaseModel
+
+from ..database import get_db
+from ..models.user import User
+from ..models.employee import Employee
+from ..models.payroll import Payroll, LeaveRequest
+from ..models.attendance import Attendance
+from ..utils.security import get_current_user
+
+router = APIRouter(prefix="/api", tags=["Payroll"])
+
+class PayrollCreate(BaseModel):
+    employee_id: int
+    period_start: datetime
+    period_end: datetime
+
+class LeaveRequestCreate(BaseModel):
+    employee_id: int
+    leave_type: str
+    start_date: datetime
+    end_date: datetime
+    reason: str
+
+@router.get("/payroll")
+def get_payroll(
+    employee_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Цалингийн түүх"""
+    query = db.query(Payroll)
+    
+    if employee_id:
+        query = query.filter(Payroll.employee_id == employee_id)
+    
+    records = query.order_by(Payroll.period_start.desc()).all()
+    
+    result = []
+    for r in records:
+        emp = db.query(Employee).filter(Employee.id == r.employee_id).first()
+        result.append({
+            "id": r.id,
+            "employee_id": r.employee_id,
+            "employee_name": f"{emp.first_name} {emp.last_name}" if emp else None,
+            "employee_code": emp.employee_code if emp else None,
+            "period_start": r.period_start.isoformat(),
+            "period_end": r.period_end.isoformat(),
+            "base_salary": r.base_salary,
+            "overtime_pay": r.overtime_pay,
+            "bonus": r.bonus,
+            "gross_salary": r.gross_salary,
+            "tax": r.tax,
+            "social_insurance": r.social_insurance,
+            "net_salary": r.net_salary,
+            "status": r.status,
+            "payment_date": r.payment_date.isoformat() if r.payment_date else None
+        })
+    
+    return result
+
+@router.post("/payroll/calculate")
+def calculate_payroll(
+    data: PayrollCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Цалин тооцоолох"""
+    if current_user.role not in ["Admin", "HR", "Finance"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    emp = db.query(Employee).filter(Employee.id == data.employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Ажилтан олдсонгүй")
+    
+    # Давхардсан эсэх
+    existing = db.query(Payroll).filter(
+        Payroll.employee_id == data.employee_id,
+        Payroll.period_start == data.period_start,
+        Payroll.period_end == data.period_end
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Тооцоологдсон")
+    
+    # Илүү цаг
+    overtime = db.query(Attendance).filter(
+        Attendance.employee_id == data.employee_id,
+        Attendance.date >= data.period_start,
+        Attendance.date <= data.period_end
+    ).all()
+    
+    total_overtime = sum(r.overtime_hours or 0 for r in overtime)
+    hourly_rate = emp.hourly_rate or (emp.base_salary / 176)
+    overtime_pay = total_overtime * hourly_rate * 1.5
+    
+    gross = emp.base_salary + overtime_pay
+    
+    # Суутгал
+    tax = gross * 0.10
+    social = gross * 0.115
+    health = gross * 0.02
+    net = gross - (tax + social + health)
+    
+    payroll = Payroll(
+        employee_id=data.employee_id,
+        period_start=data.period_start,
+        period_end=data.period_end,
+        base_salary=emp.base_salary,
+        overtime_pay=round(overtime_pay, 2),
+        gross_salary=round(gross, 2),
+        tax=round(tax, 2),
+        social_insurance=round(social, 2),
+        health_insurance=round(health, 2),
+        net_salary=round(net, 2),
+        status="Pending"
+    )
+    
+    db.add(payroll)
+    db.commit()
+    
+    return {"id": payroll.id, "gross_salary": gross, "net_salary": net}
+
+@router.put("/payroll/{payroll_id}/pay")
+def mark_paid(
+    payroll_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Төлсөн гэж тэмдэглэх"""
+    if current_user.role not in ["Admin", "Finance"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    payroll = db.query(Payroll).filter(Payroll.id == payroll_id).first()
+    if not payroll:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    payroll.status = "Paid"
+    payroll.payment_date = datetime.utcnow()
+    db.commit()
+    
+    return {"message": "Төлөгдсөн"}
+
+# === Leave Requests ===
+@router.get("/leave-requests")
+def get_leave_requests(
+    status: Optional[str] = None,
+    employee_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(LeaveRequest)
+    
+    if status:
+        query = query.filter(LeaveRequest.status == status)
+    if employee_id:
+        query = query.filter(LeaveRequest.employee_id == employee_id)
+    
+    requests = query.order_by(LeaveRequest.created_at.desc()).all()
+    
+    result = []
+    for r in requests:
+        emp = db.query(Employee).filter(Employee.id == r.employee_id).first()
+        result.append({
+            "id": r.id,
+            "employee_id": r.employee_id,
+            "employee_name": f"{emp.first_name} {emp.last_name}" if emp else None,
+            "leave_type": r.leave_type,
+            "start_date": r.start_date.isoformat(),
+            "end_date": r.end_date.isoformat(),
+            "days": r.days,
+            "reason": r.reason,
+            "status": r.status,
+            "rejection_reason": r.rejection_reason,
+            "created_at": r.created_at.isoformat()
+        })
+    
+    return result
+
+@router.post("/leave-requests")
+def create_leave_request(
+    data: LeaveRequestCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    days = (data.end_date - data.start_date).days + 1
+    
+    leave = LeaveRequest(
+        employee_id=data.employee_id,
+        leave_type=data.leave_type,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        days=days,
+        reason=data.reason,
+        status="Pending"
+    )
+    
+    db.add(leave)
+    db.commit()
+    
+    return {"message": "Илгээгдлээ"}
+
+@router.put("/leave-requests/{request_id}/approve")
+def approve_leave(
+    request_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role not in ["Admin", "Manager", "HR"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    leave = db.query(LeaveRequest).filter(LeaveRequest.id == request_id).first()
+    if not leave:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    leave.status = "Approved"
+    leave.approved_by = current_user.id
+    leave.approved_at = datetime.utcnow()
+    db.commit()
+    
+    return {"message": "Батлагдлаа"}
+
+@router.put("/leave-requests/{request_id}/reject")
+def reject_leave(
+    request_id: int,
+    reason: str = "",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role not in ["Admin", "Manager", "HR"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    leave = db.query(LeaveRequest).filter(LeaveRequest.id == request_id).first()
+    if not leave:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    leave.status = "Rejected"
+    leave.approved_by = current_user.id
+    leave.approved_at = datetime.utcnow()
+    leave.rejection_reason = reason
+    db.commit()
+    
+    return {"message": "Татгалзлаа"}
+```
+
+### 21. app/routers/documents.py
+
+```python
+# backend/app/routers/documents.py
+"""
+📁 Documents Router
+"""
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from typing import Optional
+from datetime import datetime
+import os
+import uuid
+import shutil
+import base64
+from PIL import Image
+import io
+
+from ..database import get_db
+from ..models.user import User
+from ..models.document import Document, DocumentCategory, DocumentSignature
+from ..utils.security import get_current_user
+
+router = APIRouter(prefix="/api/documents", tags=["Documents"])
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg', 'gif'}
+MIME_TYPES = {
+    'pdf': 'application/pdf',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+}
+
+def get_ext(filename: str) -> str:
+    return filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+
+@router.get("/categories")
+def get_categories(db: Session = Depends(get_db)):
+    cats = db.query(DocumentCategory).filter(DocumentCategory.is_active == True).all()
+    return [{"id": c.id, "name": c.name, "code": c.code} for c in cats]
+
+@router.post("/categories")
+def create_category(
+    name: str,
+    code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role not in ["Admin", "HR"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    cat = DocumentCategory(name=name, code=code)
+    db.add(cat)
+    db.commit()
+    return {"message": "Үүсгэлээ", "id": cat.id}
+
+@router.get("")
+def get_documents(
+    category_id: Optional[int] = None,
+    search: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Document).filter(Document.is_archived == False)
+    
+    if category_id:
+        query = query.filter(Document.category_id == category_id)
+    if search:
+        query = query.filter(Document.name.ilike(f"%{search}%"))
+    
+    docs = query.order_by(Document.created_at.desc()).limit(100).all()
+    
+    result = []
+    for d in docs:
+        cat = db.query(DocumentCategory).filter(DocumentCategory.id == d.category_id).first()
+        result.append({
+            "id": d.id,
+            "name": d.name,
+            "original_filename": d.original_filename,
+            "file_type": d.file_type,
+            "file_size": d.file_size,
+            "category": cat.name if cat else None,
+            "category_id": d.category_id,
+            "description": d.description,
+            "requires_signature": d.requires_signature,
+            "is_signed": d.is_signed,
+            "created_at": d.created_at.isoformat(),
+            "download_url": f"/api/documents/{d.id}/download"
+        })
+    
+    return result
+
+@router.post("/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    category_id: Optional[int] = Form(None),
+    description: Optional[str] = Form(""),
+    requires_signature: bool = Form(False),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ext = get_ext(file.filename)
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Файлын төрөл зөвшөөрөгдөөгүй")
+    
+    unique_name = f"{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(UPLOAD_DIR, unique_name)
+    
+    with open(file_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    
+    file_size = os.path.getsize(file_path) / 1024
+    
+    doc = Document(
+        category_id=category_id,
+        uploaded_by=current_user.id,
+        name=name,
+        original_filename=file.filename,
+        file_path=file_path,
+        file_type=ext,
+        file_size=round(file_size, 2),
+        mime_type=MIME_TYPES.get(ext, 'application/octet-stream'),
+        description=description,
+        requires_signature=requires_signature
+    )
+    
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    
+    return {"id": doc.id, "name": doc.name, "file_size": doc.file_size}
+
+@router.get("/{document_id}")
+def get_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    sigs = db.query(DocumentSignature).filter(DocumentSignature.document_id == document_id).all()
+    cat = db.query(DocumentCategory).filter(DocumentCategory.id == doc.category_id).first()
+    
+    return {
+        "id": doc.id,
+        "name": doc.name,
+        "original_filename": doc.original_filename,
+        "file_type": doc.file_type,
+        "file_size": doc.file_size,
+        "category": cat.name if cat else None,
+        "description": doc.description,
+        "requires_signature": doc.requires_signature,
+        "is_signed": doc.is_signed,
+        "version": doc.version,
+        "created_at": doc.created_at.isoformat(),
+        "signatures": [{"id": s.id, "user_id": s.user_id, "signed_at": s.signed_at.isoformat()} for s in sigs]
+    }
+
+@router.get("/{document_id}/download")
+def download_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    if not os.path.exists(doc.file_path):
+        raise HTTPException(status_code=404, detail="Файл олдсонгүй")
+    
+    return FileResponse(
+        path=doc.file_path,
+        filename=doc.original_filename,
+        media_type=doc.mime_type
+    )
+
+@router.get("/{document_id}/preview")
+def get_preview(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    if doc.file_type in ['png', 'jpg', 'jpeg', 'gif']:
+        with open(doc.file_path, 'rb') as f:
+            data = base64.b64encode(f.read()).decode()
+        return {"type": "image", "mime_type": doc.mime_type, "data": f"data:{doc.mime_type};base64,{data}"}
+    
+    if doc.file_type == 'pdf':
+        return {"type": "pdf", "url": f"/api/documents/{document_id}/download"}
+    
+    return {"type": "other", "url": f"/api/documents/{document_id}/download"}
+
+@router.delete("/{document_id}")
+def delete_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role not in ["Admin", "HR"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    doc.is_archived = True
+    db.commit()
+    
+    return {"message": "Устгагдлаа"}
+
+@router.post("/{document_id}/sign")
+def sign_document(
+    document_id: int,
+    signature_data: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    sig = DocumentSignature(
+        document_id=document_id,
+        user_id=current_user.id,
+        signature_image=signature_data,
+        signature_type="drawn"
+    )
+    
+    db.add(sig)
+    doc.is_signed = True
+    db.commit()
+    
+    return {"message": "Гарын үсэг зурагдлаа"}
+
+@router.post("/{document_id}/sign-on-document")
+async def sign_on_document(
+    document_id: int,
+    signature_data: str = Form(...),
+    position_x: float = Form(70),
+    position_y: float = Form(80),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Файл дээр гарын үсэг overlay хийх"""
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    if doc.file_type not in ['png', 'jpg', 'jpeg']:
+        # Зураг биш файлд зөвхөн record хадгална
+        sig = DocumentSignature(
+            document_id=document_id,
+            user_id=current_user.id,
+            signature_image=signature_data,
+            signature_type="drawn",
+            position_x=position_x,
+            position_y=position_y
+        )
+        db.add(sig)
+        doc.is_signed = True
+        db.commit()
+        return {"message": "Гарын үсэг бүртгэгдлээ", "type": "record_only"}
+    
+    try:
+        # Зураг файлд overlay хийх
+        original = Image.open(doc.file_path)
+        
+        sig_data = signature_data.split(',')[1] if ',' in signature_data else signature_data
+        sig_bytes = base64.b64decode(sig_data)
+        sig_img = Image.open(io.BytesIO(sig_bytes))
+        
+        if sig_img.mode != 'RGBA':
+            sig_img = sig_img.convert('RGBA')
+        
+        # Хэмжээ (20%)
+        sig_width = int(original.width * 0.2)
+        sig_height = int(sig_img.height * (sig_width / sig_img.width))
+        sig_img = sig_img.resize((sig_width, sig_height), Image.Resampling.LANCZOS)
+        
+        # Байрлал
+        x = int((position_x / 100) * original.width)
+        y = int((position_y / 100) * original.height)
+        
+        if original.mode != 'RGBA':
+            original = original.convert('RGBA')
+        
+        original.paste(sig_img, (x, y), sig_img)
+        
+        # Хадгалах
+        signed_name = f"signed_{uuid.uuid4().hex}.{doc.file_type}"
+        signed_path = os.path.join(UPLOAD_DIR, signed_name)
+        
+        if doc.file_type in ['jpg', 'jpeg']:
+            original = original.convert('RGB')
+        
+        original.save(signed_path)
+        
+        doc.file_path = signed_path
+        doc.is_signed = True
+        doc.version += 1
+        
+        sig = DocumentSignature(
+            document_id=document_id,
+            user_id=current_user.id,
+            signature_image=signature_data,
+            signature_type="overlay",
+            position_x=position_x,
+            position_y=position_y
+        )
+        db.add(sig)
+        db.commit()
+        
+        return {"message": "Файл дээр гарын үсэг зурагдлаа", "type": "overlay"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+```
+
+### 22. app/routers/signatures.py
+
+```python
+# backend/app/routers/signatures.py
+"""
+✍️ Signatures Router
+"""
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Optional
+from datetime import datetime
+from pydantic import BaseModel
+
+from ..database import get_db
+from ..models.user import User
+from ..models.employee import Employee
+from ..models.signature import UserSignature, SignatureRequest, Contract
+from ..models.document import Document, DocumentSignature
+from ..utils.security import get_current_user
+
+router = APIRouter(prefix="/api/signatures", tags=["Signatures"])
+
+class SignatureData(BaseModel):
+    signature_data: str
+
+class ContractCreate(BaseModel):
+    employee_id: int
+    contract_type: str
+    title: str
+    content: str
+    start_date: datetime
+    end_date: Optional[datetime] = None
+
+# === User Signature ===
+@router.get("/my-signature")
+def get_my_signature(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    sig = db.query(UserSignature).filter(UserSignature.user_id == current_user.id).first()
+    if not sig:
+        return {"has_signature": False}
+    return {
+        "has_signature": True,
+        "signature_data": sig.signature_data,
+        "created_at": sig.created_at.isoformat()
+    }
+
+@router.post("/my-signature")
+def save_my_signature(
+    data: SignatureData,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    existing = db.query(UserSignature).filter(UserSignature.user_id == current_user.id).first()
+    
+    if existing:
+        existing.signature_data = data.signature_data
+        existing.updated_at = datetime.utcnow()
+    else:
+        sig = UserSignature(user_id=current_user.id, signature_data=data.signature_data)
+        db.add(sig)
+    
+    db.commit()
+    return {"message": "Хадгалагдлаа"}
+
+# === Signature Requests ===
+@router.get("/requests")
+def get_requests(
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(SignatureRequest).filter(SignatureRequest.requested_to == current_user.id)
+    
+    if status:
+        query = query.filter(SignatureRequest.status == status)
+    
+    requests = query.order_by(SignatureRequest.created_at.desc()).all()
+    
+    result = []
+    for r in requests:
+        doc = db.query(Document).filter(Document.id == r.document_id).first()
+        requester = db.query(User).filter(User.id == r.requested_by).first()
+        
+        result.append({
+            "id": r.id,
+            "document_id": r.document_id,
+            "document_name": doc.name if doc else None,
+            "requested_by": requester.email if requester else None,
+            "status": r.status,
+            "message": r.message,
+            "due_date": r.due_date.isoformat() if r.due_date else None,
+            "created_at": r.created_at.isoformat()
+        })
+    
+    return result
+
+@router.post("/requests")
+def create_request(
+    document_id: int,
+    requested_to: int,
+    message: str = "",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    req = SignatureRequest(
+        document_id=document_id,
+        requested_by=current_user.id,
+        requested_to=requested_to,
+        message=message
+    )
+    db.add(req)
+    db.commit()
+    return {"message": "Илгээгдлээ"}
+
+@router.put("/requests/{request_id}/sign")
+def sign_request(
+    request_id: int,
+    data: SignatureData,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    req = db.query(SignatureRequest).filter(
+        SignatureRequest.id == request_id,
+        SignatureRequest.requested_to == current_user.id
+    ).first()
+    
+    if not req:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    if req.status != "Pending":
+        raise HTTPException(status_code=400, detail="Шийдвэрлэгдсэн")
+    
+    sig = DocumentSignature(
+        document_id=req.document_id,
+        user_id=current_user.id,
+        signature_image=data.signature_data,
+        signature_type="drawn"
+    )
+    db.add(sig)
+    
+    req.status = "Signed"
+    req.signed_at = datetime.utcnow()
+    
+    doc = db.query(Document).filter(Document.id == req.document_id).first()
+    if doc:
+        doc.is_signed = True
+    
+    db.commit()
+    return {"message": "Зурагдлаа"}
+
+@router.put("/requests/{request_id}/reject")
+def reject_request(
+    request_id: int,
+    reason: str = "",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    req = db.query(SignatureRequest).filter(
+        SignatureRequest.id == request_id,
+        SignatureRequest.requested_to == current_user.id
+    ).first()
+    
+    if not req:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    req.status = "Rejected"
+    req.rejected_at = datetime.utcnow()
+    req.rejection_reason = reason
+    db.commit()
+    
+    return {"message": "Татгалзлаа"}
+
+# === Contracts ===
+@router.get("/contracts")
+def get_contracts(
+    employee_id: Optional[int] = None,
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Contract)
+    
+    if employee_id:
+        query = query.filter(Contract.employee_id == employee_id)
+    if status:
+        query = query.filter(Contract.status == status)
+    
+    contracts = query.order_by(Contract.created_at.desc()).all()
+    
+    result = []
+    for c in contracts:
+        emp = db.query(Employee).filter(Employee.id == c.employee_id).first()
+        result.append({
+            "id": c.id,
+            "contract_number": c.contract_number,
+            "contract_type": c.contract_type,
+            "title": c.title,
+            "employee_id": c.employee_id,
+            "employee_name": f"{emp.first_name} {emp.last_name}" if emp else None,
+            "start_date": c.start_date.isoformat(),
+            "end_date": c.end_date.isoformat() if c.end_date else None,
+            "status": c.status,
+            "employee_signed": c.employee_signed,
+            "employer_signed": c.employer_signed,
+            "created_at": c.created_at.isoformat()
+        })
+    
+    return result
+
+@router.post("/contracts")
+def create_contract(
+    data: ContractCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role not in ["Admin", "HR"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+    
+    count = db.query(Contract).count()
+    number = f"CTR-{datetime.now().year}-{count + 1:04d}"
+    
+    contract = Contract(
+        employee_id=data.employee_id,
+        contract_number=number,
+        contract_type=data.contract_type,
+        title=data.title,
+        content=data.content,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        status="Pending"
+    )
+    
+    db.add(contract)
+    db.commit()
+    
+    return {"id": contract.id, "contract_number": number}
+
+@router.post("/contracts/{contract_id}/sign")
+def sign_contract(
+    contract_id: int,
+    signature_data: str,
+    signer_type: str,  # employee or employer
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    contract = db.query(Contract).filter(Contract.id == contract_id).first()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+    
+    if signer_type == "employee":
+        contract.employee_signed = True
+        contract.employee_signed_at = datetime.utcnow()
+    elif signer_type == "employer":
+        if current_user.role not in ["Admin", "HR", "Manager"]:
+            raise HTTPException(status_code=403, detail="Эрхгүй")
+        contract.employer_signed = True
+        contract.employer_signed_at = datetime.utcnow()
+    
+    if contract.employee_signed and contract.employer_signed:
+        contract.status = "Active"
+    
+    db.commit()
+    return {"message": f"{signer_type} зурлаа"}
+```
+
+### 23. app/routers/dashboard.py
+
+```python
+# backend/app/routers/dashboard.py
+"""
+📊 Dashboard Router
+"""
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+
+from ..database import get_db
+from ..models.user import User
+from ..models.employee import Employee, Department
+from ..models.attendance import Attendance
+from ..models.payroll import Payroll, LeaveRequest
+from ..utils.security import get_current_user
+
+router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
+
+@router.get("/stats")
+def get_stats(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Статистик"""
+    today = datetime.utcnow().date()
+    today_start = datetime.combine(today, datetime.min.time())
+    today_end = today_start + timedelta(days=1)
+    
+    total_emp = db.query(Employee).filter(Employee.is_active == True).count()
+    
+    present = db.query(Attendance).filter(
+        Attendance.date >= today_start,
+        Attendance.date < today_end,
+        Attendance.status.in_(["Present", "Late"])
+    ).count()
+    
+    pending_leaves = db.query(LeaveRequest).filter(LeaveRequest.status == "Pending").count()
+    pending_payroll = db.query(Payroll).filter(Payroll.status == "Pending").count()
+    
+    return {
+        "total_employees": total_emp,
+        "present_today": present,
+        "absent_today": max(0, total_emp - present),
+        "attendance_rate": round((present / total_emp * 100) if total_emp > 0 else 0, 1),
+        "pending_leaves": pending_leaves,
+        "pending_payroll": pending_payroll
+    }
+
+@router.get("/attendance-chart")
+def get_attendance_chart(days: int = 7, db: Session = Depends(get_db)):
+    """Сүүлийн 7 хоногийн ирц"""
+    data = []
+    
+    for i in range(days - 1, -1, -1):
+        date = datetime.utcnow().date() - timedelta(days=i)
+        date_start = datetime.combine(date, datetime.min.time())
+        date_end = date_start + timedelta(days=1)
+        
+        count = db.query(Attendance).filter(
+            Attendance.date >= date_start,
+            Attendance.date < date_end,
+            Attendance.status.in_(["Present", "Late"])
+        ).count()
+        
+        data.append({"date": date.isoformat(), "count": count})
+    
+    return data
+
+@router.get("/department-stats")
+def get_department_stats(db: Session = Depends(get_db)):
+    """Хэлтэс тус бүрийн ажилтан"""
+    depts = db.query(Department).filter(Department.is_active == True).all()
+    
+    result = []
+    for d in depts:
+        count = db.query(Employee).filter(
+            Employee.department_id == d.id,
+            Employee.is_active == True
+        ).count()
+        
+        if count > 0:
+            result.append({"department": d.name, "count": count})
+    
+    return result
+```
+
+### 24. app/main.py
+
+```python
+# backend/app/main.py
+"""
+🚀 Main Application
+"""
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
+
+from .config import settings
+from .database import engine, Base, SessionLocal
+from .models import *
+from .routers import auth, employees, attendance, payroll, documents, signatures, dashboard
+from .utils.security import hash_password
+
+# Database хүснэгтүүд үүсгэх
+Base.metadata.create_all(bind=engine)
+
+# App үүсгэх
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.VERSION,
+    description="Enterprise ERP System"
+)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Routers
+app.include_router(auth.router)
+app.include_router(employees.router)
+app.include_router(attendance.router)
+app.include_router(payroll.router)
+app.include_router(documents.router)
+app.include_router(signatures.router)
+app.include_router(dashboard.router)
+
+# Departments endpoint
+@app.get("/api/departments")
+def get_departments():
+    db = SessionLocal()
+    depts = db.query(Department).filter(Department.is_active == True).all()
+    db.close()
+    return [{"id": d.id, "name": d.name, "code": d.code} for d in depts]
+
+@app.post("/api/departments")
+def create_department(name: str, code: str):
+    db = SessionLocal()
+    company = db.query(Company).filter(Company.code == "MAIN").first()
+    dept = Department(company_id=company.id if company else None, name=name, code=code)
+    db.add(dept)
+    db.commit()
+    db.close()
+    return {"message": "Үүсгэлээ"}
+
+# Startup
+@app.on_event("startup")
+def seed_database():
+    """Анхны өгөгдөл"""
+    db = SessionLocal()
+    
+    try:
+        # Company
+        company = db.query(Company).filter(Company.code == "MAIN").first()
+        if not company:
+            company = Company(name="Main Company", code="MAIN", email="info@company.com")
+            db.add(company)
+            db.commit()
+            db.refresh(company)
+            print("✅ Company үүсгэлээ")
+        
+        # Departments
+        depts = [("IT", "IT Department"), ("HR", "Human Resources"), ("FIN", "Finance")]
+        for code, name in depts:
+            if not db.query(Department).filter(Department.code == code).first():
+                db.add(Department(company_id=company.id, name=name, code=code))
+        db.commit()
+        print("✅ Departments үүсгэлээ")
+        
+        # Admin
+        admin = db.query(User).filter(User.email == "admin@company.com").first()
+        if not admin:
+            admin = User(
+                email="admin@company.com",
+                password=hash_password("admin123"),
+                role="Admin",
+                security_question="Таны анхны тэжээвэр амьтны нэр?",
+                security_answer="test"
+            )
+            db.add(admin)
+            db.commit()
+            db.refresh(admin)
+            
+            admin_emp = Employee(
+                company_id=company.id,
+                user_id=admin.id,
+                employee_code="EMP000001",
+                first_name="System",
+                last_name="Admin",
+                position="Administrator",
+                hire_date=datetime.utcnow()
+            )
+            db.add(admin_emp)
+            db.commit()
+            print("✅ Admin: admin@company.com / admin123")
+        
+        # Document Categories
+        cats = [("CONTRACT", "Гэрээ"), ("ID", "Иргэний үнэмлэх"), ("OTHER", "Бусад")]
+        for code, name in cats:
+            if not db.query(DocumentCategory).filter(DocumentCategory.code == code).first():
+                db.add(DocumentCategory(name=name, code=code))
+        db.commit()
+        print("✅ Document categories үүсгэлээ")
+        
+    finally:
+        db.close()
+
+@app.get("/")
+def root():
+    return {"app": settings.APP_NAME, "version": settings.VERSION, "status": "running"}
+
+@app.get("/health")
+def health():
+    return {"status": "healthy"}
+```
+
+### 25. run.py
+
+```python
+# backend/run.py
+"""
+🚀 Run Script
+"""
+import uvicorn
+
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+```
+
+---
+
+## 🚀 АЖИЛЛУУЛАХ ЗААВАР
+
+### 1. Backend
+
+```bash
+# Folder үүсгэх
+mkdir -p erp-system/backend/app/models
+mkdir -p erp-system/backend/app/schemas
+mkdir -p erp-system/backend/app/routers
+mkdir -p erp-system/backend/app/utils
+mkdir -p erp-system/backend/uploads
+
+# Backend руу орох
+cd erp-system/backend
+
+# Virtual environment
+python -m venv venv
+
+# Идэвхжүүлэх
+# Windows:
+venv\Scripts\activate
+# Mac/Linux:
+source venv/bin/activate
+
+# Packages суулгах
+pip install -r requirements.txt
+
+# Ажиллуулах
+python run.py
+```
+
+**Амжилттай бол:**
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000
+✅ Company үүсгэлээ
+✅ Departments үүсгэлээ
+✅ Admin: admin@company.com / admin123
+✅ Document categories үүсгэлээ
+```
+
+### 2. Frontend
+
+```bash
+# Frontend folder
+cd erp-system/frontend
+
+# Vite project
+npm create vite@latest . -- --template react-ts
+
+# Packages
+npm install
+npm install axios react-router-dom @tanstack/react-query react-hot-toast recharts @heroicons/react date-fns
+
+# Tailwind
+npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+
+# Ажиллуулах
+npm run dev
+```
+
+### 3. Шалгах
+
+| URL | Тайлбар |
+|-----|---------|
+| http://localhost:8000 | Backend API |
+| http://localhost:8000/docs | Swagger UI |
+| http://localhost:5173 | Frontend |
+
+**Нэвтрэх:**
+- Email: `admin@company.com`
+- Password: `admin123`
+- Нууц асуултын хариулт: `test`
+
+---
+
+## 📝 КОД ТАЙЛБАР
+
+### Backend Бүтэц
+
+| Файл | Тайлбар |
+|------|---------|
+| `config.py` | Тохиргоо - DB URL, JWT Secret |
+| `database.py` | SQLAlchemy холболт |
+| `models/` | Database хүснэгтүүд (ORM) |
+| `schemas/` | Pydantic - Data validation |
+| `routers/` | API endpoints |
+| `utils/security.py` | JWT Token, Password hash |
+| `main.py` | FastAPI app |
+
+### Frontend Бүтэц
+
+| Файл | Тайлбар |
+|------|---------|
+| `lib/api.ts` | Axios instance |
+| `contexts/AuthContext.tsx` | Authentication state |
+| `components/` | Reusable components |
+| `pages/` | Хуудсууд |
+| `App.tsx` | Router |
+
+### Гол Ойлголтууд
+
+| Ойлголт | Тайлбар |
+|---------|---------|
+| **JWT** | JSON Web Token - Хэрэглэгчийн баталгаажуулалт |
+| **SQLAlchemy** | Python ORM - Database ажиллах |
+| **Pydantic** | Data validation & serialization |
+| **React Query** | Server state management |
+| **Tailwind CSS** | Utility-first CSS framework |
+
+---
+
+## ✅ Шинэ Боломжууд
+
+| Модуль | Боломж |
+|--------|--------|
+| **🔐 Нэвтрэлт** | Login, Register, JWT Token |
+| **🔑 Нууц үг сэргээх** | Нууц асуултаар сэргээх |
+| **👥 Ажилтнууд** | CRUD, Хайлт, Шүүлт |
+| **🕐 Ирц** | Check-in/out, Илүү цаг |
+| **📅 Чөлөө** | Хүсэлт, Батлах/Татгалзах |
+| **💰 Цалин** | Тооцоолол, Суутгал |
+| **📁 Файл** | Upload, Download, Preview |
+| **✍️ Гарын үсэг** | Canvas-д зурах, Файл дээр overlay |
+
+Танд нэмэлт тусламж хэрэгтэй бол асуугаарай! 🎉
