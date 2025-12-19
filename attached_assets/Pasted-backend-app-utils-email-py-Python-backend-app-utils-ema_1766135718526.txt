@@ -1,0 +1,232 @@
+backend/app/utils/email.py
+Python
+
+# backend/app/utils/email.py
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from ..config import settings
+from typing import List, Optional
+
+class EmailService:
+    def __init__(self):
+        self.smtp_host = "smtp.gmail.com"  # Өөр SMTP сервер ашиглах бол өөрчлөх
+        self.smtp_port = 587
+        self.username = "your-email@gmail.com"  # Өөрийн мэйл
+        self.password = "your-app-password"  # Gmail App Password
+        self.from_email = "noreply@yourcompany.com"
+
+    def send_email(
+        self,
+        to_emails: List[str],
+        subject: str,
+        html_content: str,
+        text_content: Optional[str] = None
+    ) -> bool:
+        """Мэйл илгээх"""
+        msg = MIMEMultipart('alternative')
+        msg['From'] = self.from_email
+        msg['To'] = ", ".join(to_emails)
+        msg['Subject'] = subject
+
+        if text_content:
+            msg.attach(MIMEText(text_content, 'plain'))
+        msg.attach(MIMEText(html_content, 'html'))
+
+        try:
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.username, self.password)
+                server.sendmail(self.from_email, to_emails, msg.as_string())
+            return True
+        except Exception as e:
+            print(f"Email илгээхэд алдаа: {e}")
+            return False
+
+# Singleton instance
+email_service = EmailService()
+Тэмдэглэл:
+
+Gmail ашиглах бол App Password үүсгэх хэрэгтэй
+Production-д AWS SES, SendGrid, Mailgun зэрэг сервис ашиглахыг зөвлөж байна
+1.2 Leave Request-д мэйл илгээх
+backend/app/routers/payroll.py-д нэмэх:
+
+Python
+
+from ..utils.email import email_service
+from ..models.employee import Employee
+
+@router.post("/leave-requests")
+def create_leave_request(
+    data: LeaveRequestCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    days = (data.end_date - data.start_date).days + 1
+
+    leave = LeaveRequest(
+        employee_id=data.employee_id,
+        leave_type=data.leave_type,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        days=days,
+        reason=data.reason,
+        status="Pending"
+    )
+    db.add(leave)
+    db.commit()
+
+    # Мэйл илгээх
+    emp = db.query(Employee).filter(Employee.id == data.employee_id).first()
+    hr_users = db.query(User).filter(User.role.in_(["HR", "Admin"])).all()
+
+    if emp and hr_users:
+        to_emails = [u.email for u in hr_users]
+        subject = f"Шинэ чөлөөний хүсэлт: {emp.first_name} {emp.last_name}"
+        html_content = f"""
+        <h2>Шинэ чөлөөний хүсэлт</h2>
+        <p><strong>Ажилтан:</strong> {emp.first_name} {emp.last_name}</p>
+        <p><strong>Төрөл:</strong> {data.leave_type}</p>
+        <p><strong>Огноо:</strong> {data.start_date.strftime('%Y-%m-%d')} - {data.end_date.strftime('%Y-%m-%d')}</p>
+        <p><strong>Өдөр:</strong> {days}</p>
+        <p><strong>Шалтгаан:</strong> {data.reason}</p>
+        <p><a href="http://localhost:5173/leave-requests">Хүсэлтийг харах</a></p>
+        """
+
+        email_service.send_email(to_emails, subject, html_content)
+
+    return {"message": "Илгээгдлээ"}
+1.3 Payroll-д мэйл илгээх
+backend/app/routers/payroll.py-д нэмэх:
+
+Python
+
+@router.put("/payroll/{payroll_id}/pay")
+def mark_paid(
+    payroll_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role not in ["Admin", "Finance"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+
+    payroll = db.query(Payroll).filter(Payroll.id == payroll_id).first()
+    if not payroll:
+        raise HTTPException(status_code=404, detail="Олдсонгүй")
+
+    payroll.status = "Paid"
+    payroll.payment_date = datetime.utcnow()
+    db.commit()
+
+    # Мэйл илгээх
+    emp = db.query(Employee).filter(Employee.id == payroll.employee_id).first()
+    if emp and emp.personal_email:
+        subject = f"Таны цалин төлөгдлөө: {payroll.period_start.strftime('%Y-%m')} сар"
+        html_content = f"""
+        <h2>Таны цалин төлөгдлөө</h2>
+        <p><strong>Ажилтан:</strong> {emp.first_name} {emp.last_name}</p>
+        <p><strong>Үе:</strong> {payroll.period_start.strftime('%Y-%m-%d')} - {payroll.period_end.strftime('%Y-%m-%d')}</p>
+        <p><strong>Нийт цалин:</strong> {payroll.gross_salary}₮</p>
+        <p><strong>Цэвэр цалин:</strong> {payroll.net_salary}₮</p>
+        <p><strong>Төлөв:</strong> Төлөгдсөн</p>
+        <p>Тайланг <a href="http://localhost:5173/payroll">энд</a> үзнэ үү.</p>
+        """
+
+        email_service.send_email([emp.personal_email], subject, html_content)
+
+    return {"message": "Төлөгдсөн"}
+📅 2. Calendar Integration (Google Calendar)
+2.1 Google API тохируулах
+Google Cloud Console-д орох
+Шинэ төсөл үүсгэх
+"Google Calendar API" идэвхжүүлэх
+Credentials үүсгэх (OAuth 2.0 Client ID)
+credentials.json татах
+2.2 Backend - Google Calendar Service
+backend/app/utils/calendar.py
+Python
+
+# backend/app/utils/calendar.py
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from datetime import datetime, timedelta
+import os
+
+# Google Calendar API scopes
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+
+class GoogleCalendarService:
+    def __init__(self, token_path='token.json', credentials_path='credentials.json'):
+        self.token_path = token_path
+        self.credentials_path = credentials_path
+        self.service = self._get_service()
+
+    def _get_service(self):
+        """Google Calendar service үүсгэх"""
+        creds = None
+
+        if os.path.exists(self.token_path):
+            creds = Credentials.from_authorized_user_file(self.token_path, SCOPES)
+
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    self.credentials_path, SCOPES)
+                creds = flow.run_local_server(port=0)
+
+            with open(self.token_path, 'w') as token:
+                token.write(creds.to_json())
+
+        return build('calendar', 'v3', credentials=creds)
+
+    def add_event(self, summary, description, start_time, end_time, attendees=None):
+        """Тэмдэглэл нэмэх"""
+        event = {
+            'summary': summary,
+            'description': description,
+            'start': {
+                'dateTime': start_time.isoformat(),
+                'timeZone': 'Asia/Ulaanbaatar',
+            },
+            'end': {
+                'dateTime': end_time.isoformat(),
+                'timeZone': 'Asia/Ulaanbaatar',
+            },
+            'attendees': [{'email': email} for email in (attendees or [])],
+            'reminders': {
+                'useDefault': True,
+            },
+        }
+
+        event = self.service.events().insert(
+            calendarId='primary',
+            body=event
+        ).execute()
+
+        return event.get('htmlLink')
+
+# Singleton instance
+calendar_service = GoogleCalendarService()
+2.3 Leave Request-д тэмдэглэл нэмэх
+backend/app/routers/payroll.py-д нэмэх:
+
+Python
+
+from ..utils.calendar import calendar_service
+
+@router.put("/leave-requests/{request_id}/approve")
+def approve_leave(
+    request_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role not in ["Admin", "Manager", "HR"]:
+        raise HTTPException(status_code=403, detail="Эрхгүй")
+
+    leave = db.query(LeaveRequest).filter(LeaveRequest.id == request_id).first()
+    if not leave:
+        raise HTTPException(status_code=404, 
