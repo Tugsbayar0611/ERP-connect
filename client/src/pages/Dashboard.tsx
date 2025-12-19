@@ -21,35 +21,35 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight font-display">Dashboard</h2>
-        <p className="text-muted-foreground mt-2">Overview of your organization's key metrics.</p>
+        <h2 className="text-3xl font-bold tracking-tight font-display">Үзүүлэлтийн хүснэгт</h2>
+        <p className="text-muted-foreground mt-2">Таны байгууллагын гол үзүүлэлтүүдийн нэмэлт мэдээлэл.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Employees"
+          title="Нийт ажилтан"
           value={stats?.totalEmployees || 0}
           icon={Users}
-          trend="+2.5% from last month"
+          trend="Сүүлийн сараас +2.5%"
           trendUp={true}
         />
         <StatCard
-          title="Active Employees"
+          title="Идэвхтэй ажилтан"
           value={stats?.activeEmployees || 0}
           icon={Activity}
-          trend="+1.2% from last month"
+          trend="Сүүлийн сараас +1.2%"
           trendUp={true}
         />
         <StatCard
-          title="Total Departments"
+          title="Нийт хэлтэс"
           value={stats?.totalDepartments || 0}
           icon={Building2}
         />
         <StatCard
-          title="Monthly Payroll"
+          title="Сарын цалин"
           value={`$${(stats?.monthlyPayroll || 0).toLocaleString()}`}
           icon={CreditCard}
-          trend="+4.3% from last month"
+          trend="Сүүлийн сараас +4.3%"
           trendUp={true}
         />
       </div>
@@ -57,7 +57,7 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
           <CardHeader>
-            <CardTitle>Payroll Overview</CardTitle>
+            <CardTitle>Цалины нэмэлт мэдээлэл</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
             <ResponsiveContainer width="100%" height={350}>
@@ -75,17 +75,17 @@ export default function Dashboard() {
         </Card>
         <Card className="col-span-3">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle>Сүүлийн үйл ажиллагаа</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">New employee onboarded</p>
-                    <p className="text-xs text-muted-foreground">John Doe joined Engineering</p>
+                    <p className="text-sm font-medium leading-none">Шинэ ажилтан хөлс олгөгдөв</p>
+                    <p className="text-xs text-muted-foreground">Төм Үнэлэн Инженерийн хэлтэст элссэн</p>
                   </div>
-                  <div className="ml-auto font-medium text-xs text-muted-foreground">2h ago</div>
+                  <div className="ml-auto font-medium text-xs text-muted-foreground">2 цаг</div>
                 </div>
               ))}
             </div>

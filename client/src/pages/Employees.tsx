@@ -80,19 +80,19 @@ export default function Employees() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight font-display">Employees</h2>
-          <p className="text-muted-foreground mt-1">Manage your organization's workforce.</p>
+          <h2 className="text-3xl font-bold tracking-tight font-display">Ажилтнууд</h2>
+          <p className="text-muted-foreground mt-1">Таны байгууллагын ажилтнуудыг удирдах.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="shadow-lg shadow-primary/25 hover:shadow-primary/30">
               <Plus className="w-4 h-4 mr-2" />
-              Add Employee
+              Ажилтан нэмэх
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
-              <DialogTitle>Add New Employee</DialogTitle>
+              <DialogTitle>Шинэ ажилтан нэмэх</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
@@ -102,7 +102,7 @@ export default function Employees() {
                     name="firstName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>First Name</FormLabel>
+                        <FormLabel>Нэр</FormLabel>
                         <FormControl><Input {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -113,7 +113,7 @@ export default function Employees() {
                     name="lastName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Last Name</FormLabel>
+                        <FormLabel>Овог</FormLabel>
                         <FormControl><Input {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>

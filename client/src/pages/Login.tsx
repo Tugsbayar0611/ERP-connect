@@ -32,24 +32,24 @@ export default function Login() {
           <div className="w-12 h-12 bg-primary rounded-xl mx-auto flex items-center justify-center mb-2">
             <span className="text-primary-foreground font-bold text-2xl">N</span>
           </div>
-          <CardTitle className="text-2xl font-display font-bold">Welcome back</CardTitle>
-          <CardDescription>Enter your credentials to access the portal</CardDescription>
+          <CardTitle className="text-2xl font-display font-bold">Буцаж тавтай морил</CardTitle>
+          <CardDescription>Портал руу нэвтрэхийн тулд нэвтрэх мэдээллээ оруулна уу</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Нэвтрэх нэр</Label>
               <Input
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
+                placeholder="Нэвтрэх нэрээ оруулна уу"
                 required
                 className="h-11"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Нууц үг</Label>
               <Input
                 id="password"
                 type="password"
@@ -73,15 +73,15 @@ export default function Login() {
               {isLoggingIn ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing in...
+                  Нэвтрэх явуу...
                 </>
               ) : (
-                "Sign In"
+                "Нэвтрэх"
               )}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Demo accounts: admin / admin</p>
+            <p>Туршилтын эсвэл: admin / admin123</p>
           </div>
         </CardContent>
       </Card>
