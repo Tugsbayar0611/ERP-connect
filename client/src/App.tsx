@@ -11,14 +11,25 @@ import Departments from "@/pages/Departments";
 import Attendance from "@/pages/Attendance";
 import Payroll from "@/pages/Payroll";
 import Documents from "@/pages/Documents";
+import Products from "@/pages/Products";
+import Contacts from "@/pages/Contacts";
+import Sales from "@/pages/Sales";
+import Purchase from "@/pages/Purchase";
+import Inventory from "@/pages/Inventory";
+import Invoices from "@/pages/Invoices";
+import JournalEntries from "@/pages/JournalEntries";
+import Accounts from "@/pages/Accounts";
+import Journals from "@/pages/Journals";
+import Reports from "@/pages/Reports";
+import TaxCodes from "@/pages/TaxCodes";
 import Login from "@/pages/Login";
+import Settings from "@/pages/Settings";
 import { useAuth } from "@/hooks/use-auth";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) return null;
-
   if (!user) return <Redirect to="/login" />;
 
   return <Component />;
@@ -29,31 +40,87 @@ function Router() {
     <Shell>
       <Switch>
         <Route path="/login" component={Login} />
+
         <Route path="/">
           <ProtectedRoute component={Dashboard} />
         </Route>
+
         <Route path="/employees">
           <ProtectedRoute component={Employees} />
         </Route>
+
         <Route path="/departments">
           <ProtectedRoute component={Departments} />
         </Route>
+
         <Route path="/attendance">
           <ProtectedRoute component={Attendance} />
         </Route>
+
         <Route path="/payroll">
           <ProtectedRoute component={Payroll} />
         </Route>
+
         <Route path="/documents">
           <ProtectedRoute component={Documents} />
         </Route>
+
+        <Route path="/products">
+          <ProtectedRoute component={Products} />
+        </Route>
+
+        <Route path="/contacts">
+          <ProtectedRoute component={Contacts} />
+        </Route>
+
+        <Route path="/sales">
+          <ProtectedRoute component={Sales} />
+        </Route>
+
+        <Route path="/purchase">
+          <ProtectedRoute component={Purchase} />
+        </Route>
+
+        <Route path="/inventory">
+          <ProtectedRoute component={Inventory} />
+        </Route>
+
+        <Route path="/invoices">
+          <ProtectedRoute component={Invoices} />
+        </Route>
+
+        <Route path="/journal-entries">
+          <ProtectedRoute component={JournalEntries} />
+        </Route>
+
+        <Route path="/accounts">
+          <ProtectedRoute component={Accounts} />
+        </Route>
+
+        <Route path="/journals">
+          <ProtectedRoute component={Journals} />
+        </Route>
+
+        <Route path="/reports">
+          <ProtectedRoute component={Reports} />
+        </Route>
+
+        <Route path="/tax-codes">
+          <ProtectedRoute component={TaxCodes} />
+        </Route>
+
+        {/* ✅ Settings */}
+        <Route path="/settings">
+          <ProtectedRoute component={Settings} />
+        </Route>
+
         <Route component={NotFound} />
       </Switch>
     </Shell>
   );
 }
 
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -63,5 +130,3 @@ function App() {
     </QueryClientProvider>
   );
 }
-
-export default App;

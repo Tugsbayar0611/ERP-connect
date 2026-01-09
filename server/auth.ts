@@ -52,7 +52,7 @@ export function setupAuth(app: Express) {
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
+        if (!user || !(await comparePasswords(password, user.passwordHash))) {
           return done(null, false);
         } else {
           return done(null, user);
@@ -64,7 +64,7 @@ export function setupAuth(app: Express) {
   );
 
   passport.serializeUser((user, done) => done(null, (user as User).id));
-  passport.deserializeUser(async (id: number, done) => {
+  passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
       done(null, user);
@@ -80,12 +80,24 @@ export function setupAuth(app: Express) {
         return res.status(400).send("Username already exists");
       }
 
+
+      // 1. Create Tenant (Organization)
+      const tenant = await storage.createTenant({
+        name: req.body.companyName || "My Organization",
+        countryCode: "MN",
+        timezone: "Asia/Ulaanbaatar",
+        currencyCode: "MNT",
+        status: "active"
+      });
+
+      // 2. Create User linked to Tenant
       const hashedPassword = await hashPassword(req.body.password);
       const user = await storage.createUser({
-        ...req.body,
-        email: req.body.username, // using username as email for simplicity based on provided code structure
-        password: hashedPassword,
-        role: "Admin", // First user is Admin
+        tenantId: tenant.id,
+        email: req.body.username,
+        passwordHash: hashedPassword,
+        fullName: req.body.username, // Default full name
+        isActive: true,
       });
 
       req.login(user, (err) => {
@@ -98,7 +110,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) {
         return res.status(401).json({ message: "Invalid username or password" });

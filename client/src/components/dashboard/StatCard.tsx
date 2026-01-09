@@ -13,19 +13,28 @@ interface StatCardProps {
 
 export function StatCard({ title, value, icon: Icon, trend, trendUp, className }: StatCardProps) {
   return (
-    <Card className={cn("overflow-hidden hover:shadow-md transition-shadow", className)}>
+    <Card className={cn("glass-card stat-card overflow-hidden", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <div className="p-2 bg-primary/10 rounded-lg">
-          <Icon className="h-4 w-4 text-primary" />
+        <div className="p-2.5 bg-gradient-to-br from-primary/20 to-accent/20 rounded-xl">
+          <Icon className="h-5 w-5 text-primary" />
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold tracking-tight">{value}</div>
+        <div className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+          {value}
+        </div>
         {trend && (
-          <p className={cn("text-xs mt-1 font-medium", trendUp ? "text-green-600" : "text-red-600")}>
+          <p className={cn(
+            "text-xs mt-2 font-medium flex items-center gap-1",
+            trendUp ? "text-green-600" : "text-red-600"
+          )}>
+            <span className={cn(
+              "inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-transparent",
+              trendUp ? "border-b-[6px] border-b-green-600" : "border-t-[6px] border-t-red-600"
+            )} />
             {trend}
           </p>
         )}

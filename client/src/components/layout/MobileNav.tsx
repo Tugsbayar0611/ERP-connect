@@ -1,50 +1,68 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Users, Building2, CalendarCheck, CreditCard, FileText, LayoutDashboard, LogOut } from "lucide-react";
+import { Menu, Users, Building2, CalendarCheck, CreditCard, FileText, LayoutDashboard, LogOut, Settings, Moon, Sun, Package, UserCircle, ShoppingCart, ShoppingBag, Warehouse, Receipt } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/employees", label: "Employees", icon: Users },
-  { href: "/departments", label: "Departments", icon: Building2 },
-  { href: "/attendance", label: "Attendance", icon: CalendarCheck },
-  { href: "/payroll", label: "Payroll", icon: CreditCard },
-  { href: "/documents", label: "Documents", icon: FileText },
+  { href: "/", label: "Хянах самбар", icon: LayoutDashboard },
+  { href: "/products", label: "Бараа", icon: Package },
+  { href: "/contacts", label: "Харилцагчид", icon: UserCircle },
+  { href: "/sales", label: "Борлуулалт", icon: ShoppingCart },
+  { href: "/purchase", label: "Худалдан авалт", icon: ShoppingBag },
+  { href: "/inventory", label: "Агуулах", icon: Warehouse },
+  { href: "/invoices", label: "Нэхэмжлэх", icon: Receipt },
+  { href: "/employees", label: "Ажилтнууд", icon: Users },
+  { href: "/departments", label: "Хэлтсүүд", icon: Building2 },
+  { href: "/attendance", label: "Ирц бүртгэл", icon: CalendarCheck },
+  { href: "/payroll", label: "Цалин", icon: CreditCard },
+  { href: "/documents", label: "Баримтууд", icon: FileText },
 ];
 
 export function MobileNav() {
   const [location] = useLocation();
   const { logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+
+  const toggleTheme = () => {
+    document.documentElement.classList.toggle("dark");
+    setIsDark(!isDark);
+  };
 
   return (
     <div className="md:hidden flex items-center justify-between p-4 bg-card border-b border-border sticky top-0 z-30">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-          <span className="text-primary-foreground font-bold text-lg">N</span>
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 sidebar-gradient rounded-xl flex items-center justify-center shadow-md">
+          <span className="text-white font-bold text-lg">M</span>
         </div>
-        <h1 className="text-xl font-bold font-display tracking-tight">Nexus ERP</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">MonERP</h1>
       </div>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="hover:bg-muted">
             <Menu className="w-6 h-6" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="p-0 flex flex-col w-72">
-          <div className="p-6 border-b border-border">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">N</span>
+        <SheetContent side="left" className="p-0 flex flex-col w-72 glass-card">
+          {/* Header */}
+          <div className="sidebar-gradient p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <span className="text-white font-bold text-xl">M</span>
               </div>
-              <h1 className="text-xl font-bold font-display tracking-tight">Nexus ERP</h1>
+              <div>
+                <h1 className="text-xl font-bold font-display tracking-tight text-white">MonERP</h1>
+                <p className="text-xs text-white/70">Бизнесийн удирдлага</p>
+              </div>
             </div>
           </div>
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+
+          {/* Navigation */}
+          <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
@@ -54,9 +72,9 @@ export function MobileNav() {
                   <div
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer",
+                      "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer",
                       isActive
-                        ? "bg-primary/10 text-primary shadow-sm"
+                        ? "bg-gradient-to-r from-primary/15 to-accent/10 text-primary shadow-sm border border-primary/20"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
@@ -67,17 +85,38 @@ export function MobileNav() {
               );
             })}
           </nav>
-          <div className="p-4 border-t border-border">
+
+          {/* Footer */}
+          <div className="p-4 border-t border-border space-y-1.5">
             <Button
-              variant="destructive"
-              className="w-full justify-start gap-3"
+              variant="ghost"
+              className="w-full justify-start gap-3 h-11"
+              onClick={toggleTheme}
+            >
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {isDark ? "Гэрэлтэй горим" : "Харанхуй горим"}
+            </Button>
+
+            <Link href="/settings">
+              <div
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all cursor-pointer"
+              >
+                <Settings className="w-5 h-5" />
+                Тохиргоо
+              </div>
+            </Link>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={() => {
                 logout();
                 setOpen(false);
               }}
             >
-              <LogOut className="w-4 h-4" />
-              Logout
+              <LogOut className="w-5 h-5" />
+              Гарах
             </Button>
           </div>
         </SheetContent>
@@ -85,3 +124,4 @@ export function MobileNav() {
     </div>
   );
 }
+

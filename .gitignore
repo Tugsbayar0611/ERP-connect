@@ -1,6 +1,16 @@
-node_modules
-dist
+node_modules/
+dist/
 .DS_Store
-server/public
-vite.config.ts.*
 *.tar.gz
+
+# Vite generated variants (if any)
+vite.config.ts.*
+
+# If server/public is GENERATED (uploads/build output) keep ignored:
+server/public/
+
+# If you store user uploads in public:
+# server/public/uploads/
+
+# If you store static source assets that must be deployed, DO NOT ignore server/public/
+# (then remove the line above)

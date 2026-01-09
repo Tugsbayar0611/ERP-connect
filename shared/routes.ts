@@ -1,14 +1,12 @@
 import { z } from 'zod';
-import { 
+import {
   insertUserSchema, users,
   insertEmployeeSchema, employees,
   insertDepartmentSchema, departments,
-  insertAttendanceSchema, attendance,
-  insertPayrollSchema, payroll,
-  insertLeaveRequestSchema, leaveRequests,
-  insertDocumentSchema, documents,
-  insertCompanySchema, companies,
-  insertDocumentCategorySchema, documentCategories
+  insertAttendanceDaySchema, attendanceDays,
+  insertPayrollRunSchema, payrollRuns,
+  insertTenantSchema, tenants,
+  insertDocumentSchema, documents
 } from './schema';
 
 export const errorSchemas = {
@@ -114,32 +112,32 @@ export const api = {
       method: 'GET' as const,
       path: '/api/attendance',
       responses: {
-        200: z.array(z.custom<typeof attendance.$inferSelect>()),
+        200: z.array(z.custom<typeof attendanceDays.$inferSelect>()),
       },
     },
     create: {
       method: 'POST' as const,
       path: '/api/attendance',
-      input: insertAttendanceSchema,
+      input: insertAttendanceDaySchema,
       responses: {
-        201: z.custom<typeof attendance.$inferSelect>(),
+        201: z.custom<typeof attendanceDays.$inferSelect>(),
       }
     }
   },
   payroll: {
     list: {
       method: 'GET' as const,
-      path: '/api/payroll',
+      path: '/api/payroll-runs',
       responses: {
-        200: z.array(z.custom<typeof payroll.$inferSelect>()),
+        200: z.array(z.custom<typeof payrollRuns.$inferSelect>()),
       },
     },
     create: {
       method: 'POST' as const,
-      path: '/api/payroll',
-      input: insertPayrollSchema,
+      path: '/api/payroll-runs',
+      input: insertPayrollRunSchema,
       responses: {
-        201: z.custom<typeof payroll.$inferSelect>(),
+        201: z.custom<typeof payrollRuns.$inferSelect>(),
       }
     }
   },
@@ -148,7 +146,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/documents',
       responses: {
-        200: z.array(z.custom<typeof documents.$inferSelect>()),
+        200: z.array(z.custom<typeof import('./schema').documents.$inferSelect>()),
       },
     },
     create: {
@@ -171,6 +169,16 @@ export const api = {
           totalDepartments: z.number(),
           monthlyPayroll: z.number(),
         })
+      }
+    }
+  },
+  company: {
+    get: {
+      method: 'GET' as const,
+      path: '/api/company',
+      responses: {
+        200: z.custom<typeof tenants.$inferSelect>(),
+        404: errorSchemas.notFound
       }
     }
   }

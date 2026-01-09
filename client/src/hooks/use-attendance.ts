@@ -1,28 +1,34 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
-import type { InsertAttendance } from "@shared/schema";
+import type { InsertAttendanceDay, AttendanceDay } from "@shared/schema";
 
 export function useAttendance() {
   const queryClient = useQueryClient();
 
-  const { data: attendance, isLoading } = useQuery({
+  // 1. Ирцийн жагсаалт авах
+  const { data: attendance, isLoading } = useQuery<AttendanceDay[]>({
     queryKey: [api.attendance.list.path],
     queryFn: async () => {
       const res = await fetch(api.attendance.list.path);
       if (!res.ok) throw new Error("Failed to fetch attendance records");
-      return api.attendance.list.responses[200].parse(await res.json());
+      return await res.json();
     },
   });
 
-  const logAttendance = useMutation({
-    mutationFn: async (data: InsertAttendance) => {
+  // 2. Ирц бүртгэх (Check-in)
+  const createAttendance = useMutation({
+    mutationFn: async (data: Omit<InsertAttendanceDay, "tenantId">) => {
       const res = await fetch(api.attendance.create.path, {
         method: api.attendance.create.method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to log attendance");
-      return api.attendance.create.responses[201].parse(await res.json());
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to record attendance");
+      }
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.attendance.list.path] });
@@ -32,6 +38,6 @@ export function useAttendance() {
   return {
     attendance,
     isLoading,
-    logAttendance,
+    createAttendance,
   };
 }
