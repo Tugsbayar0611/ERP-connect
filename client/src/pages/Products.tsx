@@ -272,7 +272,7 @@ export default function Products() {
                     <FormItem>
                       <FormLabel>Барааны код (SKU)</FormLabel>
                       <FormControl>
-                        <Input placeholder="PRD-001" {...field} />
+                        <Input placeholder="PRD-001" {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -287,7 +287,7 @@ export default function Products() {
                   <FormItem>
                     <FormLabel>Тайлбар</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Барааны тайлбар..." {...field} />
+                      <Textarea placeholder="Барааны тайлбар..." {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

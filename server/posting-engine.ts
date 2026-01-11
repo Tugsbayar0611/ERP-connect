@@ -16,9 +16,6 @@ import {
   taxLines,
   taxCodes,
   bankAccounts,
-  type DbInsertJournalEntry,
-  type DbInsertJournalLine,
-  type DbInsertTaxLine,
 } from "@shared/schema";
 
 export interface PostingTemplate {
@@ -359,6 +356,11 @@ export async function previewPosting(
     // Get invoice lines for tax calculation
     const lines = await db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, modelId));
     document.lines = lines;
+    
+    // Calculate invoice totals from lines
+    document.calculatedSubtotal = lines.reduce((sum, line) => sum + parseFloat(line.subtotal || "0"), 0);
+    document.calculatedTaxAmount = lines.reduce((sum, line) => sum + parseFloat(line.taxAmount || "0"), 0);
+    document.calculatedTotal = lines.reduce((sum, line) => sum + parseFloat(line.total || "0"), 0);
   } else if (modelType === "payment") {
     const [payment] = await db
       .select()
@@ -425,19 +427,19 @@ export async function previewPosting(
     if (templateLine.amountField === "total") {
       if (modelType === "invoice") {
         // Use pre-calculated invoice total
-        amount = invoiceTotal || parseFloat(document.totalAmount || "0");
+        amount = document.calculatedTotal || parseFloat(document.totalAmount || "0");
       } else {
         amount = parseFloat(document.totalAmount || document.amount || "0");
       }
     } else if (templateLine.amountField === "subtotal") {
       if (modelType === "invoice") {
-        amount = invoiceSubtotal || parseFloat(document.subtotal || "0");
+        amount = document.calculatedSubtotal || parseFloat(document.subtotal || "0");
       } else {
         amount = parseFloat(document.subtotal || "0");
       }
     } else if (templateLine.amountField === "tax_amount") {
       if (modelType === "invoice") {
-        amount = invoiceTaxAmount || parseFloat(document.taxAmount || "0");
+        amount = document.calculatedTaxAmount || parseFloat(document.taxAmount || "0");
       } else {
         amount = parseFloat(document.taxAmount || "0");
       }
@@ -469,7 +471,8 @@ export async function previewPosting(
   }
 
   // Create tax lines if needed (after all journal lines)
-  if (modelType === "invoice" && document.lines && invoiceTaxAmount > 0) {
+  const calculatedTaxAmount = document.calculatedTaxAmount || 0;
+  if (modelType === "invoice" && document.lines && calculatedTaxAmount > 0) {
     // Sum tax from invoice lines
     let totalTaxBase = 0;
     let taxCodeValue = "VAT10"; // Default
@@ -490,7 +493,7 @@ export async function previewPosting(
       taxLinesPreview.push({
         taxCode: taxCodeValue,
         taxBase: totalTaxBase,
-        taxAmount: invoiceTaxAmount,
+        taxAmount: calculatedTaxAmount,
       });
     }
   }
@@ -550,12 +553,12 @@ export async function postDocument(
       journalId: journalId || preview.journalEntry.journalId || null,
       entryNumber,
       entryDate: entryDate || preview.journalEntry.entryDate,
-      description: preview.journalEntry.description,
+      description: preview.journalEntry.description || "",
       reference: modelId,
       status: "posted",
       postedBy: postedBy || null,
       postedAt: new Date(),
-    } as DbInsertJournalEntry)
+    })
     .returning();
 
     // Create journal lines
@@ -579,7 +582,7 @@ export async function postDocument(
           debit: line.debit.toString(),
           credit: line.credit.toString(),
           description: line.description,
-        } as DbInsertJournalLine)
+        })
         .returning();
 
       // Remember tax line's journal line for tax_lines creation
@@ -607,7 +610,7 @@ export async function postDocument(
             sourceType: "invoice_line",
             reference: modelId,
             referenceId: modelId,
-          } as DbInsertTaxLine);
+          });
         }
       }
     }

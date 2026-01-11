@@ -230,7 +230,7 @@ export default function Inventory() {
                     <FormItem>
                       <FormLabel>Код</FormLabel>
                       <FormControl>
-                        <Input placeholder="WH-001" {...field} />
+                        <Input placeholder="WH-001" {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -262,7 +262,7 @@ export default function Inventory() {
                   <FormItem>
                     <FormLabel>Хаяг</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Агуулахын хаяг" {...field} />
+                      <Textarea placeholder="Агуулахын хаяг" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -397,7 +397,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // Calculate totals
       let subtotal = 0;
-      const lines: DbInsertSalesOrderLine[] = data.lines.map((line: any) => {
+      const lines: Omit<DbInsertSalesOrderLine, 'salesOrderId'>[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
         const discount = Number(line.discount || 0);
@@ -442,7 +442,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         totalAmount: totalAmount.toString(),
         notes: data.notes,
         createdBy: req.user.id
-      } as DbInsertSalesOrder, lines);
+      } as DbInsertSalesOrder, lines as DbInsertSalesOrderLine[]);
 
       res.status(201).json(order);
     } catch (err) {
@@ -494,7 +494,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const orderNumber = `PO-${new Date().getFullYear()}-${String(orderCount + 1).padStart(4, '0')}`;
 
       let subtotal = 0;
-      const lines: DbInsertPurchaseOrderLine[] = data.lines.map((line: any) => {
+      const lines: Omit<DbInsertPurchaseOrderLine, 'purchaseOrderId'>[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
         const discount = Number(line.discount || 0);
@@ -539,7 +539,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         totalAmount: totalAmount.toString(),
         notes: data.notes,
         createdBy: req.user.id
-      } as DbInsertPurchaseOrder, lines);
+      } as DbInsertPurchaseOrder, lines as DbInsertPurchaseOrderLine[]);
 
       res.status(201).json(order);
     } catch (err) {
@@ -599,7 +599,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
 
       let subtotal = 0;
-      const lines: DbInsertInvoiceLine[] = data.lines.map((line: any) => {
+      const lines: Omit<DbInsertInvoiceLine, 'invoiceId'>[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
         const taxRate = Number(line.taxRate || 10);
@@ -643,7 +643,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         paymentMethod: data.paymentMethod,
         notes: data.notes,
         createdBy: req.user.id
-      } as DbInsertInvoice, lines);
+      } as DbInsertInvoice, lines as DbInsertInvoiceLine[]);
 
       res.status(201).json(invoice);
     } catch (err) {

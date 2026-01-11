@@ -408,11 +408,11 @@ export class DatabaseStorage implements IStorage {
       .from(stockLevels)
       .leftJoin(warehouses, eq(stockLevels.warehouseId, warehouses.id))
       .leftJoin(products, eq(stockLevels.productId, products.id))
-      .where(eq(stockLevels.tenantId, tenantId));
-
-    if (warehouseId) {
-      query = query.where(and(eq(stockLevels.tenantId, tenantId), eq(stockLevels.warehouseId, warehouseId))) as any;
-    }
+      .where(
+        warehouseId 
+          ? and(eq(stockLevels.tenantId, tenantId), eq(stockLevels.warehouseId, warehouseId))
+          : eq(stockLevels.tenantId, tenantId)
+      );
 
     return await query;
   }
@@ -635,13 +635,14 @@ export class DatabaseStorage implements IStorage {
     })
       .from(invoices)
       .leftJoin(contacts, eq(invoices.contactId, contacts.id))
-      .where(eq(invoices.tenantId, tenantId));
+      .where(
+        type 
+          ? and(eq(invoices.tenantId, tenantId), eq(invoices.type, type))
+          : eq(invoices.tenantId, tenantId)
+      )
+      .orderBy(desc(invoices.createdAt));
 
-    if (type) {
-      query = query.where(and(eq(invoices.tenantId, tenantId), eq(invoices.type, type))) as any;
-    }
-
-    return await query.orderBy(desc(invoices.createdAt));
+    return await query;
   }
 
   async getInvoice(id: string): Promise<any | undefined> {
@@ -996,11 +997,11 @@ export class DatabaseStorage implements IStorage {
       createdAt: payments.createdAt,
     })
       .from(payments)
-      .where(eq(payments.tenantId, tenantId));
-
-    if (type) {
-      query = query.where(and(eq(payments.tenantId, tenantId), eq(payments.type, type)));
-    }
+      .where(
+        type 
+          ? and(eq(payments.tenantId, tenantId), eq(payments.type, type))
+          : eq(payments.tenantId, tenantId)
+      );
 
     return await query;
   }
