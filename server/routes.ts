@@ -397,7 +397,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // Calculate totals
       let subtotal = 0;
-      const lines: DbInsertSalesOrderLine[] = data.lines.map((line: any) => {
+      const lines: Omit<DbInsertSalesOrderLine, 'salesOrderId'>[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
         const discount = Number(line.discount || 0);
@@ -494,7 +494,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const orderNumber = `PO-${new Date().getFullYear()}-${String(orderCount + 1).padStart(4, '0')}`;
 
       let subtotal = 0;
-      const lines: DbInsertPurchaseOrderLine[] = data.lines.map((line: any) => {
+      const lines: Omit<DbInsertPurchaseOrderLine, 'purchaseOrderId'>[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
         const discount = Number(line.discount || 0);
@@ -599,7 +599,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
 
       let subtotal = 0;
-      const lines: DbInsertInvoiceLine[] = data.lines.map((line: any) => {
+      const lines: Omit<DbInsertInvoiceLine, 'invoiceId'>[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
         const taxRate = Number(line.taxRate || 10);

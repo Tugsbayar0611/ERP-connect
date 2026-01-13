@@ -407,6 +407,19 @@ export async function previewPosting(
   const previewLines: PostingPreview["journalEntry"]["lines"] = [];
   const taxLinesPreview: PostingPreview["journalEntry"]["taxLines"] = [];
 
+  // Pre-calculate invoice totals from lines
+  let invoiceSubtotal = 0;
+  let invoiceTaxAmount = 0;
+  let invoiceTotal = 0;
+  
+  if (modelType === "invoice" && document.lines) {
+    for (const line of document.lines) {
+      invoiceSubtotal += parseFloat(line.subtotal || "0");
+      invoiceTaxAmount += parseFloat(line.taxAmount || "0");
+      invoiceTotal += parseFloat(line.total || "0");
+    }
+  }
+
   for (const templateLine of template.lines) {
     // Resolve account
     const accountId = await accountResolver.resolve(tenantId, templateLine.accountResolver, {

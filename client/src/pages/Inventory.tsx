@@ -44,6 +44,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 
+// Helper to handle null values in form fields
+const fieldValue = (value: string | null | undefined) => value ?? "";
+
 export default function Inventory() {
   const [warehouseFilter, setWarehouseFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -230,7 +233,7 @@ export default function Inventory() {
                     <FormItem>
                       <FormLabel>Код</FormLabel>
                       <FormControl>
-                        <Input placeholder="WH-001" {...field} />
+                        <Input placeholder="WH-001" {...field} value={fieldValue(field.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -262,7 +265,7 @@ export default function Inventory() {
                   <FormItem>
                     <FormLabel>Хаяг</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Агуулахын хаяг" {...field} />
+                      <Textarea placeholder="Агуулахын хаяг" {...field} value={fieldValue(field.value)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
