@@ -44,6 +44,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 
+// Helper to handle null values in form fields
+const fieldValue = (value: string | null | undefined) => value ?? "";
+
 const formatMNT = (value: number | string) => {
   const num = typeof value === "string" ? parseFloat(value) : value;
   return new Intl.NumberFormat('mn-MN', {
@@ -272,7 +275,7 @@ export default function Products() {
                     <FormItem>
                       <FormLabel>Барааны код (SKU)</FormLabel>
                       <FormControl>
-                        <Input placeholder="PRD-001" {...field} />
+                        <Input placeholder="PRD-001" {...field} value={fieldValue(field.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -287,7 +290,7 @@ export default function Products() {
                   <FormItem>
                     <FormLabel>Тайлбар</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Барааны тайлбар..." {...field} />
+                      <Textarea placeholder="Барааны тайлбар..." {...field} value={fieldValue(field.value)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

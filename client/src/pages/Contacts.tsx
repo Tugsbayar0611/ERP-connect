@@ -44,6 +44,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// Helper to handle null values in form fields
+const fieldValue = (value: string | null | undefined) => value ?? "";
+
 const formatMNT = (value: number | string) => {
   const num = typeof value === "string" ? parseFloat(value) : value;
   return new Intl.NumberFormat('mn-MN', {
@@ -309,7 +312,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Нэр</FormLabel>
                       <FormControl>
-                        <Input placeholder="Нэр" {...field} />
+                        <Input placeholder="Нэр" {...field} value={fieldValue(field.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -322,7 +325,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Овог</FormLabel>
                       <FormControl>
-                        <Input placeholder="Овог" {...field} />
+                        <Input placeholder="Овог" {...field} value={fieldValue(field.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -337,7 +340,7 @@ export default function Contacts() {
                   <FormItem>
                     <FormLabel>Байгууллагын нэр</FormLabel>
                     <FormControl>
-                      <Input placeholder="Байгууллагын нэр" {...field} />
+                      <Input placeholder="Байгууллагын нэр" {...field} value={fieldValue(field.value)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -352,7 +355,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Имэйл</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="email@example.com" {...field} />
+                        <Input type="email" placeholder="email@example.com" {...field} value={fieldValue(field.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -365,7 +368,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Утас</FormLabel>
                       <FormControl>
-                        <Input placeholder="99112233" {...field} />
+                        <Input placeholder="99112233" {...field} value={fieldValue(field.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -380,7 +383,7 @@ export default function Contacts() {
                   <FormItem>
                     <FormLabel>Хаяг</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Хаяг" {...field} />
+                      <Textarea placeholder="Хаяг" {...field} value={fieldValue(field.value)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -395,7 +398,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Хот</FormLabel>
                       <FormControl>
-                        <Input placeholder="Улаанбаатар" {...field} />
+                        <Input placeholder="Улаанбаатар" {...field} value={fieldValue(field.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -408,7 +411,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Дүүрэг</FormLabel>
                       <FormControl>
-                        <Input placeholder="Дүүрэг" {...field} />
+                        <Input placeholder="Дүүрэг" {...field} value={fieldValue(field.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -421,7 +424,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Шуудангийн код</FormLabel>
                       <FormControl>
-                        <Input placeholder="12345" {...field} />
+                        <Input placeholder="12345" {...field} value={fieldValue(field.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -439,7 +442,7 @@ export default function Contacts() {
                       <FormItem>
                         <FormLabel>РД (Регистр)</FormLabel>
                         <FormControl>
-                          <Input placeholder="12345678" {...field} />
+                          <Input placeholder="12345678" {...field} value={fieldValue(field.value)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -452,7 +455,7 @@ export default function Contacts() {
                       <FormItem>
                         <FormLabel>ХХОАТ-ын дугаар</FormLabel>
                         <FormControl>
-                          <Input placeholder="123456789" {...field} />
+                          <Input placeholder="123456789" {...field} value={fieldValue(field.value)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -467,7 +470,7 @@ export default function Contacts() {
                       <FormItem>
                         <FormLabel>Банкны нэр</FormLabel>
                         <FormControl>
-                          <Input placeholder="Төрийн банк" {...field} />
+                          <Input placeholder="Төрийн банк" {...field} value={fieldValue(field.value)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -480,7 +483,7 @@ export default function Contacts() {
                       <FormItem>
                         <FormLabel>Банкны данс</FormLabel>
                         <FormControl>
-                          <Input placeholder="1234567890" {...field} />
+                          <Input placeholder="1234567890" {...field} value={fieldValue(field.value)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -495,7 +498,7 @@ export default function Contacts() {
                       <FormItem>
                         <FormLabel>Зээлийн хязгаар (₮)</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
+                          <Input type="number" placeholder="0" {...field} value={fieldValue(field.value)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -508,7 +511,7 @@ export default function Contacts() {
                       <FormItem>
                         <FormLabel>Төлбөрийн нөхцөл</FormLabel>
                         <FormControl>
-                          <Input placeholder="30 өдөр" {...field} />
+                          <Input placeholder="30 өдөр" {...field} value={fieldValue(field.value)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
