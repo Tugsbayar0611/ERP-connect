@@ -1136,5 +1136,4 @@ export type DbInsertPayment = typeof payments.$inferInsert;
 export type DbInsertPaymentAllocation = typeof paymentAllocations.$inferInsert;
 export type DbInsertBankAccount = typeof bankAccounts.$inferInsert;
 export type DbInsertBankStatement = typeof bankStatements.$inferInsert;
-export type DbInsertTaxLine = typeof taxLines.$inferInsert;
 

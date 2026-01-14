@@ -12,22 +12,7 @@ const formatMNT = (value: number) => {
   }).format(value) + '₮';
 };
 
-const salaryData = [
-  { name: '1-р сар', value: 45000000 },
-  { name: '2-р сар', value: 48000000 },
-  { name: '3-р сар', value: 47500000 },
-  { name: '4-р сар', value: 52000000 },
-  { name: '5-р сар', value: 51000000 },
-  { name: '6-р сар', value: 55000000 },
-];
-
-const attendanceData = [
-  { name: 'Дав', present: 95, late: 5 },
-  { name: 'Мяг', present: 92, late: 8 },
-  { name: 'Лха', present: 98, late: 2 },
-  { name: 'Пүр', present: 94, late: 6 },
-  { name: 'Баа', present: 89, late: 11 },
-];
+// Data will come from stats API
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useStats();
@@ -39,6 +24,10 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // Use real data from API, fallback to empty arrays if not available
+  const salaryData = stats?.payrollByMonth || [];
+  const attendanceData = stats?.attendanceByDay || [];
 
   return (
     <div className="space-y-8 min-h-screen -m-4 md:-m-8 p-4 md:p-8">
@@ -101,8 +90,9 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={350}>
-              <AreaChart data={salaryData}>
+            {salaryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <AreaChart data={salaryData}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -134,6 +124,11 @@ export default function Dashboard() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                <p>Цалингийн өгөгдөл байхгүй байна</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -175,8 +170,9 @@ export default function Dashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={attendanceData}>
+          {attendanceData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={attendanceData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis dataKey="name" className="text-xs text-muted-foreground" />
               <YAxis className="text-xs text-muted-foreground" />
@@ -191,6 +187,11 @@ export default function Dashboard() {
               <Bar dataKey="late" fill="hsl(var(--warning))" name="Хоцорсон %" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+              <p>Ирцийн өгөгдөл байхгүй байна</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

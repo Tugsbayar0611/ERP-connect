@@ -168,6 +168,15 @@ export const api = {
           activeEmployees: z.number(),
           totalDepartments: z.number(),
           monthlyPayroll: z.number(),
+          payrollByMonth: z.array(z.object({
+            name: z.string(),
+            value: z.number(),
+          })).optional(),
+          attendanceByDay: z.array(z.object({
+            name: z.string(),
+            present: z.number(),
+            late: z.number(),
+          })).optional(),
         })
       }
     }

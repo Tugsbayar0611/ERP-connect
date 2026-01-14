@@ -395,11 +395,7 @@ export class DatabaseStorage implements IStorage {
 
   // --- Stock ---
   async getStockLevels(tenantId: string, warehouseId?: string): Promise<any[]> {
-    const baseCondition = warehouseId 
-      ? and(eq(stockLevels.tenantId, tenantId), eq(stockLevels.warehouseId, warehouseId))
-      : eq(stockLevels.tenantId, tenantId);
-
-    return await db.select({
+    let query = db.select({
       id: stockLevels.id,
       warehouseId: stockLevels.warehouseId,
       productId: stockLevels.productId,
@@ -412,7 +408,13 @@ export class DatabaseStorage implements IStorage {
       .from(stockLevels)
       .leftJoin(warehouses, eq(stockLevels.warehouseId, warehouses.id))
       .leftJoin(products, eq(stockLevels.productId, products.id))
-      .where(baseCondition);
+      .where(eq(stockLevels.tenantId, tenantId));
+
+    if (warehouseId) {
+      query = query.where(and(eq(stockLevels.tenantId, tenantId), eq(stockLevels.warehouseId, warehouseId))) as any;
+    }
+
+    return await query;
   }
 
   async updateStock(tenantId: string, warehouseId: string, productId: string, quantity: number, type: string, reference?: string, referenceId?: string): Promise<void> {
@@ -476,7 +478,7 @@ export class DatabaseStorage implements IStorage {
     return { ...order, lines };
   }
 
-  async createSalesOrder(order: DbInsertSalesOrder, lines: Omit<DbInsertSalesOrderLine, 'salesOrderId'>[]): Promise<SalesOrder> {
+  async createSalesOrder(order: DbInsertSalesOrder, lines: DbInsertSalesOrderLine[]): Promise<SalesOrder> {
     const [newOrder] = await db.insert(salesOrders).values(order).returning();
     
     for (const line of lines) {
@@ -582,7 +584,7 @@ export class DatabaseStorage implements IStorage {
     return { ...order, lines };
   }
 
-  async createPurchaseOrder(order: DbInsertPurchaseOrder, lines: Omit<DbInsertPurchaseOrderLine, 'purchaseOrderId'>[]): Promise<PurchaseOrder> {
+  async createPurchaseOrder(order: DbInsertPurchaseOrder, lines: DbInsertPurchaseOrderLine[]): Promise<PurchaseOrder> {
     const [newOrder] = await db.insert(purchaseOrders).values(order).returning();
     
     for (const line of lines) {
@@ -620,11 +622,7 @@ export class DatabaseStorage implements IStorage {
 
   // --- Invoices ---
   async getInvoices(tenantId: string, type?: string): Promise<any[]> {
-    const baseCondition = type
-      ? and(eq(invoices.tenantId, tenantId), eq(invoices.type, type))
-      : eq(invoices.tenantId, tenantId);
-
-    return await db.select({
+    let query = db.select({
       id: invoices.id,
       invoiceNumber: invoices.invoiceNumber,
       invoiceDate: invoices.invoiceDate,
@@ -637,8 +635,13 @@ export class DatabaseStorage implements IStorage {
     })
       .from(invoices)
       .leftJoin(contacts, eq(invoices.contactId, contacts.id))
-      .where(baseCondition)
-      .orderBy(desc(invoices.createdAt));
+      .where(eq(invoices.tenantId, tenantId));
+
+    if (type) {
+      query = query.where(and(eq(invoices.tenantId, tenantId), eq(invoices.type, type))) as any;
+    }
+
+    return await query.orderBy(desc(invoices.createdAt));
   }
 
   async getInvoice(id: string): Promise<any | undefined> {
@@ -649,7 +652,7 @@ export class DatabaseStorage implements IStorage {
     return { ...invoice, lines };
   }
 
-  async createInvoice(invoice: DbInsertInvoice, lines: Omit<DbInsertInvoiceLine, 'invoiceId'>[]): Promise<Invoice> {
+  async createInvoice(invoice: DbInsertInvoice, lines: DbInsertInvoiceLine[]): Promise<Invoice> {
     const [newInvoice] = await db.insert(invoices).values(invoice).returning();
     
     for (const line of lines) {
@@ -981,11 +984,7 @@ export class DatabaseStorage implements IStorage {
 
   // --- Accounting: Payments ---
   async getPayments(tenantId: string, type?: string): Promise<any[]> {
-    const baseCondition = type
-      ? and(eq(payments.tenantId, tenantId), eq(payments.type, type))
-      : eq(payments.tenantId, tenantId);
-
-    return await db.select({
+    let query = db.select({
       id: payments.id,
       paymentNumber: payments.paymentNumber,
       paymentDate: payments.paymentDate,
@@ -997,7 +996,13 @@ export class DatabaseStorage implements IStorage {
       createdAt: payments.createdAt,
     })
       .from(payments)
-      .where(baseCondition);
+      .where(eq(payments.tenantId, tenantId));
+
+    if (type) {
+      query = query.where(and(eq(payments.tenantId, tenantId), eq(payments.type, type)));
+    }
+
+    return await query;
   }
 
   async getPayment(id: string): Promise<any | undefined> {
