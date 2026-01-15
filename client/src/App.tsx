@@ -24,6 +24,7 @@ import Reports from "@/pages/Reports";
 import TaxCodes from "@/pages/TaxCodes";
 import Login from "@/pages/Login";
 import Settings from "@/pages/Settings";
+import InvoicePrint from "@/pages/InvoicePrint";
 import { useAuth } from "@/hooks/use-auth";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -87,6 +88,10 @@ function Router() {
 
         <Route path="/invoices">
           <ProtectedRoute component={Invoices} />
+        </Route>
+
+        <Route path="/invoices/:id/print">
+          <ProtectedRoute component={InvoicePrint} />
         </Route>
 
         <Route path="/journal-entries">

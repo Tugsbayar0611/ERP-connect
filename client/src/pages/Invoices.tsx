@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Search, CheckCircle, Trash2, FileText, Eye } from "lucide-react";
+import { Plus, Search, CheckCircle, Trash2, FileText, Eye, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -338,6 +338,15 @@ export default function Invoices() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(`/invoices/${invoice.id}/print`, '_blank')}
+                          title="PDF татах / Хэвлэх"
+                        >
+                          <Printer className="h-3 w-3 mr-1" />
+                          PDF
+                        </Button>
                         {invoice.status === "draft" && (
                           <Button
                             variant="outline"

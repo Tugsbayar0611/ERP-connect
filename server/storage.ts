@@ -649,7 +649,21 @@ export class DatabaseStorage implements IStorage {
     if (!invoice) return undefined;
 
     const lines = await db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, id));
-    return { ...invoice, lines };
+    
+    // Get contact info
+    let contactInfo = {};
+    if (invoice.contactId) {
+      const [contact] = await db.select().from(contacts).where(eq(contacts.id, invoice.contactId));
+      if (contact) {
+        contactInfo = {
+          contactName: contact.companyName || `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
+          contactPhone: contact.phone,
+          contactEmail: contact.email,
+        };
+      }
+    }
+    
+    return { ...invoice, ...contactInfo, lines };
   }
 
   async createInvoice(invoice: DbInsertInvoice, lines: DbInsertInvoiceLine[]): Promise<Invoice> {
