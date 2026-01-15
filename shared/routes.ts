@@ -9,6 +9,9 @@ import {
   insertDocumentSchema, documents
 } from './schema';
 
+type SafeUser = Omit<typeof users.$inferSelect, "passwordHash">;
+const safeUserSchema = z.custom<SafeUser>();
+
 export const errorSchemas = {
   validation: z.object({
     message: z.string(),
@@ -35,7 +38,7 @@ export const api = {
         password: z.string(),
       }),
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: safeUserSchema,
         401: errorSchemas.unauthorized,
       }
     },
@@ -50,7 +53,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/auth/me',
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: safeUserSchema,
         401: errorSchemas.unauthorized,
       }
     }

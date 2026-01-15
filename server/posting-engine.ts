@@ -332,9 +332,18 @@ export async function previewPosting(
   modelType: string,
   modelId: string
 ): Promise<PostingPreview> {
+  const toNumber = (value: unknown) => {
+    if (value === null || value === undefined || value === "") return 0;
+    const num = typeof value === "number" ? value : parseFloat(String(value));
+    return Number.isFinite(num) ? num : 0;
+  };
+
   let template: PostingTemplate | undefined;
   let document: any;
   let journalType: string;
+  let invoiceSubtotal = 0;
+  let invoiceTaxAmount = 0;
+  let invoiceTotal = 0;
 
   if (modelType === "invoice") {
     // Get invoice
@@ -359,6 +368,19 @@ export async function previewPosting(
     // Get invoice lines for tax calculation
     const lines = await db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, modelId));
     document.lines = lines;
+
+    if (lines.length > 0) {
+      invoiceSubtotal = lines.reduce((sum, line: any) => {
+        const base = line.taxBase ?? line.subtotal ?? 0;
+        return sum + toNumber(base);
+      }, 0);
+      invoiceTaxAmount = lines.reduce((sum, line: any) => sum + toNumber(line.taxAmount), 0);
+      invoiceTotal = invoiceSubtotal + invoiceTaxAmount;
+    } else {
+      invoiceSubtotal = toNumber(invoice.subtotal);
+      invoiceTaxAmount = toNumber(invoice.taxAmount);
+      invoiceTotal = toNumber(invoice.totalAmount);
+    }
   } else if (modelType === "payment") {
     const [payment] = await db
       .select()
@@ -424,34 +446,33 @@ export async function previewPosting(
     let amount = 0;
     if (templateLine.amountField === "total") {
       if (modelType === "invoice") {
-        // Use pre-calculated invoice total
-        amount = invoiceTotal || parseFloat(document.totalAmount || "0");
+        amount = invoiceTotal;
       } else {
-        amount = parseFloat(document.totalAmount || document.amount || "0");
+        amount = toNumber(document.totalAmount || document.amount);
       }
     } else if (templateLine.amountField === "subtotal") {
       if (modelType === "invoice") {
-        amount = invoiceSubtotal || parseFloat(document.subtotal || "0");
+        amount = invoiceSubtotal;
       } else {
-        amount = parseFloat(document.subtotal || "0");
+        amount = toNumber(document.subtotal);
       }
     } else if (templateLine.amountField === "tax_amount") {
       if (modelType === "invoice") {
-        amount = invoiceTaxAmount || parseFloat(document.taxAmount || "0");
+        amount = invoiceTaxAmount;
       } else {
-        amount = parseFloat(document.taxAmount || "0");
+        amount = toNumber(document.taxAmount);
       }
     } else if (templateLine.amountField === "amount") {
-      amount = parseFloat(document.amount || "0");
+      amount = toNumber(document.amount);
     } else if (templateLine.amountField === "allocated_amount") {
       // Sum of allocations
       amount = (document.allocations || []).reduce((sum: number, alloc: any) => {
-        return sum + parseFloat(alloc.allocatedAmount || "0");
+        return sum + toNumber(alloc.allocatedAmount);
       }, 0);
       
       // If no allocations yet, use payment amount
       if (amount === 0 && modelType === "payment") {
-        amount = parseFloat(document.amount || "0");
+        amount = toNumber(document.amount);
       }
     }
 
@@ -475,7 +496,7 @@ export async function previewPosting(
     let taxCodeValue = "VAT10"; // Default
 
     for (const line of document.lines) {
-      totalTaxBase += parseFloat(line.taxBase || line.subtotal || "0");
+      totalTaxBase += toNumber(line.taxBase ?? line.subtotal);
       
       // Get tax code from line if available
       if (line.taxCodeId) {

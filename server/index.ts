@@ -41,6 +41,9 @@ export function log(message: string, source = "express") {
 // DB холболт шалгах энгийн route
 app.get("/api/db-test", async (_req, res, next) => {
   try {
+    if (process.env.NODE_ENV === "production") {
+      return res.sendStatus(404);
+    }
     const result = await pool.query("SELECT NOW()");
     res.json({ now: result.rows[0].now });
   } catch (err) {
@@ -53,6 +56,25 @@ app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  const sensitiveKeys = new Set([
+    "password",
+    "passwordHash",
+    "token",
+    "accessToken",
+    "refreshToken",
+    "session",
+  ]);
+
+  const safeStringify = (value: unknown) => {
+    try {
+      return JSON.stringify(value, (key, val) => {
+        if (sensitiveKeys.has(key)) return "[REDACTED]";
+        return val;
+      });
+    } catch (err) {
+      return "[unserializable]";
+    }
+  };
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -65,7 +87,7 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        logLine += ` :: ${safeStringify(capturedJsonResponse)}`;
       }
 
       log(logLine);
@@ -85,7 +107,7 @@ app.use((req, res, next) => {
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    console.error(err);
   });
 
   // Vite / static

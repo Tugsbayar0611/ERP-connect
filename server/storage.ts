@@ -71,7 +71,7 @@ export interface IStorage {
   // Documents
   getDocuments(tenantId: string): Promise<any[]>;
   createDocument(doc: DbInsertDocument): Promise<Document>;
-  deleteDocument(id: string): Promise<void>;
+  deleteDocument(id: string, tenantId: string): Promise<boolean>;
 
   // Stats
   getStats(tenantId: string): Promise<any>;
@@ -153,7 +153,7 @@ export interface IStorage {
   getPayments(tenantId: string, type?: string): Promise<any[]>;
   getPayment(id: string): Promise<any | undefined>;
   createPayment(payment: DbInsertPayment): Promise<Payment>;
-  createPaymentAllocation(paymentId: string, invoiceId: string, amount: number, allocationDate: string): Promise<void>;
+  createPaymentAllocation(paymentId: string, invoiceId: string, amount: number, allocationDate: string, tenantId: string): Promise<void>;
 
   // Accounting - Reports
   getTrialBalance(tenantId: string, startDate?: string, endDate?: string): Promise<any>;
@@ -312,8 +312,12 @@ export class DatabaseStorage implements IStorage {
     return d;
   }
 
-  async deleteDocument(id: string): Promise<void> {
-    await db.delete(documents).where(eq(documents.id, id));
+  async deleteDocument(id: string, tenantId: string): Promise<boolean> {
+    const deleted = await db
+      .delete(documents)
+      .where(and(eq(documents.id, id), eq(documents.tenantId, tenantId)))
+      .returning({ id: documents.id });
+    return deleted.length > 0;
   }
 
   // --- Stats ---
@@ -530,6 +534,7 @@ export class DatabaseStorage implements IStorage {
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       taxRate: line.taxRate || "10.00",
+      taxBase: line.subtotal,
       subtotal: line.subtotal,
       taxAmount: line.taxAmount,
       total: line.total
@@ -1028,7 +1033,27 @@ export class DatabaseStorage implements IStorage {
     return newPayment;
   }
 
-  async createPaymentAllocation(paymentId: string, invoiceId: string, amount: number, allocationDate: string): Promise<void> {
+  async createPaymentAllocation(paymentId: string, invoiceId: string, amount: number, allocationDate: string, tenantId: string): Promise<void> {
+    const [payment] = await db
+      .select({ id: payments.id })
+      .from(payments)
+      .where(and(eq(payments.id, paymentId), eq(payments.tenantId, tenantId)))
+      .limit(1);
+
+    if (!payment) {
+      throw new Error("Payment not found");
+    }
+
+    const [invoice] = await db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)))
+      .limit(1);
+
+    if (!invoice) {
+      throw new Error("Invoice not found");
+    }
+
     await db.insert(paymentAllocations).values({
       paymentId,
       invoiceId,

@@ -11,6 +11,12 @@ import { type User } from "@shared/schema";
 
 const scryptAsync = promisify(scrypt);
 const PgSession = connectPg(session);
+type SafeUser = Omit<User, "passwordHash">;
+
+const toSafeUser = (user: User): SafeUser => {
+  const { passwordHash, ...safeUser } = user;
+  return safeUser;
+};
 
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -26,12 +32,20 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  const sessionSecret =
+    process.env.SESSION_SECRET ||
+    (process.env.NODE_ENV === "production" ? undefined : "dev_session_secret");
+
+  if (!sessionSecret) {
+    throw new Error("SESSION_SECRET must be set in production");
+  }
+
   const sessionSettings: session.SessionOptions = {
     store: new PgSession({
       pool,
       createTableIfMissing: true,
     }),
-    secret: process.env.SESSION_SECRET || "erp_secret_key",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -102,7 +116,7 @@ export function setupAuth(app: Express) {
 
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(user);
+        res.status(201).json(toSafeUser(user));
       });
     } catch (err) {
       next(err);
@@ -117,7 +131,7 @@ export function setupAuth(app: Express) {
       }
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(200).json(user);
+        res.status(200).json(toSafeUser(user));
       });
     })(req, res, next);
   });
@@ -131,6 +145,6 @@ export function setupAuth(app: Express) {
 
   app.get("/api/auth/me", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
+    res.json(toSafeUser(req.user as User));
   });
 }

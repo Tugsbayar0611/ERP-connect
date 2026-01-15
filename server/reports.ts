@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, sql, gte, lte } from "drizzle-orm";
+import { eq, and, sql, gte, lte, inArray } from "drizzle-orm";
 import {
   accounts,
   journalEntries,
@@ -44,10 +44,10 @@ export async function getTrialBalance(
     dateConditions.push(sql`${journalEntries.entryDate} <= ${endDate}`);
   }
 
-  // Only posted entries (exclude reversed)
+  // Include posted + reversed entries so reversals net to zero
   const conditions = [
     eq(journalEntries.tenantId, tenantId),
-    eq(journalEntries.status, "posted"),
+    inArray(journalEntries.status, ["posted", "reversed"]),
     ...dateConditions,
   ];
 
@@ -64,12 +64,7 @@ export async function getTrialBalance(
     .from(journalLines)
     .innerJoin(journalEntries, eq(journalLines.entryId, journalEntries.id))
     .innerJoin(accounts, eq(journalLines.accountId, accounts.id))
-    .where(
-      and(
-        ...conditions,
-        sql`${journalEntries.reversedByEntryId} IS NULL` // Exclude reversed entries
-      )
-    )
+    .where(and(...conditions))
     .groupBy(
       journalLines.accountId,
       accounts.code,

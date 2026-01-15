@@ -201,7 +201,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.delete("/api/documents/:id", requireTenant, async (req: any, res) => {
-    await storage.deleteDocument(req.params.id);
+    const deleted = await storage.deleteDocument(req.params.id, req.tenantId);
+    if (!deleted) {
+      return res.status(404).json({ message: "Document not found" });
+    }
     res.sendStatus(200);
   });
 
@@ -392,11 +395,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const data = salesOrderSchema.parse(req.body);
       
       // Generate order number
-      const orderCount = (await storage.getSalesOrders(req.tenantId)).length;
-      const orderNumber = `SO-${new Date().getFullYear()}-${String(orderCount + 1).padStart(4, '0')}`;
+      const { getNextSalesOrderNumber } = await import("./numbering");
+      const orderDate = new Date(data.orderDate);
+      const orderNumber = await getNextSalesOrderNumber(
+        req.tenantId,
+        data.branchId || null,
+        orderDate.getFullYear()
+      );
 
       // Calculate totals
       let subtotal = 0;
+      let taxTotal = 0;
       const lines: DbInsertSalesOrderLine[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
@@ -408,6 +417,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const lineTotal = lineSubtotal + lineTax;
         
         subtotal += lineSubtotal;
+        taxTotal += lineTax;
         
         return {
           tenantId: req.tenantId,
@@ -423,7 +433,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         };
       });
 
-      const taxAmount = subtotal * 0.1; // 10% ХХОАТ
+      const taxAmount = taxTotal;
       const totalAmount = subtotal + taxAmount;
 
       const order = await storage.createSalesOrder({
@@ -490,10 +500,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const data = purchaseOrderSchema.parse(req.body);
       
-      const orderCount = (await storage.getPurchaseOrders(req.tenantId)).length;
-      const orderNumber = `PO-${new Date().getFullYear()}-${String(orderCount + 1).padStart(4, '0')}`;
+      const { getNextPurchaseOrderNumber } = await import("./numbering");
+      const orderDate = new Date(data.orderDate);
+      const orderNumber = await getNextPurchaseOrderNumber(
+        req.tenantId,
+        data.branchId || null,
+        orderDate.getFullYear()
+      );
 
       let subtotal = 0;
+      let taxTotal = 0;
       const lines: DbInsertPurchaseOrderLine[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
@@ -505,6 +521,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const lineTotal = lineSubtotal + lineTax;
         
         subtotal += lineSubtotal;
+        taxTotal += lineTax;
         
         return {
           tenantId: req.tenantId,
@@ -520,7 +537,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         };
       });
 
-      const taxAmount = subtotal * 0.1;
+      const taxAmount = taxTotal;
       const totalAmount = subtotal + taxAmount;
 
       const order = await storage.createPurchaseOrder({
@@ -599,6 +616,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
 
       let subtotal = 0;
+      let taxTotal = 0;
       const lines: DbInsertInvoiceLine[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
@@ -609,6 +627,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const lineTotal = lineSubtotal + lineTax;
         
         subtotal += lineSubtotal;
+        taxTotal += lineTax;
         
         return {
           tenantId: req.tenantId,
@@ -617,13 +636,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           quantity: qty.toString(),
           unitPrice: price.toString(),
           taxRate: taxRate.toString(),
+          taxBase: lineSubtotal.toString(),
           subtotal: lineSubtotal.toString(),
           taxAmount: lineTax.toString(),
           total: lineTotal.toString()
         };
       });
 
-      const taxAmount = subtotal * 0.1;
+      const taxAmount = taxTotal;
       const totalAmount = subtotal + taxAmount;
 
       const invoice = await storage.createInvoice({
@@ -658,6 +678,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/invoices/:id/status", requireTenant, async (req: any, res) => {
     try {
+      const existing = await storage.getInvoice(req.params.id);
+      if (!existing || existing.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
       const { status, paidAmount } = req.body;
       await storage.updateInvoiceStatus(req.params.id, status, paidAmount);
       res.json({ message: "Invoice status updated" });
@@ -670,6 +694,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Odoo-style workflow endpoints
   app.put("/api/sales-orders/:id/confirm", requireTenant, async (req: any, res) => {
     try {
+      const existing = await storage.getSalesOrder(req.params.id);
+      if (!existing || existing.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Sales order not found" });
+      }
       await storage.updateSalesOrderStatus(req.params.id, "confirmed");
       res.json({ message: "Sales order confirmed" });
     } catch (err) {
@@ -680,6 +708,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/sales-orders/:id/send", requireTenant, async (req: any, res) => {
     try {
+      const existing = await storage.getSalesOrder(req.params.id);
+      if (!existing || existing.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Sales order not found" });
+      }
       await storage.updateSalesOrderStatus(req.params.id, "sent");
       res.json({ message: "Sales order sent" });
     } catch (err) {
@@ -690,6 +722,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/sales-orders/:id/create-invoice", requireTenant, async (req: any, res) => {
     try {
+      const existing = await storage.getSalesOrder(req.params.id);
+      if (!existing || existing.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Sales order not found" });
+      }
       const invoice = await storage.createInvoiceFromSalesOrder(req.params.id);
       res.status(201).json(invoice);
     } catch (err) {
@@ -700,6 +736,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/purchase-orders/:id/confirm", requireTenant, async (req: any, res) => {
     try {
+      const existing = await storage.getPurchaseOrder(req.params.id);
+      if (!existing || existing.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
       await storage.updatePurchaseOrderStatus(req.params.id, "confirmed");
       res.json({ message: "Purchase order confirmed" });
     } catch (err) {
@@ -710,6 +750,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/purchase-orders/:id/receive", requireTenant, async (req: any, res) => {
     try {
+      const existing = await storage.getPurchaseOrder(req.params.id);
+      if (!existing || existing.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
       await storage.updatePurchaseOrderStatus(req.params.id, "received");
       res.json({ message: "Purchase order received, stock updated" });
     } catch (err) {
@@ -908,6 +952,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/journal-entries/:id/post", requireTenant, async (req: any, res) => {
     try {
+      const existing = await storage.getJournalEntry(req.params.id);
+      if (!existing || existing.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Journal entry not found" });
+      }
       await storage.updateJournalEntryStatus(req.params.id, "posted", req.user?.id);
       res.json({ message: "Journal entry posted" });
     } catch (err) {
@@ -918,6 +966,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/journal-entries/:id/reverse", requireTenant, async (req: any, res) => {
     try {
+      const existing = await storage.getJournalEntry(req.params.id);
+      if (!existing || existing.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Journal entry not found" });
+      }
       const { entryDate, description } = req.body;
       const reversal = await storage.reverseJournalEntry(
         req.params.id,
@@ -983,8 +1035,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const data = paymentSchema.parse(req.body);
       
       // Generate payment number
-      const paymentCount = (await storage.getPayments(req.tenantId)).length;
-      const paymentNumber = `PAY-${new Date().getFullYear()}-${String(paymentCount + 1).padStart(4, '0')}`;
+      const { getNextPaymentNumber } = await import("./numbering");
+      const paymentDate = new Date(data.paymentDate);
+      const paymentNumber = await getNextPaymentNumber(
+        req.tenantId,
+        null,
+        paymentDate.getFullYear()
+      );
 
       const payment = await storage.createPayment({
         tenantId: req.tenantId,
@@ -1014,7 +1071,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/payments/:id/allocate", requireTenant, async (req: any, res) => {
     try {
       const { invoiceId, amount, allocationDate } = req.body;
-      await storage.createPaymentAllocation(req.params.id, invoiceId, parseFloat(amount), allocationDate);
+      await storage.createPaymentAllocation(req.params.id, invoiceId, parseFloat(amount), allocationDate, req.tenantId);
       res.json({ message: "Payment allocated" });
     } catch (err: any) {
       console.error(err);
@@ -1034,6 +1091,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ message: "modelType and modelId are required" });
       }
 
+      if (modelType === "invoice") {
+        const invoice = await storage.getInvoice(modelId);
+        if (!invoice || invoice.tenantId !== req.tenantId) {
+          return res.status(404).json({ message: "Invoice not found" });
+        }
+      } else if (modelType === "payment") {
+        const payment = await storage.getPayment(modelId);
+        if (!payment || payment.tenantId !== req.tenantId) {
+          return res.status(404).json({ message: "Payment not found" });
+        }
+      }
+
       const preview = await storage.previewPosting(modelType, modelId);
       res.json(preview);
     } catch (err: any) {
@@ -1048,6 +1117,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { modelType, modelId, journalId, entryDate } = req.body;
       if (!modelType || !modelId) {
         return res.status(400).json({ message: "modelType and modelId are required" });
+      }
+
+      if (modelType === "invoice") {
+        const invoice = await storage.getInvoice(modelId);
+        if (!invoice || invoice.tenantId !== req.tenantId) {
+          return res.status(404).json({ message: "Invoice not found" });
+        }
+      } else if (modelType === "payment") {
+        const payment = await storage.getPayment(modelId);
+        if (!payment || payment.tenantId !== req.tenantId) {
+          return res.status(404).json({ message: "Payment not found" });
+        }
       }
 
       const journalEntry = await storage.postDocument(
