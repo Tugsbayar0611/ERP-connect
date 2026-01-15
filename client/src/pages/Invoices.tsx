@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useContacts } from "@/hooks/use-contacts";
 import { useProducts } from "@/hooks/use-products";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,11 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Search, CheckCircle, Trash2, FileText, Eye } from "lucide-react";
+import { Plus, Search, CheckCircle, Trash2, Eye, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { generateInvoicePDF, type InvoicePDFData } from "@/lib/invoice-pdf";
 import {
   Select,
   SelectContent,
@@ -98,6 +100,88 @@ export default function Invoices() {
     invoice: null,
     preview: null,
   });
+  const [pdfGeneratingId, setPdfGeneratingId] = useState<string | null>(null);
+
+  const { data: company } = useQuery({
+    queryKey: ["company"],
+    queryFn: async () => {
+      const res = await fetch("/api/company");
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const toNumber = (value: unknown) => {
+    if (typeof value === "number") return value;
+    const parsed = Number.parseFloat(String(value ?? "0"));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const fetchInvoiceDetail = async (invoiceId: string) => {
+    const res = await fetch(`/api/invoices/${invoiceId}`);
+    if (!res.ok) throw new Error("Нэхэмжлэхийн дэлгэрэнгүй авахад алдаа гарлаа");
+    return res.json();
+  };
+
+  const handleExportPdf = async (invoiceId: string) => {
+    try {
+      setPdfGeneratingId(invoiceId);
+      const detailInvoice = await fetchInvoiceDetail(invoiceId);
+      const contact = contacts.find((c) => c.id === detailInvoice.contactId);
+
+      const pdfData: InvoicePDFData = {
+        invoiceNumber: detailInvoice.invoiceNumber,
+        invoiceDate: detailInvoice.invoiceDate,
+        dueDate: detailInvoice.dueDate,
+        type: detailInvoice.type,
+        status: detailInvoice.status,
+        companyName: company?.name || "Company",
+        companyAddress: company?.address || null,
+        companyPhone: company?.phone || null,
+        companyEmail: company?.email || null,
+        companyRegNo: company?.regNo || null,
+        companyVatNo: company?.vatNo || null,
+        contactName:
+          contact?.companyName ||
+          [contact?.firstName, contact?.lastName].filter(Boolean).join(" ") ||
+          "Customer",
+        contactAddress: contact?.address || null,
+        contactPhone: contact?.phone || contact?.mobile || null,
+        contactEmail: contact?.email || null,
+        contactRegNo: contact?.regNo || null,
+        contactVatNo: contact?.vatNo || null,
+        lines: (detailInvoice.lines || []).map((line: any) => ({
+          description: line.description || "",
+          quantity: toNumber(line.quantity),
+          unitPrice: toNumber(line.unitPrice),
+          taxRate: toNumber(line.taxRate || 10),
+          subtotal: toNumber(line.subtotal),
+          taxAmount: toNumber(line.taxAmount),
+          total: toNumber(line.total),
+        })),
+        subtotal: toNumber(detailInvoice.subtotal),
+        taxAmount: toNumber(detailInvoice.taxAmount),
+        totalAmount: toNumber(detailInvoice.totalAmount),
+        paidAmount: toNumber(detailInvoice.paidAmount),
+        remainingAmount: toNumber(detailInvoice.totalAmount) - toNumber(detailInvoice.paidAmount),
+        notes: detailInvoice.notes,
+        ebarimtQrCode: detailInvoice.ebarimtQrCode,
+        ebarimtReceiptNumber: detailInvoice.ebarimtReceiptNumber,
+        ebarimtDocumentId: detailInvoice.ebarimtDocumentId,
+      };
+
+      await generateInvoicePDF(pdfData);
+      toast({ title: "Амжилттай", description: "PDF файл татагдаж байна..." });
+    } catch (error: any) {
+      toast({
+        title: "Алдаа гарлаа",
+        description: error.message || "PDF үүсгэхэд алдаа гарлаа",
+        variant: "destructive",
+      });
+    } finally {
+      setPdfGeneratingId(null);
+    }
+  };
 
   const form = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
@@ -350,6 +434,16 @@ export default function Invoices() {
                             Preview
                           </Button>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleExportPdf(invoice.id)}
+                          disabled={pdfGeneratingId === invoice.id}
+                          title="PDF export"
+                        >
+                          <Printer className="h-3 w-3 mr-1" />
+                          PDF
+                        </Button>
                         {invoice.status !== "paid" && invoice.status !== "cancelled" && invoice.status !== "posted" && (
                           <Button
                             variant="outline"
