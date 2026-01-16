@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAttendance } from "@/hooks/use-attendance";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, subMonths } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, subMonths, isToday, isWeekend, startOfWeek, endOfWeek } from "date-fns";
+import { mn } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-// Updated imports for new schema
 import type { Employee, InsertAttendanceDay, AttendanceDay } from "@shared/schema";
 import { z } from "zod";
 
@@ -15,26 +15,75 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Plus, 
+  Loader2, 
+  ChevronLeft, 
+  ChevronRight, 
+  Search, 
+  CalendarDays,
+  UserCheck,
+  UserX,
+  Clock,
+  AlertCircle,
+  Calendar,
+  Users,
+  TrendingUp,
+  CheckCircle2,
+  XCircle,
+  Timer,
+  Stethoscope,
+} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-// 1. Form Schema
+// Form Schema
 const attendanceFormSchema = z.object({
   employeeId: z.string().min(1, "Ажилтан сонгоно уу"),
   workDate: z.string().min(1, "Огноо бөглөнө үү"),
   checkIn: z.string().optional(),
   checkOut: z.string().optional(),
   status: z.string().min(1, "Төлөв сонгоно уу"),
-  workHours: z.string().optional(), // We'll convert this to minutesWorked
+  workHours: z.string().optional(),
 });
 
 type AttendanceFormValues = z.infer<typeof attendanceFormSchema>;
+
+// Статус тохиргоо
+const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
+  Present: { 
+    label: "Ирсэн", 
+    color: "bg-emerald-500", 
+    bgColor: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    icon: CheckCircle2,
+  },
+  Absent: { 
+    label: "Ирээгүй", 
+    color: "bg-red-500", 
+    bgColor: "bg-red-100 text-red-700 border-red-200",
+    icon: XCircle,
+  },
+  Late: { 
+    label: "Хоцорсон", 
+    color: "bg-amber-500", 
+    bgColor: "bg-amber-100 text-amber-700 border-amber-200",
+    icon: Timer,
+  },
+  Sick: { 
+    label: "Өвчтэй чөлөө", 
+    color: "bg-blue-500", 
+    bgColor: "bg-blue-100 text-blue-700 border-blue-200",
+    icon: Stethoscope,
+  },
+};
 
 export default function Attendance() {
   const { attendance = [], isLoading, createAttendance } = useAttendance();
   const [open, setOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [search, setSearch] = useState("");
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const { toast } = useToast();
 
   // Ажилчдын жагсаалт
@@ -47,38 +96,49 @@ export default function Attendance() {
     },
   });
 
-  // 2. Form Default Values
+  // Form
   const form = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceFormSchema),
     defaultValues: {
       employeeId: "",
       workDate: format(new Date(), "yyyy-MM-dd"),
-      checkIn: "",
-      checkOut: "",
+      checkIn: "09:00",
+      checkOut: "18:00",
       status: "Present",
       workHours: "8",
     },
   });
 
-  // 3. Submit Handler
+  // Статистик тооцоолол
+  const stats = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    
+    const monthRecords = attendance.filter((rec) => {
+      const date = new Date(rec.workDate);
+      return date >= monthStart && date <= monthEnd;
+    });
+
+    return {
+      present: monthRecords.filter(r => r.status === "Present").length,
+      absent: monthRecords.filter(r => r.status === "Absent").length,
+      late: monthRecords.filter(r => r.status === "Late").length,
+      sick: monthRecords.filter(r => r.status === "Sick").length,
+      totalHours: monthRecords.reduce((acc, r) => acc + (r.minutesWorked || 0), 0) / 60,
+    };
+  }, [attendance, currentMonth]);
+
+  // Submit Handler
   const onSubmit = async (values: AttendanceFormValues) => {
     try {
       const dateOnly = values.workDate;
       const hours = Number(values.workHours) || 0;
 
       const payload: InsertAttendanceDay = {
-        employeeId: values.employeeId, // UUID usually, but schema might expect string
-        // Wait, schema UUIDs are strings. But employeeId in form is string.
-        // If schema expects UUID string, we pass it directly.
-        // But checking previous file, it used Number(values.employeeId).
-        // New schema uses UUIDs, so it should remain string!
-        workDate: dateOnly, // string date
-        checkIn: values.checkIn
-          ? new Date(`${dateOnly}T${values.checkIn}`)
-          : null,
-        checkOut: values.checkOut
-          ? new Date(`${dateOnly}T${values.checkOut}`)
-          : null,
+        employeeId: values.employeeId,
+        workDate: dateOnly,
+        checkIn: values.checkIn ? new Date(`${dateOnly}T${values.checkIn}`) : null,
+        checkOut: values.checkOut ? new Date(`${dateOnly}T${values.checkOut}`) : null,
         status: values.status,
         minutesWorked: Math.round(hours * 60),
         note: "",
@@ -89,10 +149,10 @@ export default function Attendance() {
       toast({ title: "Амжилттай", description: "Ирц амжилттай бүртгэгдлээ." });
       setOpen(false);
       form.reset({
-        ...values,
+        ...form.getValues(),
         employeeId: "",
-        checkIn: "",
-        checkOut: "",
+        checkIn: "09:00",
+        checkOut: "18:00",
       });
     } catch (error: any) {
       console.error(error);
@@ -104,34 +164,13 @@ export default function Attendance() {
     }
   };
 
-  // 4. Календарь тохиргоо (Даваа гаригаас эхлүүлэх)
+  // Календарь тохиргоо
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   let startDayOffset = getDay(monthStart) - 1;
   if (startDayOffset < 0) startDayOffset = 6;
-
-  // Өнгө ба Текст
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Present": return "bg-green-500";
-      case "Absent": return "bg-red-500";
-      case "Late": return "bg-yellow-500";
-      case "Sick": return "bg-blue-500";
-      default: return "bg-gray-400";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "Present": return "Ирсэн";
-      case "Absent": return "Ирээгүй";
-      case "Late": return "Хоцорсон";
-      case "Sick": return "Өвчтэй чөлөө";
-      default: return "Тодорхойгүй";
-    }
-  };
 
   // Өдрийн ирцийн бүртгэлүүд
   const getDayRecords = (date: Date) => {
@@ -142,29 +181,47 @@ export default function Attendance() {
   // Ажилтны нэр олох
   const getEmployeeName = (id: string) => {
     const emp = employees.find(e => e.id === id);
-    return emp ? `${emp.firstName} ${emp.lastName}` : "Unknown";
+    return emp ? `${emp.lastName?.[0] || ""}. ${emp.firstName}` : "Тодорхойгүй";
+  };
+
+  const getEmployeeFullName = (id: string) => {
+    const emp = employees.find(e => e.id === id);
+    return emp ? `${emp.lastName} ${emp.firstName}` : "Тодорхойгүй";
+  };
+
+  // Quick add for today
+  const handleQuickAdd = (day: Date) => {
+    form.setValue("workDate", format(day, "yyyy-MM-dd"));
+    setOpen(true);
   };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Толгой хэсэг */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight font-display">Ирц бүртгэл</h2>
-          <p className="text-muted-foreground mt-1">Ажилчдын ирцийг календараас харах, бүртгэх.</p>
+          <h2 className="text-3xl font-bold tracking-tight font-display bg-gradient-to-r from-primary to-cyan-600 bg-clip-text text-transparent">
+            Ирц бүртгэл
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Ажилчдын ирцийг календараас харах, бүртгэх
+          </p>
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button className="shadow-lg shadow-primary/25 hover:shadow-primary/30">
+            <Button className="shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">
               <Plus className="w-4 h-4 mr-2" />
               Ирц бүртгэх
             </Button>
           </DialogTrigger>
 
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[550px]">
             <DialogHeader>
-              <DialogTitle>Шинэ ирц бүртгэх</DialogTitle>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-primary" />
+                Ирц бүртгэх
+              </DialogTitle>
             </DialogHeader>
 
             <Form {...form}>
@@ -178,14 +235,20 @@ export default function Attendance() {
                       <FormLabel>Ажилтан</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11">
                             <SelectValue placeholder="Ажилтнаа сонгоно уу" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {employees.map((emp) => (
                             <SelectItem key={emp.id} value={emp.id}>
-                              {emp.firstName} {emp.lastName} ({emp.employeeNo})
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                                  {emp.firstName[0]}
+                                </div>
+                                {emp.lastName} {emp.firstName} 
+                                <span className="text-muted-foreground">({emp.employeeNo})</span>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -195,20 +258,53 @@ export default function Attendance() {
                   )}
                 />
 
-                {/* Огноо */}
-                <FormField
-                  control={form.control}
-                  name="workDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Огноо</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} value={field.value} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Огноо + Төлөв */}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="workDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Огноо</FormLabel>
+                        <FormControl>
+                          <Input type="date" className="h-11" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Төлөв</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-11">
+                              <SelectValue placeholder="Сонгох" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {Object.entries(statusConfig).map(([key, config]) => {
+                              const Icon = config.icon;
+                              return (
+                                <SelectItem key={key} value={key}>
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-3 h-3 rounded-full ${config.color}`}></div>
+                                    {config.label}
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 {/* Ирсэн / Явсан цаг */}
                 <div className="grid grid-cols-2 gap-4">
@@ -217,9 +313,12 @@ export default function Attendance() {
                     name="checkIn"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Ирсэн цаг</FormLabel>
+                        <FormLabel className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-emerald-500" />
+                          Ирсэн цаг
+                        </FormLabel>
                         <FormControl>
-                          <Input type="time" {...field} value={field.value} />
+                          <Input type="time" className="h-11" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -230,9 +329,12 @@ export default function Attendance() {
                     name="checkOut"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Явсан цаг</FormLabel>
+                        <FormLabel className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-red-500" />
+                          Явсан цаг
+                        </FormLabel>
                         <FormControl>
-                          <Input type="time" {...field} value={field.value} />
+                          <Input type="time" className="h-11" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -240,56 +342,29 @@ export default function Attendance() {
                   />
                 </div>
 
-                {/* Төлөв */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Төлөв</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Төлөв сонгоно уу" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Present">Ирсэн</SelectItem>
-                            <SelectItem value="Absent">Ирээгүй</SelectItem>
-                            <SelectItem value="Late">Хоцорсон</SelectItem>
-                            <SelectItem value="Sick">Өвчтэй чөлөө</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* Ажилласан цаг */}
+                <FormField
+                  control={form.control}
+                  name="workHours"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ажилласан цаг</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="24"
+                          step="0.5"
+                          className="h-11"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  {/* Ажилласан цаг */}
-                  <FormField
-                    control={form.control}
-                    name="workHours"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ажилласан цаг</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="24"
-                            step="0.5"
-                            {...field}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <Button type="submit" className="w-full" disabled={createAttendance.isPending}>
+                <Button type="submit" className="w-full h-11 text-base" disabled={createAttendance.isPending}>
                   {createAttendance.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -305,119 +380,285 @@ export default function Attendance() {
         </Dialog>
       </div>
 
-      {/* Хайлт */}
+      {/* Статистик картууд */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-500 rounded-lg shadow">
+                <UserCheck className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Ирсэн</p>
+                <p className="text-2xl font-bold text-emerald-600">{stats.present}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/50 dark:to-red-900/30">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-red-500 rounded-lg shadow">
+                <UserX className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Ирээгүй</p>
+                <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/50 dark:to-amber-900/30">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500 rounded-lg shadow">
+                <AlertCircle className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Хоцорсон</p>
+                <p className="text-2xl font-bold text-amber-600">{stats.late}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-500 rounded-lg shadow">
+                <Stethoscope className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Өвчтэй</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.sick}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-950/50 dark:to-violet-900/30">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-violet-500 rounded-lg shadow">
+                <Clock className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Нийт цаг</p>
+                <p className="text-2xl font-bold text-violet-600">{Math.round(stats.totalHours)}ц</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Сар сонгох */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card p-4 rounded-xl border shadow-sm">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           <Search className="w-5 h-5 text-muted-foreground" />
           <Input
-            placeholder="Огноо эсвэл ажилтны нэрээр хайх..."
+            placeholder="Ажилтны нэрээр хайх..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent min-w-[200px]"
           />
         </div>
         <div className="flex items-center gap-4">
-          <h3 className="text-xl font-semibold capitalize min-w-[150px] text-center">
-            {format(currentMonth, "yyyy MMM")}
-          </h3>
-          <div className="flex gap-1">
-            <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setCurrentMonth(new Date())}
+          >
+            Өнөөдөр
+          </Button>
+          <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+            <h3 className="text-base font-semibold min-w-[140px] text-center">
+              {format(currentMonth, "yyyy оны MM-р сар", { locale: mn })}
+            </h3>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Календарь Grid */}
-      <div className="bg-card rounded-xl border shadow-sm p-6 overflow-hidden">
+      {/* Календарь */}
+      <div className="bg-card rounded-xl border shadow-sm p-4 sm:p-6 overflow-hidden">
         {/* Гаригууд */}
-        <div className="grid grid-cols-7 text-center text-sm font-medium text-muted-foreground mb-4">
-          <div>Даваа</div>
-          <div>Мягмар</div>
-          <div>Лхагва</div>
-          <div>Пүрэв</div>
-          <div>Баасан</div>
-          <div className="text-primary font-bold">Бямба</div>
-          <div className="text-primary font-bold">Ням</div>
+        <div className="grid grid-cols-7 text-center text-sm font-medium text-muted-foreground mb-4 gap-2">
+          <div className="py-2">Даваа</div>
+          <div className="py-2">Мягмар</div>
+          <div className="py-2">Лхагва</div>
+          <div className="py-2">Пүрэв</div>
+          <div className="py-2">Баасан</div>
+          <div className="py-2 text-amber-500 font-semibold">Бямба</div>
+          <div className="py-2 text-red-500 font-semibold">Ням</div>
         </div>
 
-        <div className="grid grid-cols-7 gap-3">
-          {Array.from({ length: startDayOffset }, (_, i) => (
-            <div key={`empty-${i}`} className="h-24 sm:h-32 bg-muted/5 rounded-xl border border-transparent" />
-          ))}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+            <p className="text-muted-foreground">Ачааллаж байна...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-7 gap-2">
+            {/* Empty cells for offset */}
+            {Array.from({ length: startDayOffset }, (_, i) => (
+              <div key={`empty-${i}`} className="h-24 sm:h-28 bg-muted/20 rounded-lg" />
+            ))}
 
-          {monthDays.map((day) => {
-            const records = getDayRecords(day);
-            const dayStr = format(day, "yyyy-MM-dd");
-            const matchesSearch = search === "" ||
-              dayStr.includes(search) ||
-              records.some((rec) => {
-                const emp = employees.find((e) => e.id === rec.employeeId);
-                return emp && `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(search.toLowerCase());
-              });
+            {monthDays.map((day) => {
+              const records = getDayRecords(day);
+              const dayStr = format(day, "yyyy-MM-dd");
+              const isWeekendDay = isWeekend(day);
+              const isTodayDay = isToday(day);
+              
+              const matchesSearch = search === "" ||
+                records.some((rec) => {
+                  const emp = employees.find((e) => e.id === rec.employeeId);
+                  return emp && `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(search.toLowerCase());
+                });
 
-            if (!matchesSearch && search !== "") return <div key={day.toString()} className="h-32 hidden" />;
+              if (!matchesSearch && search !== "") return null;
 
-            return (
-              <div
-                key={day.toString()}
-                className={`h-24 sm:h-32 border rounded-xl p-2 flex flex-col gap-2 transition-all hover:shadow-md
-                  ${isSameDay(day, new Date()) ? "border-primary bg-primary/5" : "border-border bg-card"}`}
-              >
-                <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full
-                   ${isSameDay(day, new Date()) ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
-                  {format(day, "d")}
-                </span>
+              return (
+                <div
+                  key={day.toString()}
+                  className={`h-24 sm:h-28 border rounded-lg p-2 flex flex-col gap-1 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer group
+                    ${isTodayDay ? "border-primary bg-primary/5 shadow-md" : "border-border bg-card"}
+                    ${isWeekendDay ? "bg-muted/30" : ""}`}
+                  onClick={() => handleQuickAdd(day)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full transition-colors
+                      ${isTodayDay ? "bg-primary text-primary-foreground" : isWeekendDay ? "text-muted-foreground" : "text-foreground group-hover:bg-muted"}`}>
+                      {format(day, "d")}
+                    </span>
+                    {records.length > 0 && (
+                      <Badge variant="secondary" className="text-xs h-5 px-1.5">
+                        {records.length}
+                      </Badge>
+                    )}
+                  </div>
 
-                <div className="flex flex-wrap content-start gap-1 overflow-y-auto custom-scrollbar">
-                  <TooltipProvider>
-                    {records.map((rec) => (
-                      <Tooltip key={rec.id}>
-                        <TooltipTrigger asChild>
-                          <div
-                            className={`w-3 h-3 rounded-full cursor-pointer ${getStatusColor(rec.status || 'Present')}`}
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="font-bold">{getEmployeeName(rec.employeeId)}</p>
-                          <p className="text-xs">{getStatusText(rec.status || 'Present')} • {(rec.minutesWorked || 0) / 60}h</p>
-                          <p className="text-xs">
-                            {rec.checkIn ? format(new Date(rec.checkIn), "HH:mm") : "-"} -
-                            {rec.checkOut ? format(new Date(rec.checkOut), "HH:mm") : "-"}
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </TooltipProvider>
+                  <div className="flex-1 overflow-hidden">
+                    <div className="flex flex-wrap gap-1">
+                      <TooltipProvider>
+                        {records.slice(0, 4).map((rec) => {
+                          const config = statusConfig[rec.status || "Present"];
+                          return (
+                            <Tooltip key={rec.id}>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className={`w-4 h-4 rounded-full cursor-pointer transition-transform hover:scale-125 ${config?.color || "bg-gray-400"}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent className="p-3">
+                                <p className="font-bold">{getEmployeeFullName(rec.employeeId)}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge className={`text-xs ${config?.bgColor}`}>
+                                    {config?.label}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {(rec.minutesWorked || 0) / 60} цаг
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {rec.checkIn ? format(new Date(rec.checkIn), "HH:mm") : "--:--"} → {rec.checkOut ? format(new Date(rec.checkOut), "HH:mm") : "--:--"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          );
+                        })}
+                        {records.length > 4 && (
+                          <span className="text-xs text-muted-foreground">+{records.length - 4}</span>
+                        )}
+                      </TooltipProvider>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Легенд */}
-      <div className="flex flex-wrap gap-6 justify-center text-sm bg-muted/30 p-4 rounded-lg">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-green-500" />
-          <span>Ирсэн</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-red-500" />
-          <span>Ирээгүй</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-yellow-500" />
-          <span>Хоцорсон</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-blue-500" />
-          <span>Өвчтэй чөлөө</span>
-        </div>
+      <div className="flex flex-wrap gap-6 justify-center text-sm bg-muted/30 p-4 rounded-xl">
+        {Object.entries(statusConfig).map(([key, config]) => (
+          <div key={key} className="flex items-center gap-2">
+            <div className={`w-4 h-4 rounded-full ${config.color} shadow-sm`} />
+            <span className="font-medium">{config.label}</span>
+          </div>
+        ))}
       </div>
+
+      {/* Өнөөдрийн ирц - Жагсаалт */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-primary" />
+            Өнөөдрийн ирц
+            <Badge variant="secondary" className="ml-2">
+              {getDayRecords(new Date()).length} бүртгэл
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {getDayRecords(new Date()).length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>Өнөөдөр ирц бүртгэгдээгүй байна</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-3"
+                onClick={() => {
+                  form.setValue("workDate", format(new Date(), "yyyy-MM-dd"));
+                  setOpen(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Ирц бүртгэх
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {getDayRecords(new Date()).map((rec) => {
+                const config = statusConfig[rec.status || "Present"];
+                return (
+                  <div key={rec.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
+                        {getEmployeeName(rec.employeeId).charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium">{getEmployeeFullName(rec.employeeId)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {rec.checkIn ? format(new Date(rec.checkIn), "HH:mm") : "--:--"} → {rec.checkOut ? format(new Date(rec.checkOut), "HH:mm") : "--:--"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">
+                        {(rec.minutesWorked || 0) / 60} цаг
+                      </span>
+                      <Badge className={`${config?.bgColor} border`}>
+                        {config?.label}
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
