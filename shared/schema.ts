@@ -153,23 +153,59 @@ export const employees = pgTable("employees", {
   employeeNo: text("employee_no"),
   firstName: text("first_name").notNull(),
   lastName: text("last_name"),
-  gender: text("gender"),
+  gender: text("gender"), // male/female
   birthDate: date("birth_date"),
   phone: text("phone"),
   email: text("email"),
+  
+  // ==========================================
+  // Монголын онцлог талбарууд (Mongolian-specific fields)
+  // ==========================================
+  registerNumber: text("register_number"), // Регистрийн дугаар (2 үсэг + 8 тоо, e.g., УБ12345678)
+  socialInsuranceNo: text("social_insurance_no"), // НДШ-ийн дугаар (Social Insurance Number)
+  position: text("position"), // Албан тушаал (Job Title/Position)
+  
+  // Гэрээний мэдээлэл
+  contractType: text("contract_type").default("permanent"), // permanent/temporary/probation/contract
+  contractStartDate: date("contract_start_date"), // Гэрээ эхэлсэн огноо
+  contractEndDate: date("contract_end_date"), // Гэрээ дуусах огноо (Түр гэрээний хувьд)
+  probationEndDate: date("probation_end_date"), // Туршилтын хугацаа дуусах огноо
+  
+  // Хаяг
+  address: text("address"), // Гэрийн хаяг
+  city: text("city"), // Хот/Аймаг
+  district: text("district"), // Дүүрэг/Сум
+  
+  // Нэмэлт мэдээлэл
+  maritalStatus: text("marital_status"), // single/married/divorced/widowed
+  education: text("education"), // Боловсрол (high_school/bachelor/master/phd)
+  
+  // Яаралтай үед холбогдох хүн
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  emergencyContactRelation: text("emergency_contact_relation"), // Хамаатан (spouse/parent/sibling/other)
 
   hireDate: date("hire_date").notNull(),
   terminationDate: date("termination_date"),
-  status: text("status").notNull().default("active"),
+  terminationReason: text("termination_reason"), // Ажлаас гарсан шалтгаан
+  status: text("status").notNull().default("active"), // active/inactive/on_leave/terminated
 
   baseSalary: numeric("base_salary", { precision: 14, scale: 2 }).notNull().default("0"),
   payFrequency: text("pay_frequency").notNull().default("monthly"),
-  bankAccount: text("bank_account"),
+  bankName: text("bank_name"), // Банкны нэр
+  bankAccount: text("bank_account"), // Банкны данс
+
+  // Зураг
+  photoUrl: text("photo_url"),
+  
+  // Тайлбар
+  notes: text("notes"),
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({
   unqEmp: uniqueIndex("emp_tenant_no_idx").on(t.tenantId, t.employeeNo),
+  unqRegNo: uniqueIndex("emp_tenant_regno_idx").on(t.tenantId, t.registerNumber),
 }));
 
 // ==========================================

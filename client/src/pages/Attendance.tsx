@@ -55,7 +55,7 @@ export default function Attendance() {
       workDate: format(new Date(), "yyyy-MM-dd"),
       checkIn: "",
       checkOut: "",
-      status: "Present",
+      status: "present",
       workHours: "8",
     },
   });
@@ -112,25 +112,29 @@ export default function Attendance() {
   let startDayOffset = getDay(monthStart) - 1;
   if (startDayOffset < 0) startDayOffset = 6;
 
-  // Өнгө ба Текст
+  // Өнгө ба Текст - Монголын ирцийн төлөв
+  const ATTENDANCE_STATUS = {
+    present: { color: "bg-green-500", label: "Ирсэн", icon: "check" },
+    absent: { color: "bg-red-500", label: "Ирээгүй", icon: "x" },
+    late: { color: "bg-yellow-500", label: "Хоцорсон", icon: "clock" },
+    sick: { color: "bg-blue-500", label: "Өвчтэй чөлөө", icon: "heart" },
+    vacation: { color: "bg-purple-500", label: "Ээлжийн амралт", icon: "sun" },
+    business_trip: { color: "bg-cyan-500", label: "Томилолт", icon: "plane" },
+    remote: { color: "bg-indigo-500", label: "Зайнаас ажил", icon: "home" },
+    half_day: { color: "bg-orange-500", label: "Хагас өдөр", icon: "half" },
+    // Legacy support for old status values
+    Present: { color: "bg-green-500", label: "Ирсэн", icon: "check" },
+    Absent: { color: "bg-red-500", label: "Ирээгүй", icon: "x" },
+    Late: { color: "bg-yellow-500", label: "Хоцорсон", icon: "clock" },
+    Sick: { color: "bg-blue-500", label: "Өвчтэй чөлөө", icon: "heart" },
+  };
+
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Present": return "bg-green-500";
-      case "Absent": return "bg-red-500";
-      case "Late": return "bg-yellow-500";
-      case "Sick": return "bg-blue-500";
-      default: return "bg-gray-400";
-    }
+    return ATTENDANCE_STATUS[status as keyof typeof ATTENDANCE_STATUS]?.color || "bg-gray-400";
   };
 
   const getStatusText = (status: string) => {
-    switch (status) {
-      case "Present": return "Ирсэн";
-      case "Absent": return "Ирээгүй";
-      case "Late": return "Хоцорсон";
-      case "Sick": return "Өвчтэй чөлөө";
-      default: return "Тодорхойгүй";
-    }
+    return ATTENDANCE_STATUS[status as keyof typeof ATTENDANCE_STATUS]?.label || "Тодорхойгүй";
   };
 
   // Өдрийн ирцийн бүртгэлүүд
@@ -255,10 +259,14 @@ export default function Attendance() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="Present">Ирсэн</SelectItem>
-                            <SelectItem value="Absent">Ирээгүй</SelectItem>
-                            <SelectItem value="Late">Хоцорсон</SelectItem>
-                            <SelectItem value="Sick">Өвчтэй чөлөө</SelectItem>
+                            <SelectItem value="present">Ирсэн</SelectItem>
+                            <SelectItem value="absent">Ирээгүй</SelectItem>
+                            <SelectItem value="late">Хоцорсон</SelectItem>
+                            <SelectItem value="sick">Өвчтэй чөлөө</SelectItem>
+                            <SelectItem value="vacation">Ээлжийн амралт</SelectItem>
+                            <SelectItem value="business_trip">Томилолт</SelectItem>
+                            <SelectItem value="remote">Зайнаас ажил</SelectItem>
+                            <SelectItem value="half_day">Хагас өдөр</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -400,7 +408,7 @@ export default function Attendance() {
       </div>
 
       {/* Легенд */}
-      <div className="flex flex-wrap gap-6 justify-center text-sm bg-muted/30 p-4 rounded-lg">
+      <div className="flex flex-wrap gap-4 justify-center text-sm bg-muted/30 p-4 rounded-lg">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-green-500" />
           <span>Ирсэн</span>
@@ -415,7 +423,23 @@ export default function Attendance() {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-blue-500" />
-          <span>Өвчтэй чөлөө</span>
+          <span>Өвчтэй</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-purple-500" />
+          <span>Амралт</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-cyan-500" />
+          <span>Томилолт</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-indigo-500" />
+          <span>Зайнаас</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-orange-500" />
+          <span>Хагас өдөр</span>
         </div>
       </div>
     </div>
