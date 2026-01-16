@@ -1116,5 +1116,378 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ==========================================
+  // e-BARIMT API (Цахим Баримт)
+  // ==========================================
+
+  app.post("/api/ebarimt/register", requireTenant, async (req: any, res) => {
+    try {
+      const { invoiceId } = req.body;
+      if (!invoiceId) {
+        return res.status(400).json({ message: "invoiceId шаардлагатай" });
+      }
+
+      const { ebarimt, convertToEBarimtInvoice } = await import("./ebarimt");
+      
+      // Get invoice with lines
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice || invoice.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Нэхэмжлэх олдсонгүй" });
+      }
+
+      // Convert to e-Barimt format
+      const ebarimtInvoice = convertToEBarimtInvoice(invoice, invoice.lines || []);
+      
+      // Register with e-Barimt
+      const result = await ebarimt.registerInvoice(ebarimtInvoice);
+      
+      if (result.success) {
+        // Update invoice with e-Barimt info
+        await storage.updateInvoiceEbarimt(invoiceId, {
+          qrCode: result.qrData,
+          ebarimtBillId: result.billId,
+          ebarimtLottery: result.lottery,
+        });
+      }
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("[e-Barimt] Error:", err);
+      res.status(500).json({ message: err.message || "e-Barimt алдаа" });
+    }
+  });
+
+  app.post("/api/ebarimt/cancel", requireTenant, async (req: any, res) => {
+    try {
+      const { billId, returnAmount } = req.body;
+      if (!billId) {
+        return res.status(400).json({ message: "billId шаардлагатай" });
+      }
+
+      const { ebarimt } = await import("./ebarimt");
+      const result = await ebarimt.cancelInvoice(billId, returnAmount || 0);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[e-Barimt] Cancel error:", err);
+      res.status(500).json({ message: err.message || "e-Barimt цуцлах алдаа" });
+    }
+  });
+
+  app.get("/api/ebarimt/organization/:tin", requireTenant, async (req: any, res) => {
+    try {
+      const { ebarimt } = await import("./ebarimt");
+      const result = await ebarimt.getOrganizationByTin(req.params.tin);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ==========================================
+  // QPAY API (QR Төлбөр)
+  // ==========================================
+
+  app.post("/api/qpay/create-invoice", requireTenant, async (req: any, res) => {
+    try {
+      const { invoiceId } = req.body;
+      if (!invoiceId) {
+        return res.status(400).json({ message: "invoiceId шаардлагатай" });
+      }
+
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice || invoice.tenantId !== req.tenantId) {
+        return res.status(404).json({ message: "Нэхэмжлэх олдсонгүй" });
+      }
+
+      const { qpay } = await import("./qpay");
+      const result = await qpay.createInvoice({
+        invoiceNo: invoice.invoiceNumber,
+        senderInvoiceNo: invoice.invoiceNumber,
+        invoiceDescription: `Нэхэмжлэх: ${invoice.invoiceNumber}`,
+        amount: parseFloat(invoice.totalAmount),
+      });
+
+      if (result.success) {
+        // Update invoice with QPay info
+        await storage.updateInvoiceQPay(invoiceId, {
+          qpayInvoiceId: result.invoiceId,
+          qpayQrText: result.qrText,
+          qpayShortUrl: result.qPayShortUrl,
+        });
+      }
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("[QPay] Error:", err);
+      res.status(500).json({ message: err.message || "QPay алдаа" });
+    }
+  });
+
+  app.post("/api/qpay/check-payment", requireTenant, async (req: any, res) => {
+    try {
+      const { qpayInvoiceId } = req.body;
+      if (!qpayInvoiceId) {
+        return res.status(400).json({ message: "qpayInvoiceId шаардлагатай" });
+      }
+
+      const { qpay } = await import("./qpay");
+      const result = await qpay.checkPayment(qpayInvoiceId);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/qpay/callback", async (req: any, res) => {
+    try {
+      const { qpay } = await import("./qpay");
+      const result = await qpay.handleCallback(req.body);
+      
+      if (result.success) {
+        // TODO: Update invoice payment status based on callback
+        console.log("[QPay] Callback processed:", result);
+      }
+      
+      res.json(result);
+    } catch (err: any) {
+      console.error("[QPay] Callback error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ==========================================
+  // VAT REPORT API (НӨАТ Тайлан)
+  // ==========================================
+
+  app.get("/api/reports/vat", requireTenant, async (req: any, res) => {
+    try {
+      const { startDate, endDate, reportType } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate, endDate шаардлагатай" });
+      }
+
+      const { generateVATReport } = await import("./vat-report");
+      const report = await generateVATReport(
+        req.tenantId,
+        startDate as string,
+        endDate as string,
+        (reportType as any) || 'monthly'
+      );
+      
+      res.json(report);
+    } catch (err: any) {
+      console.error("[VAT Report] Error:", err);
+      res.status(500).json({ message: err.message || "НӨАТ тайлан үүсгэх алдаа" });
+    }
+  });
+
+  app.get("/api/reports/vat/export", requireTenant, async (req: any, res) => {
+    try {
+      const { startDate, endDate, format } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate, endDate шаардлагатай" });
+      }
+
+      const { generateVATReport, exportVATReportToExcel, formatForTaxAuthority } = await import("./vat-report");
+      const report = await generateVATReport(
+        req.tenantId,
+        startDate as string,
+        endDate as string
+      );
+      
+      if (format === 'tax-authority') {
+        res.json(formatForTaxAuthority(report));
+      } else {
+        res.json(exportVATReportToExcel(report));
+      }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/reports/vat/validate", requireTenant, async (req: any, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate, endDate шаардлагатай" });
+      }
+
+      const { validateVATWithJournal } = await import("./vat-report");
+      const result = await validateVATWithJournal(
+        req.tenantId,
+        startDate as string,
+        endDate as string
+      );
+      
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ==========================================
+  // PAYROLL API (Цалин - Монголын хууль)
+  // ==========================================
+
+  app.post("/api/payroll/calculate", requireTenant, async (req: any, res) => {
+    try {
+      const { calculatePayroll, generateEarningsBreakdown, generateDeductionsBreakdown } = await import("./mn-payroll");
+      
+      const result = calculatePayroll(req.body);
+      
+      res.json({
+        ...result,
+        earnings: generateEarningsBreakdown(result),
+        deductionDetails: generateDeductionsBreakdown(result),
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Цалин бодох алдаа" });
+    }
+  });
+
+  app.post("/api/payroll/run-batch", requireTenant, async (req: any, res) => {
+    try {
+      const { employeeIds, periodStart, periodEnd, payDate } = req.body;
+      
+      if (!employeeIds || !periodStart || !periodEnd) {
+        return res.status(400).json({ message: "employeeIds, periodStart, periodEnd шаардлагатай" });
+      }
+
+      const { calculatePayroll, generateMonthlyReport } = await import("./mn-payroll");
+      
+      // Get employees
+      const employees = await storage.getEmployees(req.tenantId);
+      const selectedEmployees = employees.filter((e: any) => employeeIds.includes(e.id));
+      
+      // Calculate payroll for each employee
+      const results = selectedEmployees.map((emp: any) => {
+        const result = calculatePayroll({
+          baseSalary: parseFloat(emp.baseSalary || '0'),
+        });
+        
+        return {
+          employeeId: emp.id,
+          employeeName: `${emp.firstName} ${emp.lastName || ''}`,
+          result,
+        };
+      });
+
+      // Generate report
+      const report = generateMonthlyReport(`${periodStart} - ${periodEnd}`, results);
+      
+      res.json(report);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Цалин бодох алдаа" });
+    }
+  });
+
+  // ==========================================
+  // BANK IMPORT API (Банкны хуулга импорт)
+  // ==========================================
+
+  app.get("/api/bank-import/formats", requireTenant, async (_req: any, res) => {
+    const { BANK_FORMATS } = await import("./bank-import");
+    res.json(Object.values(BANK_FORMATS));
+  });
+
+  app.post("/api/bank-import/parse", requireTenant, async (req: any, res) => {
+    try {
+      const { data, bankCode, customFormat } = req.body;
+      
+      if (!data || !Array.isArray(data)) {
+        return res.status(400).json({ message: "data (2D array) шаардлагатай" });
+      }
+
+      const { parseBankStatement, detectBankFormat } = await import("./bank-import");
+      
+      const detectedBank = bankCode || detectBankFormat(data);
+      const result = parseBankStatement(data, detectedBank, customFormat);
+      
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Банкны хуулга унших алдаа" });
+    }
+  });
+
+  app.post("/api/bank-import/suggest-reconciliation", requireTenant, async (req: any, res) => {
+    try {
+      const { lines } = req.body;
+      
+      if (!lines || !Array.isArray(lines)) {
+        return res.status(400).json({ message: "lines шаардлагатай" });
+      }
+
+      const { suggestReconciliations } = await import("./bank-import");
+      
+      // Get invoices and payments for matching
+      const invoices = await storage.getInvoices(req.tenantId);
+      const payments = await storage.getPayments(req.tenantId);
+      
+      const suggestions = suggestReconciliations(
+        lines,
+        invoices.map((inv: any) => ({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          totalAmount: inv.totalAmount,
+          contactName: inv.contact?.companyName || inv.contact?.firstName || '',
+        })),
+        payments.map((pay: any) => ({
+          id: pay.id,
+          paymentNumber: pay.paymentNumber,
+          amount: pay.amount,
+          reference: pay.reference,
+        }))
+      );
+      
+      res.json(suggestions);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/bank-import/import", requireTenant, async (req: any, res) => {
+    try {
+      const { bankAccountId, statementDate, openingBalance, closingBalance, lines } = req.body;
+      
+      if (!bankAccountId || !lines || lines.length === 0) {
+        return res.status(400).json({ message: "bankAccountId, lines шаардлагатай" });
+      }
+
+      // Create bank statement
+      const statement = await storage.createBankStatement({
+        tenantId: req.tenantId,
+        bankAccountId,
+        statementDate: statementDate || new Date().toISOString().split('T')[0],
+        openingBalance: openingBalance?.toString() || '0',
+        closingBalance: closingBalance?.toString() || '0',
+        importedBy: req.user?.id,
+      });
+
+      // Create statement lines
+      for (const line of lines) {
+        await storage.createBankStatementLine({
+          statementId: statement.id,
+          date: line.date,
+          description: line.description,
+          debit: line.debit?.toString() || '0',
+          credit: line.credit?.toString() || '0',
+          balance: line.balance?.toString() || '0',
+          reference: line.reference,
+          reconciled: false,
+        });
+      }
+
+      res.status(201).json({
+        message: `${lines.length} мөр амжилттай импортлолоо`,
+        statementId: statement.id,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Банкны хуулга импортлох алдаа" });
+    }
+  });
+
   return httpServer;
 }

@@ -1049,6 +1049,135 @@ export class DatabaseStorage implements IStorage {
   async getProfitAndLoss(tenantId: string, startDate?: string, endDate?: string): Promise<any> {
     return await getProfitAndLoss(tenantId, startDate, endDate);
   }
+
+  // --- e-Barimt & QPay ---
+  async updateInvoiceEbarimt(invoiceId: string, data: {
+    qrCode?: string;
+    ebarimtBillId?: string;
+    ebarimtLottery?: string;
+  }): Promise<void> {
+    await db.update(invoices)
+      .set({ 
+        qrCode: data.qrCode,
+        // Store eBarimt info in qrCode field for now
+        // In production, add dedicated columns
+      })
+      .where(eq(invoices.id, invoiceId));
+  }
+
+  async updateInvoiceQPay(invoiceId: string, data: {
+    qpayInvoiceId?: string;
+    qpayQrText?: string;
+    qpayShortUrl?: string;
+  }): Promise<void> {
+    await db.update(invoices)
+      .set({ 
+        qrCode: data.qpayQrText,
+        // Store QPay info in qrCode field for now
+        // In production, add dedicated columns
+      })
+      .where(eq(invoices.id, invoiceId));
+  }
+
+  // --- Bank Statements ---
+  async createBankStatement(data: {
+    tenantId: string;
+    bankAccountId: string;
+    statementDate: string;
+    openingBalance: string;
+    closingBalance: string;
+    importedBy?: string;
+  }): Promise<any> {
+    const [statement] = await db.insert(bankStatements).values({
+      tenantId: data.tenantId,
+      bankAccountId: data.bankAccountId,
+      statementDate: data.statementDate,
+      openingBalance: data.openingBalance,
+      closingBalance: data.closingBalance,
+      importedBy: data.importedBy,
+    } as any).returning();
+    return statement;
+  }
+
+  async createBankStatementLine(data: {
+    statementId: string;
+    date: string;
+    description: string;
+    debit: string;
+    credit: string;
+    balance: string;
+    reference?: string;
+    reconciled: boolean;
+  }): Promise<any> {
+    const [line] = await db.insert(bankStatementLines).values({
+      statementId: data.statementId,
+      date: data.date,
+      description: data.description,
+      debit: data.debit,
+      credit: data.credit,
+      balance: data.balance,
+      reference: data.reference,
+      reconciled: data.reconciled,
+    } as any).returning();
+    return line;
+  }
+
+  async getBankStatements(tenantId: string, bankAccountId?: string): Promise<any[]> {
+    let query = db.select({
+      statement: bankStatements,
+      bankAccount: bankAccounts,
+    })
+      .from(bankStatements)
+      .leftJoin(bankAccounts, eq(bankStatements.bankAccountId, bankAccounts.id))
+      .where(eq(bankStatements.tenantId, tenantId))
+      .orderBy(desc(bankStatements.statementDate));
+
+    if (bankAccountId) {
+      query = query.where(and(
+        eq(bankStatements.tenantId, tenantId),
+        eq(bankStatements.bankAccountId, bankAccountId)
+      )) as any;
+    }
+
+    return await query;
+  }
+
+  async getBankStatementLines(statementId: string): Promise<any[]> {
+    return await db.select()
+      .from(bankStatementLines)
+      .where(eq(bankStatementLines.statementId, statementId))
+      .orderBy(bankStatementLines.date);
+  }
+
+  // --- Bank Accounts ---
+  async getBankAccounts(tenantId: string): Promise<any[]> {
+    return await db.select({
+      bankAccount: bankAccounts,
+      glAccount: accounts,
+    })
+      .from(bankAccounts)
+      .leftJoin(accounts, eq(bankAccounts.accountId, accounts.id))
+      .where(eq(bankAccounts.tenantId, tenantId));
+  }
+
+  async createBankAccount(data: {
+    tenantId: string;
+    accountNumber: string;
+    bankName: string;
+    currencyId?: string;
+    accountId?: string;
+  }): Promise<any> {
+    const [account] = await db.insert(bankAccounts).values({
+      tenantId: data.tenantId,
+      accountNumber: data.accountNumber,
+      bankName: data.bankName,
+      currencyId: data.currencyId,
+      accountId: data.accountId,
+      balance: '0',
+      isActive: true,
+    } as any).returning();
+    return account;
+  }
 }
 
 export const storage = new DatabaseStorage();
