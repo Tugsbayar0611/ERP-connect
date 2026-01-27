@@ -1,0 +1,47 @@
+Starting Test...
+Admin Found: ecfd1165-5fe2-487e-af1c-2a2537eb2240
+Testing getUserRoles...
+User Roles Count: 1
+- Role: Admin (System)
+Testing getUserPermissions...
+User Permissions Count: 38
+- Perm: contacts.delete
+- Perm: account.create
+- Perm: invoices.delete
+- Perm: contacts.create
+- Perm: contacts.view
+- Perm: sales_orders.delete
+- Perm: inventory.delete
+- Perm: inventory.view
+- Perm: roles.delete
+- Perm: inventory.edit
+- Perm: roles.edit
+- Perm: users.delete
+- Perm: users.create
+- Perm: invoices.edit
+- Perm: invoices.view
+- Perm: users.edit
+- Perm: contacts.edit
+- Perm: invoices.create
+- Perm: account.update
+- Perm: account.view
+- Perm: products.edit
+- Perm: roles.view
+- Perm: purchase_orders.view
+- Perm: products.create
+- Perm: sales_orders.view
+- Perm: inventory.create
+- Perm: settings.view
+- Perm: roles.create
+- Perm: products.view
+- Perm: settings.edit
+- Perm: products.delete
+- Perm: reports.view
+- Perm: users.view
+- Perm: purchase_orders.edit
+- Perm: sales_orders.edit
+- Perm: purchase_orders.delete
+- Perm: purchase_orders.create
+- Perm: sales_orders.create
+Testing createRole...
+Role Created: 2821f91b-d020-4fb1-aa1f-0399635cbcb3 - Unit_Test_Role_1769056476602

@@ -1,0 +1,53 @@
+Checking Tenants, Users, and Roles...
+
+Tenants Count: 5
+Tenant: My Organization (27f8e5ec-1819-4014-b637-fac2b561473d)
+Tenant: Test Company (b06cd86d-d88f-46ac-864c-77aec861f18c)
+Tenant: mtt (b380d9ad-f067-4e84-b714-ce3317c30589)
+Tenant: Демо Байгууллага ХХК (76759f7e-09cb-4767-bc77-e07f9015ef85)
+Tenant: mtc (1f636d44-16e5-4eb6-b6c2-0eca765cefc3)
+
+Users Count: 13
+- User: viewer_test (505ed0cc-6eca-4c3a-9c49-99789ab9505d) | Tenant: b06cd86d-d88f-46ac-864c-77aec861f18c
+- User: admin@demo.erp.mn (b9234e4b-38ad-4bf7-a64e-30b517e4630b) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85
+- User: tugst83@gmail.com (78d1586f-30be-4be2-8944-befb6dc49a63) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d
+- User: tugs.tb@gmail.com (a804c058-e959-4191-b042-b8e72b325b79) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d
+- User: tugs.tb@gmail.com (61893bdd-9106-4cdc-85af-04dab84b48b9) | Tenant: b380d9ad-f067-4e84-b714-ce3317c30589
+- User: manager@demo.erp.mn (ac6f98d5-5191-4def-936d-1ab662f1b47d) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85
+- User: accountant@demo.erp.mn (d7ff76d8-af7d-4ab9-bd7c-a8af190949ee) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85
+- User: sales@demo.erp.mn (02b5619d-dd6e-4685-b477-8a5d83501952) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85
+- User: hr@demo.erp.mn (87b486b0-f3ac-418f-949c-1d9dd22340dd) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85
+- User: tugsoo@gmail.com (8ae619d5-97bd-416e-97b3-c87ef3f962f2) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d
+- User: admin (ecfd1165-5fe2-487e-af1c-2a2537eb2240) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d
+- User: huhu (c0128df9-0bcd-4008-a692-d8866ad12e23) | Tenant: 1f636d44-16e5-4eb6-b6c2-0eca765cefc3
+- User: dept-manager-test-1768673362632@test.com (f96a2da2-8aa8-4755-bda0-2d5e4b566b26) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d
+
+Roles Count: 28
+- Role: Нягтлан (c8228be1-d56e-4d86-8c16-dac67d64bc57) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d | System: true
+- Role: HR (e1c33038-9513-4139-b34a-7f4e00a288da) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d | System: true
+- Role: Борлуулалт (ab076885-26dc-420e-bc0e-a40ba1a3a872) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d | System: true
+- Role: Агуулахын ажилтан (eeb247d5-9216-4009-b9ad-011cb8958767) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d | System: true
+- Role: Viewer (e6ddd980-6caa-436f-8bf0-5e199db9ab23) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d | System: true
+- Role: Test Role (f107973d-84fa-47f8-924b-662a9297a58f) | Tenant: b06cd86d-d88f-46ac-864c-77aec861f18c | System: false
+- Role: Admin (b325f07f-228e-4b89-a967-bb06be0de68e) | Tenant: b06cd86d-d88f-46ac-864c-77aec861f18c | System: true
+- Role: Нягтлан (829ddfc4-9f1e-42bb-b9c5-9c1f0526059e) | Tenant: b06cd86d-d88f-46ac-864c-77aec861f18c | System: true
+- Role: HR (5e7831d1-c9f6-4a00-8f4f-82ae41640a67) | Tenant: b06cd86d-d88f-46ac-864c-77aec861f18c | System: true
+- Role: Борлуулалт (8e529c5f-b78a-484b-a7ea-44909cf014c2) | Tenant: b06cd86d-d88f-46ac-864c-77aec861f18c | System: true
+- Role: Агуулахын ажилтан (7f88e9a2-f46f-41cd-81b9-97110997a6a4) | Tenant: b06cd86d-d88f-46ac-864c-77aec861f18c | System: true
+- Role: Viewer (22284dd0-b0f6-43e1-8e23-fbf6b620adeb) | Tenant: b06cd86d-d88f-46ac-864c-77aec861f18c | System: true
+- Role: Admin (1aeb16fd-de72-42a5-a86e-f90d3fa2fcba) | Tenant: b380d9ad-f067-4e84-b714-ce3317c30589 | System: true
+- Role: Нягтлан (407b6362-c192-4217-bb48-41ad4cd73318) | Tenant: b380d9ad-f067-4e84-b714-ce3317c30589 | System: true
+- Role: HR (8d0ed2c0-be18-440c-a6e4-80e504784b0d) | Tenant: b380d9ad-f067-4e84-b714-ce3317c30589 | System: true
+- Role: Борлуулалт (ae638a7f-0386-4d14-b2e7-24bef1902728) | Tenant: b380d9ad-f067-4e84-b714-ce3317c30589 | System: true
+- Role: Агуулахын ажилтан (7ca8c2ce-d2ad-44f3-8146-179b52fc4174) | Tenant: b380d9ad-f067-4e84-b714-ce3317c30589 | System: true
+- Role: Viewer (0d4f1acb-0145-46b5-bccb-b684c0f3a512) | Tenant: b380d9ad-f067-4e84-b714-ce3317c30589 | System: true
+- Role: Admin (78f48012-a545-443a-b5f2-7087b393a820) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85 | System: true
+- Role: Нягтлан (95d21492-86c7-40e9-a9da-f5f61f2c6c8c) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85 | System: true
+- Role: HR (690cb2a1-6a83-4cf6-a550-ba3510b4e903) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85 | System: true
+- Role: Борлуулалт (96350746-d0af-4d8e-9454-da5ef3cb732e) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85 | System: true
+- Role: Агуулахын ажилтан (3af9370f-5e0e-4837-a953-69f19a7e1798) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85 | System: true
+- Role: Viewer (b243ec6a-987b-496e-8f68-8509c890f78c) | Tenant: 76759f7e-09cb-4767-bc77-e07f9015ef85 | System: true
+- Role: Admin (bb8d39fb-8e77-46df-ada8-a41823485453) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d | System: true
+- Role: Manager (eaa8065e-5402-4bdf-a860-3438d3f431e4) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d | System: true
+- Role: User (59fa5a8e-81cf-4e14-adef-a6e0be4d02ab) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d | System: true
+- Role: TestRole_Repro (50ab3775-36e6-4d71-8b50-0e210542507f) | Tenant: 27f8e5ec-1819-4014-b637-fac2b561473d | System: false

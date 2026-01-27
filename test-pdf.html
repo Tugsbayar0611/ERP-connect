@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Invoice Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 PDF Invoice Generator Test</h1>
+        
+        <div class="info">
+            <strong>Тест хийх заавар:</strong><br>
+            1. "Test PDF Generation" товч дарах<br>
+            2. PDF файл автоматаар татагдана<br>
+            3. PDF-ийг нээж формат, текст давхарлалтгүй эсэхийг шалгах
+        </div>
+
+        <button onclick="testBasicPDF()">Test 1: Basic PDF (Энгийн PDF)</button>
+        <button onclick="testWithEBarimt()">Test 2: PDF with E-barimt (И-баримттай)</button>
+        <button onclick="testWithNotes()">Test 3: PDF with Notes (Тэмдэглэлтэй)</button>
+        <button onclick="testFullInvoice()">Test 4: Full Invoice (Бүрэн нэхэмжлэх)</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Mock date-fns format function
+        const format = (date, formatStr) => {
+            const d = new Date(date);
+            if (formatStr === 'yyyy-MM-dd') {
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            }
+            return d.toLocaleString('mn-MN');
+        };
+
+        // Simplified version of invoice-pdf.ts for testing
+        function generateInvoicePDF(data) {
+            return new Promise((resolve, reject) => {
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({
+                        orientation: "portrait",
+                        unit: "mm",
+                        format: "a4",
+                    });
+
+                    // Helper function to render Mongolian text
+                    const renderMongolianText = (text, x, y, fontSize, isBold = false) => {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) {
+                                doc.setFontSize(fontSize);
+                                doc.setFont(isBold ? "helvetica" : "helvetica", isBold ? "bold" : "normal");
+                                doc.text(text, x, y);
+                                return fontSize * 0.4;
+                            }
+                            
+                            ctx.font = `${isBold ? 'bold' : 'normal'} ${fontSize * 2.83}px Arial, "Noto Sans", "Microsoft Sans Serif", sans-serif`;
+                            const metrics = ctx.measureText(text);
+                            canvas.width = Math.ceil(metrics.width) + 20;
+                            canvas.height = fontSize * 4;
+                            
+                            ctx.fillStyle = '#000000';
+                            ctx.font = `${isBold ? 'bold' : 'normal'} ${fontSize * 2.83}px Arial, "Noto Sans", "Microsoft Sans Serif", sans-serif`;
+                            ctx.textBaseline = 'top';
+                            ctx.fillText(text, 10, 5);
+                            
+                            const imgData = canvas.toDataURL('image/png');
+                            const imgWidth = (canvas.width * 0.264583);
+                            const imgHeight = (canvas.height * 0.264583);
+                            doc.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+                            return imgHeight;
+                        } catch (e) {
+                            doc.setFontSize(fontSize);
+                            doc.setFont(isBold ? "helvetica" : "helvetica", isBold ? "bold" : "normal");
+                            doc.text(text, x, y);
+                            return fontSize * 0.4;
+                        }
+                    };
+
+                    const pageWidth = doc.internal.pageSize.getWidth();
+                    const pageHeight = doc.internal.pageSize.getHeight();
+                    const margin = 20;
+                    const contentWidth = pageWidth - margin * 2;
+
+                    let yPos = margin;
+
+                    // Header - Company Info
+                    const companyNameHeight = renderMongolianText(data.companyName || "Байгууллага", margin, yPos, 16, true);
+                    yPos += companyNameHeight + 3;
+
+                    if (data.companyAddress) {
+                        const addrHeight = renderMongolianText(data.companyAddress, margin, yPos, 9, false);
+                        yPos += addrHeight + 2;
+                    }
+                    if (data.companyPhone || data.companyEmail) {
+                        const contactInfo = [data.companyPhone, data.companyEmail].filter(Boolean).join(" | ");
+                        const contactHeight = renderMongolianText(contactInfo, margin, yPos, 9, false);
+                        yPos += contactHeight + 2;
+                    }
+                    if (data.companyRegNo) {
+                        const regHeight = renderMongolianText(`РД: ${data.companyRegNo}`, margin, yPos, 9, false);
+                        yPos += regHeight + 2;
+                    }
+                    if (data.companyVatNo) {
+                        const vatHeight = renderMongolianText(`ХХОАТ: ${data.companyVatNo}`, margin, yPos, 9, false);
+                        yPos += vatHeight + 2;
+                    }
+
+                    yPos += 5;
+
+                    // Invoice Title
+                    const invoiceTitle = data.type === "sales" ? "НЭХЭМЖЛЭХ (БОРЛУУЛАЛТ)" : "НЭХЭМЖЛЭХ (ХУДАЛДАН АВАЛТ)";
+                    const titleHeight = renderMongolianText(invoiceTitle, margin, yPos, 14, true);
+                    yPos += titleHeight + 4;
+
+                    // Invoice Info
+                    const invoiceInfoX = pageWidth - margin - 80;
+                    const labelWidth = 45;
+                    const lineSpacing = 7;
+                    
+                    const invoiceNumLabelHeight = renderMongolianText("Нэхэмжлэхийн дугаар:", invoiceInfoX, yPos, 9, false);
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(data.invoiceNumber, invoiceInfoX + labelWidth, yPos);
+                    yPos += Math.max(invoiceNumLabelHeight, lineSpacing);
+                    
+                    const dateLabelHeight = renderMongolianText("Огноо:", invoiceInfoX, yPos, 9, false);
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(format(new Date(data.invoiceDate), "yyyy-MM-dd"), invoiceInfoX + labelWidth, yPos);
+                    yPos += Math.max(dateLabelHeight, lineSpacing);
+                    
+                    const dueDateLabelHeight = renderMongolianText("Төлөх хугацаа:", invoiceInfoX, yPos, 9, false);
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(format(new Date(data.dueDate), "yyyy-MM-dd"), invoiceInfoX + labelWidth, yPos);
+                    yPos += Math.max(dueDateLabelHeight, lineSpacing);
+                    
+                    const statusText = {
+                        draft: "Ноорог",
+                        sent: "Илгээсэн",
+                        posted: "Бүртгэгдсэн",
+                        paid: "Төлөгдсөн",
+                        cancelled: "Цуцлагдсан",
+                    }[data.status] || data.status;
+                    const statusLabelHeight = renderMongolianText("Төлөв:", invoiceInfoX, yPos, 9, false);
+                    const statusValueHeight = renderMongolianText(statusText, invoiceInfoX + labelWidth, yPos, 9, false);
+                    yPos += Math.max(statusLabelHeight, statusValueHeight, lineSpacing) + 3;
+
+                    // Customer/Supplier Info
+                    const contactLabel = data.type === "sales" ? "Харилцагч:" : "Нийлүүлэгч:";
+                    const labelHeight = renderMongolianText(contactLabel, margin, yPos, 10, true);
+                    yPos += labelHeight + 3;
+
+                    if (data.contactName) {
+                        const nameHeight = renderMongolianText(data.contactName, margin + 5, yPos, 9, false);
+                        yPos += nameHeight + 2;
+                    }
+                    if (data.contactAddress) {
+                        const addrHeight = renderMongolianText(data.contactAddress, margin + 5, yPos, 9, false);
+                        yPos += addrHeight + 2;
+                    }
+                    if (data.contactPhone || data.contactEmail) {
+                        const contactContactInfo = [data.contactPhone, data.contactEmail].filter(Boolean).join(" | ");
+                        const contactHeight = renderMongolianText(contactContactInfo, margin + 5, yPos, 9, false);
+                        yPos += contactHeight + 2;
+                    }
+                    if (data.contactRegNo) {
+                        const regHeight = renderMongolianText(`РД: ${data.contactRegNo}`, margin + 5, yPos, 9, false);
+                        yPos += regHeight + 2;
+                    }
+                    if (data.contactVatNo) {
+                        const vatHeight = renderMongolianText(`ХХОАТ: ${data.contactVatNo}`, margin + 5, yPos, 9, false);
+                        yPos += vatHeight + 2;
+                    }
+
+                    yPos += 5;
+
+                    // Invoice Lines Table
+                    const tableTop = yPos;
+                    const lineHeight = 7;
+                    const colWidths = {
+                        no: 12,
+                        description: 70,
+                        quantity: 18,
+                        unitPrice: 25,
+                        taxRate: 18,
+                        subtotal: 25,
+                        tax: 22,
+                        total: 25,
+                    };
+
+                    // Table Header
+                    yPos = tableTop + 2;
+                    const headerY = yPos;
+                    const headerHeight = Math.max(
+                        renderMongolianText("№", margin, headerY, 8, true),
+                        renderMongolianText("Тайлбар", margin + colWidths.no, headerY, 8, true),
+                        renderMongolianText("Тоо", margin + colWidths.no + colWidths.description, headerY, 8, true),
+                        renderMongolianText("Үнэ", margin + colWidths.no + colWidths.description + colWidths.quantity, headerY, 8, true),
+                        renderMongolianText("Татвар%", margin + colWidths.no + colWidths.description + colWidths.quantity + colWidths.unitPrice, headerY, 8, true),
+                        renderMongolianText("Дэд дүн", margin + colWidths.no + colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.taxRate, headerY, 8, true),
+                        renderMongolianText("Татвар", margin + colWidths.no + colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.taxRate + colWidths.subtotal, headerY, 8, true),
+                        renderMongolianText("Нийт", margin + colWidths.no + colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.taxRate + colWidths.subtotal + colWidths.tax, headerY, 8, true)
+                    );
+                    
+                    yPos = headerY + headerHeight + 6;
+                    doc.setLineWidth(0.3);
+                    doc.line(margin, yPos, pageWidth - margin, yPos);
+                    yPos += 5;
+
+                    // Table Rows
+                    data.lines.forEach((line, index) => {
+                        if (yPos > pageHeight - 35) {
+                            doc.addPage();
+                            yPos = margin;
+                        }
+
+                        const rowY = yPos;
+                        doc.setFontSize(7.5);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(String(index + 1), margin, rowY);
+                        renderMongolianText(line.description.substring(0, 35), margin + colWidths.no, rowY, 7.5, false);
+                        doc.text(String(line.quantity), margin + colWidths.no + colWidths.description, rowY);
+                        doc.text(formatMNT(line.unitPrice, true), margin + colWidths.no + colWidths.description + colWidths.quantity, rowY);
+                        doc.text(`${line.taxRate}%`, margin + colWidths.no + colWidths.description + colWidths.quantity + colWidths.unitPrice, rowY);
+                        doc.text(formatMNT(line.subtotal, true), margin + colWidths.no + colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.taxRate, rowY);
+                        doc.text(formatMNT(line.taxAmount, true), margin + colWidths.no + colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.taxRate + colWidths.subtotal, rowY);
+                        doc.text(formatMNT(line.total, true), margin + colWidths.no + colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.taxRate + colWidths.subtotal + colWidths.tax, rowY);
+                        
+                        yPos += lineHeight;
+                    });
+
+                    // Table Bottom Line
+                    doc.setLineWidth(0.3);
+                    doc.line(margin, yPos - lineHeight / 2, pageWidth - margin, yPos - lineHeight / 2);
+                    yPos += 6;
+
+                    // Totals section
+                    const totalsX = pageWidth - margin - 50;
+                    const totalLineSpacing = 8;
+                    
+                    const subtotalHeight = renderMongolianText("Дэд дүн:", totalsX, yPos, 9, false);
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(formatMNT(data.subtotal, true), pageWidth - margin - 5, yPos, { align: "right" });
+                    yPos += Math.max(subtotalHeight, 8);
+
+                    const taxHeight = renderMongolianText("ХХОАТ:", totalsX, yPos, 9, false);
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(formatMNT(data.taxAmount, true), pageWidth - margin - 5, yPos, { align: "right" });
+                    yPos += Math.max(taxHeight, 8);
+
+                    const totalHeight = renderMongolianText("Нийт дүн:", totalsX, yPos, 10, true);
+                    doc.setFontSize(10);
+                    doc.setFont("helvetica", "bold");
+                    doc.text(formatMNT(data.totalAmount, true), pageWidth - margin - 5, yPos, { align: "right" });
+                    yPos += Math.max(totalHeight, 10) + 4;
+
+                    if (data.paidAmount > 0) {
+                        const paidHeight = renderMongolianText("Төлсөн дүн:", totalsX, yPos, 9, false);
+                        doc.setFontSize(9);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(formatMNT(data.paidAmount, true), pageWidth - margin - 5, yPos, { align: "right" });
+                        yPos += Math.max(paidHeight, 8);
+
+                        const remainingHeight = renderMongolianText("Үлдэгдэл:", totalsX, yPos, 9, false);
+                        doc.setFontSize(9);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(formatMNT(data.remainingAmount, true), pageWidth - margin - 5, yPos, { align: "right" });
+                        yPos += Math.max(remainingHeight, 8) + 4;
+                    }
+
+                    // Notes section
+                    if (data.notes) {
+                        yPos += 10;
+                        const notesLabelHeight = renderMongolianText("Тэмдэглэл:", margin, yPos, 9, true);
+                        yPos += notesLabelHeight + 6;
+                        const notesLines = doc.splitTextToSize(data.notes, contentWidth - 10);
+                        doc.setFontSize(8);
+                        doc.setFont("helvetica", "normal");
+                        const lineHeight = 5;
+                        doc.text(notesLines, margin + 5, yPos);
+                        yPos += notesLines.length * lineHeight + 6;
+                    }
+
+                    // E-barimt QR Code and Receipt Number
+                    if (data.ebarimtQrCode || data.ebarimtReceiptNumber) {
+                        yPos += 12;
+                        
+                        const ebarimtBoxPadding = 8;
+                        const ebarimtBoxY = yPos;
+                        const ebarimtBoxHeight = data.ebarimtQrCode ? 40 : 18;
+                        const ebarimtContentY = ebarimtBoxY + ebarimtBoxPadding;
+                        
+                        doc.setDrawColor(0, 150, 0);
+                        doc.setLineWidth(0.5);
+                        doc.roundedRect(margin, ebarimtBoxY, contentWidth, ebarimtBoxHeight, 2, 2, 'S');
+                        
+                        let currentY = ebarimtContentY;
+                        renderMongolianText("И-баримтын мэдээлэл", margin + 8, currentY, 10, true);
+                        currentY += 7;
+                        
+                        if (data.ebarimtReceiptNumber) {
+                            renderMongolianText("Сугалааны дугаар:", margin + 8, currentY, 9, false);
+                            doc.setFontSize(9);
+                            doc.setFont("helvetica", "bold");
+                            doc.text(data.ebarimtReceiptNumber, margin + 55, currentY);
+                            currentY += 8;
+                        }
+                        
+                        if (data.ebarimtQrCode) {
+                            try {
+                                const qrSize = 28;
+                                const qrX = pageWidth - margin - qrSize - 8;
+                                const qrY = ebarimtContentY + (data.ebarimtReceiptNumber ? 2 : 0);
+                                
+                                let qrImageData = null;
+                                
+                                if (data.ebarimtQrCode.startsWith('http://') || data.ebarimtQrCode.startsWith('https://')) {
+                                    // For test, use a placeholder QR code
+                                    qrImageData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+                                } else if (data.ebarimtQrCode.startsWith('data:image')) {
+                                    qrImageData = data.ebarimtQrCode;
+                                }
+                                
+                                if (qrImageData) {
+                                    doc.addImage(qrImageData, 'PNG', qrX, qrY, qrSize, qrSize);
+                                    renderMongolianText("QR код:", margin + 8, qrY + 10, 8, false);
+                                }
+                            } catch (e) {
+                                renderMongolianText("QR код:", margin + 8, currentY, 8, false);
+                                doc.setFontSize(7);
+                                doc.setFont("helvetica", "normal");
+                                doc.text("(QR код ачаалж чадсангүй)", margin + 8, currentY + 5);
+                            }
+                        }
+                        
+                        yPos = ebarimtBoxY + ebarimtBoxHeight + 5;
+                    }
+
+                    // Footer
+                    const footerY = pageHeight - 12;
+                    renderMongolianText("Энэ нэхэмжлэх MonERP системээр үүсгэгдсэн", pageWidth / 2 - 60, footerY, 7, false);
+                    renderMongolianText(`Үүсгэсэн огноо: ${format(new Date(), "yyyy-MM-dd HH:mm")}`, pageWidth / 2 - 40, footerY + 4, 7, false);
+
+                    doc.save(`Нэхэмжлэх-${data.invoiceNumber}.pdf`);
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        function formatMNT(value, withoutSymbol = false) {
+            const num = typeof value === "string" ? parseFloat(value) : value;
+            const formatted = new Intl.NumberFormat('mn-MN', {
+                style: 'decimal',
+                maximumFractionDigits: 0,
+                minimumFractionDigits: 0,
+            }).format(num);
+            return withoutSymbol ? formatted : `${formatted}₮`;
+        }
+
+        const testData = {
+            invoiceNumber: "INV-2024-001",
+            invoiceDate: "2024-01-15",
+            dueDate: "2024-02-15",
+            type: "sales",
+            status: "paid",
+            companyName: "Тест ХХК",
+            companyAddress: "Улаанбаатар хот, Сүхбаатар дүүрэг",
+            companyPhone: "99112233",
+            companyEmail: "test@example.com",
+            companyRegNo: "12345678",
+            companyVatNo: "1234567890",
+            contactName: "Харилцагч ХХК",
+            contactAddress: "Улаанбаатар хот",
+            contactPhone: "99223344",
+            contactRegNo: "87654321",
+            contactVatNo: "0987654321",
+            lines: [
+                {
+                    description: "Бүтээгдэхүүн А",
+                    quantity: 10,
+                    unitPrice: 10000,
+                    taxRate: 10,
+                    subtotal: 100000,
+                    taxAmount: 10000,
+                    total: 110000
+                },
+                {
+                    description: "Бүтээгдэхүүн Б",
+                    quantity: 5,
+                    unitPrice: 20000,
+                    taxRate: 10,
+                    subtotal: 100000,
+                    taxAmount: 10000,
+                    total: 110000
+                }
+            ],
+            subtotal: 200000,
+            taxAmount: 20000,
+            totalAmount: 220000,
+            paidAmount: 220000,
+            remainingAmount: 0,
+        };
+
+        function showResult(message, isSuccess = true) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="info ${isSuccess ? 'success' : 'error'}">${message}</div>`;
+            setTimeout(() => {
+                resultDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        async function testBasicPDF() {
+            try {
+                await generateInvoicePDF({
+                    ...testData,
+                    notes: undefined,
+                    ebarimtQrCode: undefined,
+                    ebarimtReceiptNumber: undefined,
+                });
+                showResult('✅ Test 1: Basic PDF амжилттай үүслээ! Файлыг шалгана уу.');
+            } catch (error) {
+                showResult(`❌ Test 1: Алдаа - ${error.message}`, false);
+            }
+        }
+
+        async function testWithEBarimt() {
+            try {
+                await generateInvoicePDF({
+                    ...testData,
+                    ebarimtQrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TEST',
+                    ebarimtReceiptNumber: 'RE-2024-1234',
+                    ebarimtDocumentId: 'EB-123456',
+                });
+                showResult('✅ Test 2: E-barimt-тай PDF амжилттай үүслээ! И-баримтын хэсгийг шалгана уу.');
+            } catch (error) {
+                showResult(`❌ Test 2: Алдаа - ${error.message}`, false);
+            }
+        }
+
+        async function testWithNotes() {
+            try {
+                await generateInvoicePDF({
+                    ...testData,
+                    notes: 'Энэ нь тест тэмдэглэл юм. Урт тэмдэглэл байх үед PDF дээр хэрхэн харагдаж байгааг шалгах.',
+                });
+                showResult('✅ Test 3: Тэмдэглэлтэй PDF амжилттай үүслээ! Тэмдэглэлийн хэсгийг шалгана уу.');
+            } catch (error) {
+                showResult(`❌ Test 3: Алдаа - ${error.message}`, false);
+            }
+        }
+
+        async function testFullInvoice() {
+            try {
+                await generateInvoicePDF({
+                    ...testData,
+                    notes: 'Бүрэн нэхэмжлэх - бүх мэдээлэлтэй. Текст давхарлалтгүй, формат зөв эсэхийг шалгана уу.',
+                    ebarimtQrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=FULL_TEST',
+                    ebarimtReceiptNumber: 'RE-2024-5678',
+                    ebarimtDocumentId: 'EB-789012',
+                });
+                showResult('✅ Test 4: Бүрэн нэхэмжлэх амжилттай үүслээ! Бүх хэсгийг шалгана уу.');
+            } catch (error) {
+                showResult(`❌ Test 4: Алдаа - ${error.message}`, false);
+            }
+        }
+    </script>
+</body>
+</html>

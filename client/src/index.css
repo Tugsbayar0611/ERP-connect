@@ -1,0 +1,449 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Premium Mongolian ERP Theme */
+  --font-sans: 'Inter', 'Roboto', 'Noto Sans', 'Arial', sans-serif;
+  --font-display: 'Outfit', 'Roboto', 'Noto Sans', 'Arial', sans-serif;
+
+  --background: 220 25% 97%;
+  --foreground: 222 47% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  --primary: 221 83% 53%;
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222 47% 11.2%;
+
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+
+  --accent: 262 83% 58%;
+  --accent-foreground: 210 40% 98%;
+
+  --success: 142 76% 36%;
+  --success-foreground: 210 40% 98%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 222 47% 11%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+
+  --radius: 0.75rem;
+
+  --sidebar-gradient-start: 221 83% 53%;
+  --sidebar-gradient-end: 262 83% 58%;
+}
+
+.dark {
+  --background: 224 71% 4%;
+  --foreground: 213 31% 91%;
+
+  --card: 224 71% 6%;
+  --card-foreground: 213 31% 91%;
+
+  --popover: 224 71% 6%;
+  --popover-foreground: 213 31% 91%;
+
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+
+  --secondary: 222.2 47.4% 11.2%;
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 223 47% 11%;
+  --muted-foreground: 215.4 16.3% 56.9%;
+
+  --accent: 262 83% 58%;
+  --accent-foreground: 210 40% 98%;
+
+  --success: 142 76% 36%;
+  --success-foreground: 210 40% 98%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 222 47% 11%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 216 34% 17%;
+  --input: 216 34% 17%;
+  --ring: 224 76% 48%;
+
+  /* ========================================
+   * GLASSMORPHISM DESIGN TOKENS (Phase 0)
+   * ======================================== */
+  --glass-bg: 224 71% 6% / 0.4;
+  /* bg-slate-900/40 */
+  --glass-border: 0 0% 100% / 0.1;
+  /* border-white/10 */
+  --glass-highlight: 0 0% 100% / 0.05;
+  /* Top highlight */
+  --glass-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+
+  /* Text hierarchy */
+  --text-primary: 210 40% 98%;
+  /* slate-100 */
+  --text-secondary: 215 20% 85%;
+  /* slate-200 */
+  --text-muted: 215 16% 57%;
+  /* slate-400 */
+
+  /* Accent glow */
+  --glow-primary: 221 83% 53% / 0.2;
+  /* Primary glow shadow */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    /* Ensure proper rendering of Mongolian Cyrillic characters */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+
+  /* Glassmorphism Card */
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-xl;
+  }
+
+  /* Gradient Background */
+  .gradient-bg {
+    background: linear-gradient(135deg,
+        hsl(var(--background)) 0%,
+        hsl(220 25% 94%) 50%,
+        hsl(var(--background)) 100%);
+  }
+
+  .dark .gradient-bg {
+    background: linear-gradient(135deg,
+        hsl(224 71% 4%) 0%,
+        hsl(224 71% 8%) 50%,
+        hsl(224 71% 4%) 100%);
+  }
+
+  /* Premium Sidebar */
+  .sidebar-gradient {
+    background: linear-gradient(180deg,
+        hsl(221 83% 53%) 0%,
+        hsl(262 83% 48%) 100%);
+  }
+
+  /* Stat Card Hover */
+  .stat-card {
+    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+  }
+
+  /* Premium Button */
+  .btn-premium {
+    @apply bg-gradient-to-r from-primary to-accent text-white font-medium shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 hover:-translate-y-0.5;
+  }
+
+  /* Floating Label Effect */
+  .input-float {
+    @apply transition-all duration-200 focus:ring-2 focus:ring-primary/20;
+  }
+
+  /* Table Row Hover */
+  .table-row-hover {
+    @apply transition-colors duration-200 hover:bg-muted/50;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/30;
+}
+
+/* Sidebar Scrollbar - Ultra thin and subtle */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/10 rounded-full;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/20;
+}
+
+/* Hide scrollbar when not hovering (optional) */
+.sidebar-scroll {
+  scrollbar-gutter: stable;
+}
+
+.sidebar-scroll:not(:hover)::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* Animation utilities */
+.animate-in-fade {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out forwards;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Stagger animation for lists */
+.stagger-1 {
+  animation-delay: 0.1s;
+}
+
+.stagger-2 {
+  animation-delay: 0.2s;
+}
+
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+
+.stagger-4 {
+  animation-delay: 0.4s;
+}
+
+/* Pulse glow effect */
+.glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 5px hsl(var(--primary)/0.5);
+  }
+
+  50% {
+    box-shadow: 0 0 20px hsl(var(--primary)/0.8);
+  }
+}
+
+/* Number counter animation */
+.count-up {
+  animation: countUp 1s ease-out forwards;
+}
+
+@keyframes countUp {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Print Styles - Fix PDF overlapping */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Fix overlapping elements */
+  .space-y-8>*+* {
+    margin-top: 2rem !important;
+    page-break-inside: avoid !important;
+  }
+
+  .grid>* {
+    page-break-inside: avoid !important;
+  }
+
+  /* Card spacing */
+  .glass-card,
+  [class*="Card"],
+  [class*="card"] {
+    page-break-inside: avoid !important;
+    margin-bottom: 1rem !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Charts - avoid breaking */
+  canvas,
+  svg,
+  [class*="recharts"] {
+    page-break-inside: avoid !important;
+    max-height: 100vh !important;
+  }
+
+  /* Hide non-essential elements */
+  button,
+  [role="button"],
+  .no-print {
+    display: none !important;
+  }
+
+  /* Fix text overlapping */
+  p,
+  span,
+  div,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    page-break-inside: avoid !important;
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Ensure proper spacing */
+  .gap-4,
+  .gap-6,
+  .gap-8 {
+    gap: 1rem !important;
+  }
+
+  /* Sidebar should not print */
+  aside,
+  nav,
+  [class*="Sidebar"],
+  [class*="sidebar"] {
+    display: none !important;
+  }
+
+  /* Main content should take full width */
+  main,
+  [class*="main"],
+  [class*="content"] {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+
+/* Rich Text Editor (Quill) Dark Mode Support */
+.rich-text-editor-wrapper .ql-editor {
+  color: hsl(var(--foreground));
+}
+
+.rich-text-editor-wrapper .ql-toolbar {
+  background: hsl(var(--background));
+  border-color: hsl(var(--border));
+}
+
+.rich-text-editor-wrapper .ql-container {
+  background: hsl(var(--background));
+  border-color: hsl(var(--border));
+}
+
+.rich-text-editor-wrapper .ql-stroke {
+  stroke: hsl(var(--foreground));
+}
+
+.rich-text-editor-wrapper .ql-fill {
+  fill: hsl(var(--foreground));
+}
+
+.rich-text-editor-wrapper .ql-picker-label {
+  color: hsl(var(--foreground));
+}
+
+.rich-text-editor-wrapper .ql-picker-options {
+  background: hsl(var(--popover));
+  border-color: hsl(var(--border));
+  color: hsl(var(--popover-foreground));
+}

@@ -1,0 +1,41 @@
+node_modules/
+dist/
+.DS_Store
+*.tar.gz
+
+
+# Vite generated variants (if any)
+vite.config.ts.*
+
+# Sensitive Environment Variables (IMPORTANT)
+.env
+.env.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+tsc_*.txt
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# If server/public is GENERATED (uploads/build output) keep ignored:
+server/public/
+
+# If you store user uploads in public:
+# server/public/uploads/
+
+# If you store static source assets that must be deployed, DO NOT ignore server/public/
+# (then remove the line above)
