@@ -956,8 +956,8 @@ export default function Employees(): JSX.Element {
             <div className="space-y-4">
               <div className="flex items-center gap-4 border-b pb-4">
                 <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-2xl">
-                  {selectedEmployee.firstName[0]}
-                  {selectedEmployee.lastName?.[0]}
+                  {selectedEmployee.firstName?.[0] || ""}
+                  {selectedEmployee.lastName?.[0] || ""}
                 </div>
                 <div>
                   <h3 className="text-xl font-bold">
@@ -1267,8 +1267,8 @@ export default function Employees(): JSX.Element {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-                          {employee.firstName[0]}
-                          {employee.lastName?.[0]}
+                          {employee.firstName?.[0] || ""}
+                          {employee.lastName?.[0] || ""}
                         </div>
                         <div className="flex flex-col">
                           <div className="font-medium text-foreground">
