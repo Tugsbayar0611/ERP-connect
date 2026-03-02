@@ -16,6 +16,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Employee {
     id: string;
@@ -25,6 +32,13 @@ interface Employee {
     departmentName?: string;
     points?: number;
     avatar?: string;
+    breakdown?: {
+        present: number;
+        late: number;
+        badges: number;
+        manual: number;
+    };
+    hasEarlyBirdStreak?: boolean;
 }
 
 interface EmployeesWidgetProps {
@@ -82,10 +96,48 @@ function EmployeeRow({
 
             {/* Points */}
             {showPoints && employee.points !== undefined && (
-                <div className="flex items-center gap-1 text-emerald-400">
-                    <Trophy className="h-3.5 w-3.5" />
-                    <span className="text-sm font-semibold">{employee.points}</span>
-                </div>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1 text-emerald-400 cursor-help">
+                                <Trophy className="h-3.5 w-3.5" />
+                                <span className="text-sm font-semibold">{employee.points}</span>
+                                {employee.hasEarlyBirdStreak && (
+                                    <span className="flex h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse ml-0.5" title="7-day streak!" />
+                                )}
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="bg-slate-900 border-white/10 text-slate-200">
+                            <div className="text-xs space-y-1">
+                                <p className="font-semibold border-b border-white/10 pb-1 mb-1">Онооны задаргаа</p>
+                                {employee.breakdown ? (
+                                    <>
+                                        <div className="flex justify-between gap-4">
+                                            <span>Ирсэн:</span>
+                                            <span className="text-emerald-400">+{employee.breakdown.present}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-4">
+                                            <span>Хоцорсон:</span>
+                                            <span className="text-amber-400">+{employee.breakdown.late}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-4">
+                                            <span>Мэдэгдэл/Badge:</span>
+                                            <span className="text-purple-400">+{employee.breakdown.badges}</span>
+                                        </div>
+                                        {employee.breakdown.manual > 0 && (
+                                            <div className="flex justify-between gap-4">
+                                                <span>Бусад:</span>
+                                                <span className="text-blue-400">+{employee.breakdown.manual}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <p className="opacity-70">Дэлгэрэнгүй мэдээлэл байхгүй</p>
+                                )}
+                            </div>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             )}
         </div>
     );
@@ -223,8 +275,24 @@ export function EmployeesWidget({
     showPoints = true,
     limit = 5,
 }: EmployeesWidgetProps) {
+    const [timeRange, setTimeRange] = useState("all_time");
+
+    // Fetch data based on time filters
+    const { data: leaderboardData, isLoading: isQueryLoading } = useQuery({
+        queryKey: ['leaderboard', timeRange],
+        queryFn: async () => {
+            const res = await fetch(`/api/leaderboard?timeRange=${timeRange}&limit=${limit * 2}`); // Fetch a bit more to show proper list
+            if (!res.ok) throw new Error("Failed to fetch");
+            return res.json();
+        },
+        initialData: timeRange === 'all_time' ? employees : undefined,
+    });
+
+    const displayEmployees = (leaderboardData || employees) as Employee[];
+    const loading = isLoading || (isQueryLoading && timeRange !== 'all_time');
+
     // Get top N employees sorted by points
-    const topEmployees = [...employees]
+    const topEmployees = [...displayEmployees]
         .sort((a, b) => (b.points || 0) - (a.points || 0))
         .slice(0, limit);
 
@@ -238,10 +306,24 @@ export function EmployeesWidget({
                 <span className="text-xs text-slate-500">
                     Top {limit}
                 </span>
+                <div className="ml-auto">
+                    <Select value={timeRange} onValueChange={setTimeRange}>
+                        <SelectTrigger className="h-7 w-[110px] text-xs bg-slate-900/50 border-white/10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="today">Өнөөдөр</SelectItem>
+                            <SelectItem value="7days">7 хоног</SelectItem>
+                            <SelectItem value="30days">30 хоног</SelectItem>
+                            <SelectItem value="this_month">Энэ сар</SelectItem>
+                            <SelectItem value="all_time">Бүгд</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </GlassCardHeader>
 
             <GlassCardContent className="flex-1 p-2">
-                {isLoading ? (
+                {loading ? (
                     <div className="space-y-1">
                         {Array.from({ length: limit }).map((_, i) => (
                             <EmployeeSkeleton key={i} />

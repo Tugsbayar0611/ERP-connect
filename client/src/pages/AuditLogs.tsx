@@ -66,9 +66,8 @@ export default function AuditLogs() {
     if (!search) return true;
     const searchLower = search.toLowerCase();
     return (
-      log.message?.toLowerCase().includes(searchLower) ||
-      log.entityId?.toLowerCase().includes(searchLower) ||
-      log.actorUserId?.toLowerCase().includes(searchLower)
+      log.action.toLowerCase().includes(searchLower) ||
+      log.entity.toLowerCase().includes(searchLower)
     );
   });
 
@@ -171,13 +170,13 @@ export default function AuditLogs() {
               {filteredLogs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell>
-                    {log.eventTime
-                      ? format(new Date(log.eventTime), "yyyy-MM-dd HH:mm:ss")
-                      : "-"}
+                    <div className="text-sm text-muted-foreground">
+                      {format(new Date(log.createdAt), "yyyy-MM-dd HH:mm:ss")}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
-                      {entityTypeLabels[log.entityType] || log.entityType}
+                      {entityTypeLabels[log.entity] || log.entity}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -190,18 +189,15 @@ export default function AuditLogs() {
                       {log.action}
                     </Badge>
                   </TableCell>
-                  <TableCell className="max-w-xs truncate" title={log.message || undefined}>
-                    {log.message || "-"}
+                  <TableCell className="max-w-xs truncate" title={`${log.action} on ${log.entity}`}>
+                    {log.action} on {log.entity}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {log.actorUserId ? log.actorUserId.substring(0, 8) + "..." : "-"}
+                    {log.actorId ? log.actorId.substring(0, 8) + "..." : "-"}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={log.status === "success" ? "default" : "destructive"}
-                    >
-                      {log.status}
-                    </Badge>
+                    {/* Status not in schema, assuming success for now */}
+                    <Badge variant="outline">Success</Badge>
                   </TableCell>
                   <TableCell>
                     <Button
@@ -230,16 +226,14 @@ export default function AuditLogs() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Огноо</p>
-                  <p className="font-semibold">
-                    {selectedLog.eventTime
-                      ? format(new Date(selectedLog.eventTime), "yyyy-MM-dd HH:mm:ss")
-                      : "-"}
-                  </p>
+                  <div className="text-sm text-muted-foreground">
+                    {format(new Date(selectedLog.createdAt), "yyyy-MM-dd HH:mm:ss")}
+                  </div>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Төрөл</p>
                   <p className="font-semibold">
-                    {entityTypeLabels[selectedLog.entityType] || selectedLog.entityType}
+                    {entityTypeLabels[selectedLog.entity] || selectedLog.entity}
                   </p>
                 </div>
                 <div>
@@ -268,7 +262,7 @@ export default function AuditLogs() {
                 <div>
                   <p className="text-sm text-muted-foreground">Хэрэглэгч ID</p>
                   <p className="font-mono text-sm">
-                    {selectedLog.actorUserId || "-"}
+                    {selectedLog.actorId || "-"}
                   </p>
                 </div>
               </div>

@@ -205,13 +205,20 @@ export const api = {
             unsentCount: z.number(),
             lotteryWinProbability: z.number(),
             totalSent: z.number(),
-          }).optional(),
+          }).nullable().optional(),
           cashFlowProjection: z.object({
             next7DaysRevenue: z.number(),
             next7DaysExpenses: z.number(),
             netCashFlow: z.number(),
             recommendation: z.string().optional(),
-          }).optional(),
+            confidenceLevel: z.string().optional(),
+            dataPointsUsed: z.number().optional(),
+          }).nullable().optional(),
+          invoicePaymentStatus: z.object({
+            todayPaid: z.number(),
+            overdue: z.number(),
+            next7Days: z.number(),
+          }).nullable().optional(),
           wallOfFame: z.array(z.object({
             id: z.string(),
             name: z.string(),

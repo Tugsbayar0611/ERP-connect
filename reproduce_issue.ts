@@ -35,10 +35,9 @@ async function main() {
 
         // Test createRole (which crashed 500 earlier due to middleware, but here passing means storage is fine)
         log("Testing createRole...");
-        const newRole = await storage.createRole({
+        const newRole = await storage.createRole(adminUser.tenantId, {
             name: "Unit_Test_Role_" + Date.now(),
             description: "Unit test",
-            tenantId: adminUser.tenantId,
             isSystem: false
         }, []);
         log(`Role Created: ${newRole.id} - ${newRole.name}`);

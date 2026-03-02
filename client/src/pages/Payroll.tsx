@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { usePayroll } from "@/hooks/use-payroll";
+import { useAuth } from "@/hooks/use-auth";
+import { usePayroll, useMyPayslips } from "@/hooks/use-payroll";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -72,6 +73,14 @@ const payrollFormSchema = z.object({
 type PayrollFormValues = z.infer<typeof payrollFormSchema>;
 
 export default function Payroll() {
+  const { user } = useAuth();
+  const userRole = user?.role?.toLowerCase() || '';
+  const isAdminOrHR = userRole === 'admin' || userRole === 'hr';
+
+  if (!isAdminOrHR) {
+    return <MyPayslipsView />;
+  }
+
   const { payroll = [], isLoading } = usePayroll();
   const [open, setOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
@@ -1157,6 +1166,60 @@ export default function Payroll() {
             >
               <X className="w-4 h-4" />
             </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MyPayslipsView() {
+  const { data: payslips, isLoading } = useMyPayslips();
+
+  if (isLoading) {
+    return <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold tracking-tight">Миний цалингийн хуудас</h1>
+        <p className="text-muted-foreground">Таны цалингийн түүх болон дэлгэрэнгүй мэдээлэл</p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {payslips?.map((slip: any) => (
+          <div key={slip.id} className="bg-card rounded-lg border shadow-sm p-6 hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Цалингийн үе</p>
+                <h3 className="font-bold text-lg">{format(new Date(slip.periodStart), "yyyy.MM.dd")} - {format(new Date(slip.periodEnd), "yyyy.MM.dd")}</h3>
+              </div>
+              <Badge variant={slip.status === "Paid" ? "default" : "secondary"}>
+                {slip.status === "Paid" ? "Олгосон" : slip.status}
+              </Badge>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Нийт олгох:</span>
+                <span className="font-medium">{Number(slip.grossPay).toLocaleString()} ₮</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Суутгал:</span>
+                <span className="font-medium text-red-500">-{Number(slip.totalDeductions).toLocaleString()} ₮</span>
+              </div>
+              <div className="pt-3 border-t flex justify-between items-center">
+                <span className="font-bold">Гар дээр:</span>
+                <span className="font-bold text-xl text-primary">{Number(slip.netPay).toLocaleString()} ₮</span>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {(!payslips || payslips.length === 0) && (
+          <div className="col-span-full text-center py-12 text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
+            Цалингийн мэдээлэл олдсонгүй
           </div>
         )}
       </div>

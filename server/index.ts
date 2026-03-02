@@ -1,4 +1,5 @@
 // server/index.ts
+
 import "dotenv/config";
 import express, { type Request, type Response, type NextFunction } from "express";
 import helmet from "helmet";
@@ -7,9 +8,13 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { pool } from "./db"; // DB холболт тест хийхэд ашиглая
+import { initializeSocket } from "./socket";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Initialize Socket.io
+const io = initializeSocket(httpServer);
 
 // Security Headers (Helmet)
 app.use(helmet({
@@ -19,7 +24,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // Tailwind needs inline styles, Google Fonts for stylesheets
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite dev mode needs eval
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https:"],
+      connectSrc: ["'self'", "https:", "ws:", "wss:"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://fonts.googleapis.com"], // Google Fonts
       frameSrc: ["'self'", "blob:"], // Allow blob URLs in iframes for PDF preview
       objectSrc: ["'self'", "blob:"], // Allow blob URLs in object tags for PDF preview
@@ -51,6 +56,10 @@ if (process.env.NODE_ENV === "production") {
     next();
   });
 }
+
+// Serve uploads
+import path from "path";
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 declare module "http" {
   interface IncomingMessage {

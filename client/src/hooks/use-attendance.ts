@@ -1,13 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import type { InsertAttendanceDay, AttendanceDay } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 export function useAttendance() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // 1. Ирцийн жагсаалт авах
   const { data: attendance, isLoading } = useQuery<AttendanceDay[]>({
-    queryKey: [api.attendance.list.path],
+    queryKey: [api.attendance.list.path, user?.id],
+    enabled: !!user,
     queryFn: async () => {
       const res = await fetch(api.attendance.list.path);
       if (!res.ok) throw new Error("Failed to fetch attendance records");
@@ -33,7 +36,7 @@ export function useAttendance() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        const errorMessage = errorData.details 
+        const errorMessage = errorData.details
           ? `${errorData.message}: ${errorData.details.map((d: any) => `${d.path.join('.')}: ${d.message}`).join(', ')}`
           : (errorData.message || "Failed to record attendance");
         throw new Error(errorMessage);
@@ -56,7 +59,7 @@ export function useAttendance() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        const errorMessage = errorData.details 
+        const errorMessage = errorData.details
           ? `${errorData.message}: ${errorData.details.map((d: any) => `${d.path.join('.')}: ${d.message}`).join(', ')}`
           : (errorData.message || "Failed to update attendance");
         throw new Error(errorMessage);
@@ -85,11 +88,55 @@ export function useAttendance() {
     },
   });
 
+  // 5. Check-in (Employee)
+  const checkIn = useMutation({
+    mutationFn: async (data: { latitude?: number; longitude?: number; checkInPhoto?: string | null }) => {
+      const res = await fetch("/api/attendance/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Check-in failed");
+      }
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.attendance.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/me"] });
+    },
+  });
+
+  // 6. Check-out (Employee)
+  const checkOut = useMutation({
+    mutationFn: async (data: { checkOutPhoto?: string | null }) => {
+      const res = await fetch("/api/attendance/check-out", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Check-out failed");
+      }
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.attendance.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/me"] });
+    },
+  });
+
   return {
     attendance,
     isLoading,
     createAttendance,
     updateAttendance,
     deleteAttendance,
+    checkIn,
+    checkOut,
   };
 }

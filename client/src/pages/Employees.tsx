@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useEmployees } from "@/hooks/use-employees";
+import { useEmployees, useJobTitles } from "@/hooks/use-employees";
+import { useAuth } from "@/hooks/use-auth";
 import { usePayroll } from "@/hooks/use-payroll";
 import { useDepartments } from "@/hooks/use-departments";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -59,12 +61,30 @@ import { printTable } from "@/lib/print-utils";
 import { calculateMongolianSocialInsurance, calculateMongolianIncomeTax } from "@shared/mongolian-validators";
 import { z } from "zod";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+
+import { useRoles } from "@/hooks/use-roles";
 import { EmployeeAllowancesDialog } from "@/components/employees/EmployeeAllowancesDialog";
 import { SalaryAdvanceRequestForm } from "@/components/employees/SalaryAdvanceRequestForm";
+import { AddJobTitleDialog } from "@/components/employees/AddJobTitleDialog";
+
+const employeeFormSchema = insertEmployeeSchema.extend({
+  createUser: z.boolean().optional().default(false),
+  password: z.string().optional(),
+  role: z.string().optional(), // System Role
+});
+
+type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
 
 export default function Employees(): JSX.Element {
   const { employees = [], isLoading, createEmployee, updateEmployee, deleteEmployee, deleteEmployees } =
     useEmployees();
+  const { data: jobTitles = [] } = useJobTitles();
+  const { roles = [] } = useRoles();
+  const { user } = useAuth();
+  const userRole = user?.role?.toLowerCase() || '';
+  const isManager = userRole === "admin" || userRole === "hr";
+
   const { payroll = [] } = usePayroll(); // Fetch payslips for salary display
   const { departments = [] } = useDepartments(); // Fetch departments for selection
   const [search, setSearch] = useState("");
@@ -79,6 +99,8 @@ export default function Employees(): JSX.Element {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
     null
   );
+  const [isSalaryAdvanceOpen, setIsSalaryAdvanceOpen] = useState(false);
+  const [isAddJobTitleOpen, setIsAddJobTitleOpen] = useState(false); // New state logic
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10); // Items per page
@@ -94,8 +116,8 @@ export default function Employees(): JSX.Element {
     inactive: { label: "Идэвхгүй", className: "bg-gray-500/10 text-gray-500 border-gray-500/20 hover:bg-gray-500/20" },
   };
 
-  const form = useForm<InsertEmployee>({
-    resolver: zodResolver(insertEmployeeSchema),
+  const form = useForm<EmployeeFormValues>({
+    resolver: zodResolver(employeeFormSchema),
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -108,6 +130,8 @@ export default function Employees(): JSX.Element {
       hireDate: new Date().toISOString().split('T')[0], // Default today
       departmentId: undefined,
       position: "", // Албан тушаал
+      createUser: false,
+      password: "",
     },
   });
 
@@ -124,8 +148,13 @@ export default function Employees(): JSX.Element {
       baseSalary: "0",
       status: "active",
       hireDate: new Date().toISOString().split('T')[0],
+
       position: "",
-    });
+      jobTitleId: undefined, // New
+      createUser: false,
+      password: "",
+      role: "User", // Default role needs match string in DB or Role Name? DB uses 'User', 'Admin', 'HR'. I'll map it.
+    } as any);
     setIsEditOpen(true);
   }, [form]);
 
@@ -157,7 +186,12 @@ export default function Employees(): JSX.Element {
       // Handle date string or Date object
       hireDate: employee.hireDate ? String(employee.hireDate).split('T')[0] : new Date().toISOString().split('T')[0],
       departmentId: employee.departmentId || undefined,
+
       position: (employee as any).position || "",
+      jobTitleId: (employee as any).jobTitleId || undefined,
+      createUser: false,
+      password: "",
+      role: "User", // Default
     } as any);
     setIsEditOpen(true);
   }, [form]);
@@ -230,10 +264,10 @@ export default function Employees(): JSX.Element {
     }
   }, [deleteEmployee, toast]);
 
-  const onSubmit = useCallback(async (data: InsertEmployee) => {
+  const onSubmit = useCallback(async (data: EmployeeFormValues) => {
     // Ensure numeric fields are strings/numbers as schema expects
     // Drizzle numeric is string in JS usually, but verify input
-    const payload: InsertEmployee = {
+    const payload = {
       ...data,
       baseSalary: (Number(data.baseSalary) || 0).toString(),
     };
@@ -522,13 +556,15 @@ export default function Employees(): JSX.Element {
           </p>
         </div>
 
-        <Button
-          onClick={handleAdd}
-          className="shadow-lg shadow-primary/25 hover:shadow-primary/30"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Ажилтан нэмэх
-        </Button>
+        {isManager && (
+          <Button
+            onClick={handleAdd}
+            className="shadow-lg shadow-primary/25 hover:shadow-primary/30"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Ажилтан нэмэх
+          </Button>
+        )}
       </div>
 
       {/* Add / Edit Modal */}
@@ -647,24 +683,134 @@ export default function Employees(): JSX.Element {
                 )}
               />
 
-              {/* Албан тушаал */}
-              <FormField
-                control={form.control}
-                name="position"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Албан тушаал</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Ахлах хөгжүүлэгч, Менежер, гм."
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              {/* Албан тушаал (Job Title) */}
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <FormField
+                    control={form.control}
+                    name="jobTitleId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Албан тушаал</FormLabel>
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            // Also update 'position' text for backward compatibility
+                            const title = jobTitles.find(t => t.id === val);
+                            if (title) form.setValue("position", title.name);
+                          }}
+                          value={field.value || undefined}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Албан тушаал сонгох" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {jobTitles
+                              .filter(t => t.isActive || t.id === field.value)
+                              .map((title) => (
+                                <SelectItem key={title.id} value={title.id} className="items-start">
+                                  <div className="flex flex-col text-left">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold">{title.name}</span>
+                                      {!title.isActive && (
+                                        <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                                          Идэвхгүй
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                      {title.code || ""}
+                                      {title.departmentId && departments?.find(d => d.id === title.departmentId)?.name ? ` • ${departments.find(d => d.id === title.departmentId)?.name}` : ""}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription className="text-xs">
+                          Албан тушаал нь стандарт жагсаалтаас сонгогдоно (HR).
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                {isManager && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mb-8" // Align with input box (offset label + description) - approximate
+                    onClick={() => setIsAddJobTitleOpen(true)}
+                    title="Шинэ албан тушаал нэмэх"
+                  >
+                    + Нэмэх
+                  </Button>
                 )}
-              />
+              </div>
+
+              {/* Create User Section - Only for new employees */}
+              {!selectedEmployee && (
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="createUser"
+                      onCheckedChange={(checked) => {
+                        form.setValue("createUser", checked === true);
+                      }}
+                    />
+                    <label
+                      htmlFor="createUser"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Системд нэвтрэх эрх үүсгэх
+                    </label>
+                  </div>
+
+                  {form.watch("createUser") && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Нууц үг</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="Нууц үг" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="role"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Системийн эрх</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value || "User"}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Эрх сонгох" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="User">Ажилтан (Employee)</SelectItem>
+                                <SelectItem value="Manager">Менежер (Manager)</SelectItem>
+                                <SelectItem value="HR">Хүний нөөц (HR)</SelectItem>
+                                <SelectItem value="Admin">Админ (Admin)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* РД (Регистрийн дугаар) */}
               <FormField
@@ -861,7 +1007,7 @@ export default function Employees(): JSX.Element {
       </Dialog>
 
       {/* Bulk Actions Bar - ABOVE the table */}
-      {selectedEmployeeIds.size > 0 && (
+      {isManager && selectedEmployeeIds.size > 0 && (
         <div className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-xl p-4">
           <div className="flex items-center gap-2">
             <span className="font-medium text-primary">
@@ -1037,27 +1183,29 @@ export default function Employees(): JSX.Element {
               <TableHead>Ажилтан</TableHead>
               <TableHead>Код</TableHead>
               <TableHead>Хэлтэс</TableHead>
-              <TableHead>
-                <div className="flex items-center gap-2">
-                  <span>Цалин</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => setSalaryVisible(!salaryVisible)}
-                    title={salaryVisible ? "Цалин нуух" : "Цалин харуулах"}
-                  >
-                    {salaryVisible ? (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
-                </div>
-              </TableHead>
+              {isManager && (
+                <TableHead>
+                  <div className="flex items-center gap-2">
+                    <span>Цалин</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => setSalaryVisible(!salaryVisible)}
+                      title={salaryVisible ? "Цалин нуух" : "Цалин харуулах"}
+                    >
+                      {salaryVisible ? (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                </TableHead>
+              )}
               <TableHead>Ажилд орсон</TableHead>
               <TableHead>Төлөв</TableHead>
-              <TableHead className="w-[150px]">Үйлдэл</TableHead>
+              {isManager && <TableHead className="w-[150px]">Үйлдэл</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1140,34 +1288,36 @@ export default function Employees(): JSX.Element {
                         {departments.find(d => d.id === employee.departmentId)?.name || "—"}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className="font-medium">
-                            {salaryVisible ? (
-                              displaySalary > 0
-                                ? `${displaySalary.toLocaleString('mn-MN')}₮`
-                                : "-"
-                            ) : (
-                              <span className="text-muted-foreground">●●●●●●</span>
+                    {isManager && (
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <div className="font-medium">
+                              {salaryVisible ? (
+                                displaySalary > 0
+                                  ? `${displaySalary.toLocaleString('mn-MN')}₮`
+                                  : "-"
+                              ) : (
+                                <span className="text-muted-foreground">●●●●●●</span>
+                              )}
+                            </div>
+                            {salaryVisible && latestSalary && (
+                              <div className="text-xs text-muted-foreground">
+                                Цэвэр: {Number(latestSalary.netPay || 0).toLocaleString('mn-MN')}₮
+                              </div>
                             )}
                           </div>
-                          {salaryVisible && latestSalary && (
-                            <div className="text-xs text-muted-foreground">
-                              Цэвэр: {Number(latestSalary.netPay || 0).toLocaleString('mn-MN')}₮
-                            </div>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleEditSalary(employee)}
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleEditSalary(employee)}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                      </TableCell>
+                    )}
                     <TableCell className="text-muted-foreground text-sm">
                       {employee.hireDate
                         ? format(new Date(employee.hireDate), "yyyy-MM-dd")
@@ -1181,50 +1331,52 @@ export default function Employees(): JSX.Element {
                         {statusConfig[employee.status]?.label || employee.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(employee)}
-                          className="h-8"
-                        >
-                          <Pencil className="w-4 h-4 mr-1" /> Засах
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedEmployee(employee);
-                            setIsAdvanceRequestOpen(true);
-                          }}
-                          className="h-8"
-                          title="Цалингийн урьдчилгаа хүсэх"
-                        >
-                          <CreditCard className="w-4 h-4 mr-1" /> Урьдчилгаа
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedEmployee(employee);
-                            setIsAllowanceOpen(true);
-                          }}
-                          className="h-8"
-                          title="Нэмэгдэл, урамшуулал бүртгэх"
-                        >
-                          <DollarSign className="w-4 h-4 mr-1" /> Нэмэгдэл
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(employee)}
-                          className="h-8 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" /> Устгах
-                        </Button>
-                      </div>
-                    </TableCell>
+                    {isManager && (
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(employee)}
+                            className="h-8"
+                          >
+                            <Pencil className="w-4 h-4 mr-1" /> Засах
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedEmployee(employee);
+                              setIsAdvanceRequestOpen(true);
+                            }}
+                            className="h-8"
+                            title="Цалингийн урьдчилгаа хүсэх"
+                          >
+                            <CreditCard className="w-4 h-4 mr-1" /> Урьдчилгаа
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedEmployee(employee);
+                              setIsAllowanceOpen(true);
+                            }}
+                            className="h-8"
+                            title="Нэмэгдэл, урамшуулал бүртгэх"
+                          >
+                            <DollarSign className="w-4 h-4 mr-1" /> Нэмэгдэл
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(employee)}
+                            className="h-8 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" /> Устгах
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })
@@ -1420,6 +1572,19 @@ export default function Employees(): JSX.Element {
           {selectedEmployee && <EmployeeAllowancesDialog employee={selectedEmployee} />}
         </DialogContent>
       </Dialog>
+      <AddJobTitleDialog
+        open={isAddJobTitleOpen}
+        onOpenChange={setIsAddJobTitleOpen}
+        onSuccess={(newId) => {
+          // Auto-select the new title
+          form.setValue("jobTitleId", newId);
+          // Also update position text
+          // We might not have the new title in 'jobTitles' array immediately if react-query didn't refetch yet.
+          // But invalidateQueries was called in dialog.
+          // We can optimistically set it or wait.
+          // For now, ID is enough to select it once list updates.
+        }}
+      />
     </div>
   );
 }

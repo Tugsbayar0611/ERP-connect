@@ -6,7 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   Heart, MessageCircle, Share2, Pin, Plus, Loader2, Send, Trash2, Edit,
-  Bell, Trophy, Cake, Calendar, Image as ImageIcon, X
+  Bell, Trophy, Cake, Calendar, Image as ImageIcon, X, AlertTriangle, Link as LinkIcon, Search, Filter,
+  Paperclip, FileText, Smile
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +20,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { apiRequest } from "@/lib/queryClient";
 
 interface Post {
   id: string;
   title: string;
   content: string;
   postType: string;
+  severity?: "info" | "warning" | "critical";
+  actions?: { label: string; url: string; style: "primary" | "outline" | "ghost" }[];
+  files?: { name: string; url: string; size: number; type: string }[];
   authorName: string;
   authorId: string;
   images?: string[] | null;
@@ -32,7 +38,8 @@ interface Post {
   commentsCount: number;
   isPinned: boolean;
   createdAt: string;
-  isLiked?: boolean;
+  reactionType?: string;
+  currentUserReaction?: string;
 }
 
 interface Comment {
@@ -51,9 +58,22 @@ export default function News() {
   const [createPostOpen, setCreatePostOpen] = useState(false);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [commentTexts, setCommentTexts] = useState<{ [postId: string]: string }>({});
+  const [refreshedComments, setRefreshedComments] = useState<{ postId: string; comments: Comment[] } | null>(null);
   const [postContent, setPostContent] = useState("");
   const [postTitle, setPostTitle] = useState("");
   const [postType, setPostType] = useState("announcement");
+  const [postSeverity, setPostSeverity] = useState<"info" | "warning" | "critical">("info");
+  const [postActions, setPostActions] = useState<{ label: string; url: string; style: "primary" | "outline" | "ghost" }[]>([]);
+  const [newAction, setNewAction] = useState({ label: "", url: "", style: "primary" as const });
+
+  // File Upload State
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterSeverity, setFilterSeverity] = useState("all");
 
   // Get current employee
   const currentEmployee = employees?.find((e: any) =>
@@ -61,19 +81,134 @@ export default function News() {
     (user?.email && user.email.toLowerCase() === e.email?.toLowerCase())
   );
 
-  // Fetch posts
+  // Fetch posts with deduplication and sorting
   const { data: posts = [], isLoading } = useQuery<Post[]>({
-    queryKey: ["/api/posts"],
+    queryKey: ["/api/posts", searchQuery, filterType, filterSeverity],
     queryFn: async () => {
-      const res = await fetch("/api/posts?limit=50");
+      const params = new URLSearchParams();
+      if (searchQuery) params.append("q", searchQuery);
+      if (filterType && filterType !== "all") params.append("type", filterType);
+      if (filterSeverity && filterSeverity !== "all") params.append("severity", filterSeverity);
+      params.append("limit", "50");
+
+      const res = await fetch(`/api/posts?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch posts");
-      return res.json();
+      const data = await res.json();
+
+      // Deduplicate by ID
+      const uniquePosts = Array.from(new Map(data.map((p: Post) => [p.id, p])).values()) as Post[];
+
+      // Sort: Pinned first, then by date desc
+      return uniquePosts.sort((a, b) => {
+        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    },
+  });
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCreatePost = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!postContent.trim() && !postTitle.trim()) {
+      toast({ title: "Error", description: "Title and content are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const uploadedFiles = [];
+
+      // Upload files first
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          uploadedFiles.push({
+            name: file.name,
+            url: data.url,
+            size: data.size,
+            type: data.mimetype
+          });
+        }
+      }
+
+      await createPost.mutateAsync({
+        title: postTitle,
+        content: postContent,
+        postType,
+        severity: postSeverity,
+        actions: postActions,
+        files: uploadedFiles,
+      });
+      setCreatePostOpen(false);
+      setPostContent("");
+      setPostTitle("");
+      setPostActions([]);
+      setSelectedFiles([]);
+      setPostSeverity("info");
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Error", description: "Failed to create post", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const toggleReaction = useMutation({
+    mutationFn: async ({ postId, reactionType }: { postId: string, reactionType: string }) => {
+      // Optimistically update
+      queryClient.setQueryData(["/api/posts", searchQuery, filterType, filterSeverity], (old: Post[] | undefined) => {
+        if (!old) return [];
+        return old.map(p => {
+          if (p.id === postId) {
+            const wasLiked = !!p.currentUserReaction;
+            const sameReaction = p.currentUserReaction === reactionType;
+
+            let newCount = p.likesCount;
+            if (sameReaction) {
+              newCount--; // Remove reaction
+            } else if (!wasLiked) {
+              newCount++; // Add reaction
+            }
+            // If changing reaction type, count stays same
+
+            return {
+              ...p,
+              likesCount: newCount,
+              currentUserReaction: sameReaction ? undefined : reactionType
+            };
+          }
+          return p;
+        });
+      });
+
+      await apiRequest("POST", `/api/posts/${postId}/like`, { reactionType });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
   });
 
   // Create post mutation
   const createPost = useMutation({
-    mutationFn: async (data: { title: string; content: string; postType: string; images?: string[] }) => {
+
+
+    mutationFn: async (data: any) => {
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,20 +245,7 @@ export default function News() {
     },
   });
 
-  // Toggle like mutation
-  const toggleLike = useMutation({
-    mutationFn: async (postId: string) => {
-      const res = await fetch(`/api/posts/${postId}/like`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!res.ok) throw new Error("Failed to toggle like");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-    },
-  });
+
 
   // Create comment mutation
   const createComment = useMutation({
@@ -140,9 +262,19 @@ export default function News() {
       }
       return res.json();
     },
-    onSuccess: (_, { postId }) => {
+    onSuccess: async (_, { postId }) => {
+      // Invalidate posts list to update comment counts
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/posts", "comments", _] });
+      // Re-fetch comments for this post to update local state
+      try {
+        const res = await fetch(`/api/posts/${postId}/comments`);
+        if (res.ok) {
+          const data = await res.json();
+          setRefreshedComments({ postId, comments: data });
+        }
+      } catch (e) {
+        // Fallback: comments will be stale until manual refresh
+      }
       setCommentTexts((prev) => ({ ...prev, [postId]: "" }));
     },
   });
@@ -161,30 +293,7 @@ export default function News() {
     },
   });
 
-  const handleCreatePost = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!postTitle.trim() || !postContent.trim()) {
-      toast({
-        title: "Алдаа",
-        description: "Гарчиг болон агуулга бөглөнө үү",
-        variant: "destructive",
-      });
-      return;
-    }
-    const data = {
-      title: postTitle,
-      content: postContent,
-      postType: postType || "announcement",
-    };
-    createPost.mutate(data, {
-      onSuccess: () => {
-        // Reset form
-        setPostTitle("");
-        setPostContent("");
-        setPostType("announcement");
-      },
-    });
-  };
+
 
   // Check if user can create posts (must be admin/manager or have employee record)
   const canCreatePost = user?.role === "Admin" || user?.role === "Manager" || !!currentEmployee;
@@ -243,6 +352,48 @@ export default function News() {
           <p className="text-muted-foreground mt-2">
             Компанийн мэдээлэл, мэдэгдэл, амжилтууд
           </p>
+
+          {/* Search and Filters */}
+          <div className="flex flex-wrap gap-2 mt-4">
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Хайх..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-[150px]">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Төрөл" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Бүх төрөл</SelectItem>
+                <SelectItem value="announcement">📢 Мэдэгдэл</SelectItem>
+                <SelectItem value="maintenance">⚠️ Засвар</SelectItem>
+                <SelectItem value="event">🎉 Арга хэмжээ</SelectItem>
+                <SelectItem value="hr">👋 HR</SelectItem>
+                <SelectItem value="birthday">🎂 Төрсөн өдөр</SelectItem>
+                <SelectItem value="achievement">🏆 Амжилт</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filterSeverity} onValueChange={setFilterSeverity}>
+              <SelectTrigger className="w-[150px]">
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Зэрэглэл" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Бүгд</SelectItem>
+                <SelectItem value="info">ℹ️ Мэдээлэл</SelectItem>
+                <SelectItem value="warning">⚠️ Анхааруулга</SelectItem>
+                <SelectItem value="critical">🚨 Чухал</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {canCreatePost && (
@@ -267,21 +418,37 @@ export default function News() {
                   <DialogTitle>Шинэ мэдээлэл нийтлэх</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleCreatePost} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Төрөл</Label>
-                    <Select value={postType} onValueChange={setPostType}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="announcement">📢 Мэдэгдэл</SelectItem>
-                        <SelectItem value="maintenance">⚠️ Засвар үйлчилгээ</SelectItem>
-                        <SelectItem value="event">🎉 Арга хэмжээ</SelectItem>
-                        <SelectItem value="hr">👋 Шинэ ажилтан</SelectItem>
-                        <SelectItem value="birthday">🎂 Төрсөн өдөр</SelectItem>
-                        <SelectItem value="achievement">🏆 Амжилт</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Төрөл</Label>
+                      <Select value={postType} onValueChange={setPostType}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="announcement">📢 Мэдэгдэл</SelectItem>
+                          <SelectItem value="maintenance">⚠️ Засвар үйлчилгээ</SelectItem>
+                          <SelectItem value="event">🎉 Арга хэмжээ</SelectItem>
+                          <SelectItem value="hr">👋 Шинэ ажилтан</SelectItem>
+                          <SelectItem value="birthday">🎂 Төрсөн өдөр</SelectItem>
+                          <SelectItem value="achievement">🏆 Амжилт</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Зэрэглэл</Label>
+                      <Select value={postSeverity} onValueChange={(v: any) => setPostSeverity(v)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="info">ℹ️ Мэдээлэл</SelectItem>
+                          <SelectItem value="warning">⚠️ Анхааруулга</SelectItem>
+                          <SelectItem value="critical">🚨 Чухал</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -303,6 +470,92 @@ export default function News() {
                     />
                   </div>
 
+                  {/* File Attachments */}
+                  <div className="space-y-2">
+                    <Label>Хавсралт файл</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedFiles.map((file, i) => (
+                        <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                          {file.name}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => removeFile(i)} />
+                        </Badge>
+                      ))}
+                      <div className="relative">
+                        <Input type="file" multiple className="hidden" id="file-upload" onChange={handleFileSelect} />
+                        <Label htmlFor="file-upload" className="cursor-pointer">
+                          <Button type="button" variant="outline" size="sm" asChild>
+                            <span><Paperclip className="h-4 w-4 mr-2" /> Файл нэмэх</span>
+                          </Button>
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Builder */}
+                  <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                    <Label>Товчлуур нэмэх (Actions)</Label>
+                    <div className="flex gap-2 items-end">
+                      <div className="grid gap-2 flex-1">
+                        <Label className="text-xs">Товчлуурын нэр</Label>
+                        <Input
+                          value={newAction.label}
+                          onChange={(e) => setNewAction({ ...newAction, label: e.target.value })}
+                          placeholder="Жишээ: Бүртгүүлэх"
+                        />
+                      </div>
+                      <div className="grid gap-2 flex-1">
+                        <Label className="text-xs">URL (Холбоос)</Label>
+                        <Input
+                          value={newAction.url}
+                          onChange={(e) => setNewAction({ ...newAction, url: e.target.value })}
+                          placeholder="https://..."
+                        />
+                      </div>
+                      <div className="grid gap-2 w-32">
+                        <Label className="text-xs">Төрөл</Label>
+                        <Select value={newAction.style} onValueChange={(v: any) => setNewAction({ ...newAction, style: v })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="primary">Primary</SelectItem>
+                            <SelectItem value="outline">Outline</SelectItem>
+                            <SelectItem value="ghost">Ghost</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (newAction.label && newAction.url) {
+                            setPostActions([...postActions, newAction]);
+                            setNewAction({ label: "", url: "", style: "primary" });
+                          }
+                        }}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {postActions.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {postActions.map((action, idx) => (
+                          <Badge key={idx} variant="secondary" className="gap-2 pl-2 pr-1 py-1">
+                            {action.label}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 ml-1 hover:bg-transparent"
+                              onClick={() => setPostActions(postActions.filter((_, i) => i !== idx))}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex justify-end gap-2">
                     <Button
                       type="button"
@@ -312,6 +565,8 @@ export default function News() {
                         setPostTitle("");
                         setPostContent("");
                         setPostType("announcement");
+                        setPostSeverity("info");
+                        setPostActions([]);
                       }}
                     >
                       Цуцлах
@@ -352,11 +607,12 @@ export default function News() {
                     key={post.id}
                     post={post}
                     currentEmployee={currentEmployee}
-                    onLike={() => toggleLike.mutate(post.id)}
+                    onReaction={(type) => toggleReaction.mutate({ postId: post.id, reactionType: type })}
                     onComment={(content) => createComment.mutate({ postId: post.id, content })}
                     onDelete={user?.role === "Admin" || (currentEmployee && post.authorId === currentEmployee.id) ? () => deletePost.mutate(post.id) : undefined}
                     expandedComments={expandedComments}
                     setExpandedComments={setExpandedComments}
+                    refreshedComments={refreshedComments}
                     commentTexts={commentTexts}
                     setCommentTexts={setCommentTexts}
                     isFullWidth
@@ -372,13 +628,14 @@ export default function News() {
                   key={post.id}
                   post={post}
                   currentEmployee={currentEmployee}
-                  onLike={() => toggleLike.mutate(post.id)}
+                  onReaction={(type) => toggleReaction.mutate({ postId: post.id, reactionType: type })}
                   onComment={(content) => createComment.mutate({ postId: post.id, content })}
                   onDelete={user?.role === "Admin" || (currentEmployee && post.authorId === currentEmployee.id) ? () => deletePost.mutate(post.id) : undefined}
                   expandedComments={expandedComments}
                   setExpandedComments={setExpandedComments}
                   commentTexts={commentTexts}
                   setCommentTexts={setCommentTexts}
+                  refreshedComments={refreshedComments}
                 />
               ))}
             </div>
@@ -389,11 +646,10 @@ export default function News() {
   );
 }
 
-// Post Card Component - Memoized to prevent unnecessary re-renders
 const PostCard = React.memo(function PostCard({
   post,
   currentEmployee,
-  onLike,
+  onReaction,
   onComment,
   onDelete,
   expandedComments,
@@ -401,10 +657,11 @@ const PostCard = React.memo(function PostCard({
   commentTexts,
   setCommentTexts,
   isFullWidth = false,
+  refreshedComments,
 }: {
   post: Post;
   currentEmployee: any;
-  onLike: () => void;
+  onReaction: (type: string) => void;
   onComment: (content: string) => void;
   onDelete?: () => void;
   expandedComments: Set<string>;
@@ -412,12 +669,35 @@ const PostCard = React.memo(function PostCard({
   commentTexts: { [postId: string]: string };
   setCommentTexts: (texts: { [postId: string]: string } | ((prev: any) => any)) => void;
   isFullWidth?: boolean;
+  refreshedComments?: { postId: string; comments: Comment[] } | null;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isCommentsExpanded = expandedComments.has(post.id);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
+
+  // Update comments when parent signals a refresh (after creating a comment)
+  React.useEffect(() => {
+    if (refreshedComments && refreshedComments.postId === post.id) {
+      setComments(refreshedComments.comments);
+    }
+  }, [refreshedComments, post.id]);
+
+  const formatSafeDistance = (dateStr: string) => {
+    try {
+      // Enforce UTC if Z is missing to handle server offset
+      const date = new Date(dateStr + (dateStr.endsWith('Z') || dateStr.includes('+') ? '' : 'Z'));
+      if (isNaN(date.getTime())) return "Мэдэгдэхгүй";
+
+      // If it's in the future (due to slight clock desync), show "Just now"
+      if (date > new Date()) return "Дөнгөж сая";
+
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch {
+      return "Мэдэгдэхгүй";
+    }
+  };
 
   const loadComments = async () => {
     if (isCommentsExpanded) {
@@ -447,7 +727,6 @@ const PostCard = React.memo(function PostCard({
     }
   };
 
-
   const postTypeConfig: { [key: string]: { icon: any; label: string; className: string } } = {
     announcement: { icon: Bell, label: "Мэдэгдэл", className: "bg-blue-100 text-blue-700 border-blue-200" },
     maintenance: { icon: Bell, label: "Засвар", className: "bg-red-100 text-red-700 border-red-200" },
@@ -457,19 +736,35 @@ const PostCard = React.memo(function PostCard({
     achievement: { icon: Trophy, label: "Амжилт", className: "bg-amber-100 text-amber-700 border-amber-200" },
   };
 
+  const severityConfig: { [key: string]: { label: string; className: string; icon?: any } } = {
+    info: { label: "Мэдээлэл", className: "bg-slate-100 text-slate-700 border-slate-200" },
+    warning: { label: "Анхааруулга", className: "bg-amber-100 text-amber-700 border-amber-200", icon: AlertTriangle },
+    critical: { label: "Чухал", className: "bg-red-100 text-red-700 border-red-200", icon: AlertTriangle },
+  };
+
   const typeConfig = postTypeConfig[post.postType] || postTypeConfig.announcement;
   const PostTypeIcon = typeConfig.icon;
+  const severity = severityConfig[post.severity as string] || severityConfig.info;
+  const SeverityIcon = severity.icon;
 
   return (
-    <Card className={`${post.isPinned ? "border-primary border-2" : ""} ${isFullWidth ? "" : "h-full flex flex-col"}`}>
+    <Card className={`${post.isPinned ? "border-primary border-2 shadow-md" : ""} ${post.severity === 'critical' ? "border-red-500 border-2" : ""} ${isFullWidth ? "" : "h-full flex flex-col"}`}>
       {/* Category Badge at top */}
       <div className="px-4 pt-4 flex flex-wrap gap-2">
         {post.isPinned && (
-          <Badge variant="default" className="gap-1">
+          <Badge variant="default" className="gap-1 bg-primary text-primary-foreground">
             <Pin className="w-3 h-3" />
-            Чухал
+            Онцлох
           </Badge>
         )}
+
+        {post.severity && post.severity !== 'info' && (
+          <Badge className={`${severity.className} gap-1`}>
+            {SeverityIcon && <SeverityIcon className="w-3 h-3" />}
+            {severity.label}
+          </Badge>
+        )}
+
         <Badge className={`${typeConfig.className} gap-1`}>
           <PostTypeIcon className="w-3 h-3" />
           {typeConfig.label}
@@ -486,7 +781,7 @@ const PostCard = React.memo(function PostCard({
             <div className="flex-1">
               <CardTitle className={`${isFullWidth ? "text-xl" : "text-lg"} line-clamp-2`}>{post.title}</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                {post.authorName} • {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                {post.authorName} • {formatSafeDistance(post.createdAt)}
               </p>
             </div>
           </div>
@@ -525,17 +820,71 @@ const PostCard = React.memo(function PostCard({
           </div>
         )}
 
+        {/* Files Section */}
+        {post.files && post.files.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {post.files.map((file, i) => (
+              <a key={i} href={file.url} target="_blank" rel="noreferrer" className="flex items-center p-2 border rounded hover:bg-muted/50 transition-colors">
+                <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                <span className="text-sm font-medium flex-1 truncate">{file.name}</span>
+                <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* CTA Actions */}
+        {post.actions && post.actions.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-2">
+            {post.actions.map((action, idx) => (
+              <Button
+                key={idx}
+                variant={action.style as any || "default"}
+                size="sm"
+                className="gap-2"
+                asChild
+              >
+                <a href={action.url} target="_blank" rel="noopener noreferrer">
+                  <LinkIcon className="w-4 h-4" />
+                  {action.label}
+                </a>
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center gap-4 pt-2 border-t">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onLike}
-            className={post.isLiked ? "text-red-500 hover:text-red-600" : ""}
-          >
-            <Heart className={`w-4 h-4 mr-2 ${post.isLiked ? "fill-current" : ""}`} />
-            {post.likesCount}
-          </Button>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className={post.currentUserReaction ? "text-primary" : "text-muted-foreground"}>
+                {post.currentUserReaction === 'love' ? '❤️' :
+                  post.currentUserReaction === 'haha' ? '😂' :
+                    post.currentUserReaction === 'wow' ? '😮' :
+                      post.currentUserReaction === 'sad' ? '😢' :
+                        post.currentUserReaction === 'angry' ? '😡' :
+                          <Heart className={`w-4 h-4 mr-2 ${post.currentUserReaction === 'like' ? "fill-current" : ""}`} />
+                }
+                {post.likesCount > 0 && post.likesCount} {post.likesCount > 0 ? " " : " Like"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-1 flex gap-1">
+              {['like', 'love', 'haha', 'wow', 'sad', 'angry'].map(type => (
+                <button
+                  key={type}
+                  className="p-2 hover:bg-muted rounded-full text-lg transition-transform hover:scale-125 focus:outline-none"
+                  onClick={() => onReaction(type)}
+                >
+                  {type === 'like' ? '👍' :
+                    type === 'love' ? '❤️' :
+                      type === 'haha' ? '😂' :
+                        type === 'wow' ? '😮' :
+                          type === 'sad' ? '😢' : '😡'}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
 
           <Button
             variant="ghost"
@@ -548,7 +897,7 @@ const PostCard = React.memo(function PostCard({
             ) : (
               <MessageCircle className="w-4 h-4 mr-2" />
             )}
-            {post.commentsCount}
+            {post.commentsCount > 0 ? post.commentsCount : "Сэтгэгдэл"}
           </Button>
         </div>
 
@@ -562,14 +911,14 @@ const PostCard = React.memo(function PostCard({
                   <div key={comment.id} className="flex gap-3">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback className="text-xs">
-                        {comment.employeeName.charAt(0).toUpperCase()}
+                        {(comment.employeeName || "?").charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{comment.employeeName}</p>
+                        <p className="text-sm font-medium">{comment.employeeName || "Хэрэглэгч"}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                          {formatSafeDistance(comment.createdAt)}
                         </p>
                       </div>
                       <p className="text-sm mt-1">{comment.content}</p>

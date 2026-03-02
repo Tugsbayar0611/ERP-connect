@@ -413,6 +413,49 @@
     margin: 0 !important;
     padding: 0 !important;
   }
+
+  /* Performance Reports Print Styles */
+  table {
+    page-break-inside: auto !important;
+    width: 100% !important;
+    font-size: 11px !important;
+  }
+
+  table thead {
+    display: table-header-group !important;
+  }
+
+  table tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  table th,
+  table td {
+    padding: 6px 8px !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Show print-only elements */
+  .print\\:block {
+    display: block !important;
+  }
+
+  /* Hide print:hidden elements */
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Hide tabs and navigation when printing */
+  [role="tablist"],
+  .tabs-list {
+    display: none !important;
+  }
+
+  /* Print margins */
+  .print\\:mb-6 {
+    margin-bottom: 1.5rem !important;
+  }
 }
 
 /* Rich Text Editor (Quill) Dark Mode Support */

@@ -285,7 +285,7 @@ async function seedDashboardData() {
         for (let j = 0; j < productCount; j++) {
           const product = activeProducts[Math.floor(Math.random() * activeProducts.length)];
           const quantity = 1 + Math.floor(Math.random() * 5);
-          const unitPrice = Number(product.price) || 100000;
+          const unitPrice = Number(product.salePrice) || 100000;
           const lineSubtotal = quantity * unitPrice;
           const taxRate = 10; // 10% VAT
           const lineTax = lineSubtotal * (taxRate / 100);

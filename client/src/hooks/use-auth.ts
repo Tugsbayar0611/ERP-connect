@@ -51,6 +51,8 @@ export function useAuth() {
       // Only set query data if it's a normal user object (not 2FA response)
       if (data && !data.requires2FA) {
         queryClient.setQueryData([api.auth.me.path], data);
+        // Ensure permissions and other computed fields are fresh
+        queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
       }
     },
   });
@@ -60,7 +62,11 @@ export function useAuth() {
       await fetch(api.auth.logout.path, { method: api.auth.logout.method });
     },
     onSuccess: () => {
+      // Clear all queries to prevent stale data when switching users
+      queryClient.clear();
       queryClient.setQueryData([api.auth.me.path], null);
+      // Force a hard reload to ensure all application state is reset
+      window.location.reload();
     },
   });
 

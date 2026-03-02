@@ -30,6 +30,7 @@ export interface PayrollCalculationInput {
   baseSalary: number; // Үндсэн цалин
   allowances?: Allowance[]; // Нэмэгдлүүд
   advances?: SalaryAdvance[]; // Урьдчилгаа/зээл
+  otherDeductions?: { description: string; amount: number }[]; // Бусад суутгал (Meal, Supplies etc.)
   overtimeHours?: number; // Илүү цаг
   overtimeRate?: number; // Илүү цагийн хувь (default: 50% = 1.5x)
   bonus?: number; // Урамшуулал
@@ -70,9 +71,13 @@ export interface PayrollCalculationResult {
     deducted: number; // Энэ сард хасах дүн
     remaining: number; // Үлдсэн дүн
   };
+  otherDeductions: {
+    total: number;
+    items: { description: string; amount: number }[];
+  };
 
   // Эцсийн дүн
-  totalDeductions: number; // Нийт суутгал (SHI + PIT + Advances)
+  totalDeductions: number; // Нийт суутгал (SHI + PIT + Advances + Other)
   netPay: number; // Цэвэр цалин
 }
 
@@ -84,6 +89,7 @@ export function calculateMongolianPayroll(input: PayrollCalculationInput): Payro
     baseSalary,
     allowances = [],
     advances = [],
+    otherDeductions = [],
     overtimeHours = 0,
     overtimeRate = 1.5, // 50% нэмэгдэл = 1.5x
     bonus = 0,
@@ -180,7 +186,10 @@ export function calculateMongolianPayroll(input: PayrollCalculationInput): Payro
   // 5. ЭЦСИЙН ДҮН
   // ==========================================
 
-  const totalDeductions = shiResult.employee + pitResult.tax + advanceDeductionThisMonth;
+  // Other Deductions
+  const totalOtherDeductions = otherDeductions.reduce((sum, item) => sum + item.amount, 0);
+
+  const totalDeductions = shiResult.employee + pitResult.tax + advanceDeductionThisMonth + totalOtherDeductions;
   const netPay = grossPay - totalDeductions;
 
   return {
@@ -212,6 +221,10 @@ export function calculateMongolianPayroll(input: PayrollCalculationInput): Payro
       total: totalAdvanceAmount,
       deducted: advanceDeductionThisMonth,
       remaining: remainingAdvanceAmount,
+    },
+    otherDeductions: {
+      total: totalOtherDeductions,
+      items: otherDeductions
     },
 
     totalDeductions,

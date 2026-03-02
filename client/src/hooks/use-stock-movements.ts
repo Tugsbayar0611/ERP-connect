@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 
 export interface StockMovement {
   id: string;
@@ -30,8 +31,10 @@ export interface CreateStockMovementInput {
 }
 
 export function useStockMovements(warehouseId?: string, productId?: string) {
+  const { user } = useAuth();
   const { data: movements = [], isLoading } = useQuery<StockMovement[]>({
-    queryKey: ["stock-movements", warehouseId, productId],
+    queryKey: ["stock-movements", warehouseId, productId, user?.id],
+    enabled: !!user,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (warehouseId) params.append("warehouseId", warehouseId);
@@ -71,8 +74,10 @@ export function useCreateStockMovement() {
 }
 
 export function useExpiryAlerts(days: number = 30, warehouseId?: string) {
+  const { user } = useAuth();
   const { data: alerts = [], isLoading } = useQuery<any[]>({
-    queryKey: ["expiry-alerts", days, warehouseId],
+    queryKey: ["expiry-alerts", days, warehouseId, user?.id],
+    enabled: !!user,
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append("days", days.toString());

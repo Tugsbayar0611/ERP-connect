@@ -1,4 +1,4 @@
-import { scrypt, randomBytes, timingSafeEqual, createHash } from "crypto";
+import { scrypt, randomBytes, timingSafeEqual, createHash, createHmac } from "crypto";
 import { promisify } from "util";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -6,13 +6,87 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { type Express } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { pool } from "./db";
+import { pool, db } from "./db";
 import { storage } from "./storage";
-import { type User } from "@shared/schema";
+import { type User, userSessions } from "@shared/schema";
 import { validatePasswordStrength, updateSessionActivity, createRateLimiter } from "./security";
+import { eq, and, isNull } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 const PgSession = connectPg(session);
+
+// Session tracking helpers
+function hashSessionToken(token: string): string {
+  const secret = process.env.SESSION_HASH_SECRET || "erp_session_secret_dev";
+  return createHmac("sha256", secret).update(token).digest("hex");
+}
+
+function getClientInfo(req: any) {
+  const ip =
+    req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+    req.ip ||
+    req.connection?.remoteAddress ||
+    null;
+  const userAgent = req.headers["user-agent"]?.toString() || null;
+  const deviceName = parseDeviceName(userAgent);
+  return { ipAddress: ip, userAgent, deviceName };
+}
+
+function parseDeviceName(userAgent: string | null): string {
+  if (!userAgent) return "Unknown Device";
+  if (userAgent.includes("iPhone")) return "iPhone";
+  if (userAgent.includes("iPad")) return "iPad";
+  if (userAgent.includes("Android")) return "Android";
+  if (userAgent.includes("Windows")) {
+    if (userAgent.includes("Edge")) return "Edge (Windows)";
+    if (userAgent.includes("Chrome")) return "Chrome (Windows)";
+    if (userAgent.includes("Firefox")) return "Firefox (Windows)";
+    return "Windows";
+  }
+  if (userAgent.includes("Mac")) {
+    if (userAgent.includes("Chrome")) return "Chrome (Mac)";
+    if (userAgent.includes("Safari")) return "Safari (Mac)";
+    return "Mac";
+  }
+  return "Unknown Device";
+}
+
+async function insertUserSession(req: any, user: any) {
+  try {
+    const sessionId = req.sessionID;
+    if (!sessionId) return;
+    const tokenHash = hashSessionToken(sessionId);
+    const { ipAddress, userAgent, deviceName } = getClientInfo(req);
+
+    await db.insert(userSessions).values({
+      tenantId: user.tenantId,
+      userId: user.id,
+      sessionTokenHash: tokenHash,
+      ipAddress,
+      userAgent,
+      deviceName,
+    }).onConflictDoNothing(); // Prevent duplicates if session already exists
+  } catch (e) {
+    console.error("Failed to insert user session:", e);
+  }
+}
+
+async function revokeUserSession(req: any) {
+  try {
+    const sessionId = req.sessionID;
+    if (!sessionId) return;
+    const tokenHash = hashSessionToken(sessionId);
+
+    await db.update(userSessions)
+      .set({ revokedAt: new Date(), revokeReason: "logout" })
+      .where(and(
+        eq(userSessions.sessionTokenHash, tokenHash),
+        isNull(userSessions.revokedAt)
+      ));
+  } catch (e) {
+    console.error("Failed to revoke user session:", e);
+  }
+}
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -54,6 +128,48 @@ export function setupAuth(app: Express) {
 
   // Session activity update middleware (update timeout on each request)
   app.use(updateSessionActivity);
+
+  // Session revocation check middleware
+  const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
+  app.use(async (req, res, next) => {
+    if (!req.isAuthenticated() || !req.sessionID) {
+      return next();
+    }
+
+    try {
+      const tokenHash = hashSessionToken(req.sessionID);
+      const sessionRecord = await db.query.userSessions.findFirst({
+        where: (t: any, { and: andOp, eq: eqOp, isNull: isNullOp }: any) =>
+          andOp(
+            eqOp(t.sessionTokenHash, tokenHash),
+            isNullOp(t.revokedAt)
+          ),
+      });
+
+      // If session is revoked or doesn't exist in our tracking table, logout
+      if (!sessionRecord) {
+        req.logout((err) => {
+          if (err) console.error("Logout error:", err);
+          return res.status(401).json({ message: "Session revoked" });
+        });
+        return;
+      }
+
+      // Throttled lastSeenAt update
+      const lastSeen = new Date(sessionRecord.lastSeenAt).getTime();
+      if (Date.now() - lastSeen > LAST_SEEN_THROTTLE_MS) {
+        db.update(userSessions)
+          .set({ lastSeenAt: new Date() })
+          .where(eq(userSessions.id, sessionRecord.id))
+          .catch(() => { }); // Don't block request
+      }
+
+      next();
+    } catch (e) {
+      console.error("Session validation error:", e);
+      next(); // Don't block on validation errors
+    }
+  });
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
@@ -159,6 +275,22 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
+      if (user) {
+        // Attach employeeId if linked
+        const employee = await storage.getEmployeeByUserId(user.id);
+        if (employee) {
+          (user as any).employeeId = employee.id;
+        }
+
+        // Attach RBAC roles and permissions flags for easier frontend checks
+        const userRoles = await storage.getUserRoles(user.id);
+        const userPermissions = await storage.getUserPermissions(user.id);
+        (user as any).userRoles = userRoles;
+        (user as any).permissions = userPermissions.map((p: any) => `${p.resource}.${p.action}`);
+        (user as any).isAdmin = userRoles.some((r: any) => r.name.toLowerCase() === "admin" || r.isSystem) || user.role === 'Admin';
+        (user as any).isHR = userRoles.some((r: any) => r.name.toLowerCase() === "hr") || user.role === 'HR' || (user as any).isAdmin;
+        (user as any).isManager = userRoles.some((r: any) => r.name.toLowerCase() === "manager") || user.role === 'Manager';
+      }
       done(null, user);
     } catch (err) {
       done(err);
@@ -427,10 +559,12 @@ export function setupAuth(app: Express) {
       }
 
       // No 2FA, proceed with normal login
-      req.login(user, (err) => {
+      req.login(user, async (err) => {
         if (err) return next(err);
         // Update last login time
         storage.updateUserLastLogin(user.id).catch(console.error);
+        // Track session
+        await insertUserSession(req, user);
         res.status(200).json(user);
       });
     })(req, res, next);
@@ -463,10 +597,12 @@ export function setupAuth(app: Express) {
       }
 
       // 2FA verified, complete login
-      req.login(user, (err) => {
+      req.login(user, async (err) => {
         if (err) return next(err);
         delete (req.session as any).pending2FA;
         storage.updateUserLastLogin(user.id).catch(console.error);
+        // Track session
+        await insertUserSession(req, user);
         res.status(200).json(user);
       });
     } catch (err) {
@@ -474,7 +610,9 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/auth/logout", (req, res, next) => {
+  app.post("/api/auth/logout", async (req, res, next) => {
+    // Revoke session before logout
+    await revokeUserSession(req);
     req.logout((err) => {
       if (err) return next(err);
       res.sendStatus(200);
@@ -643,9 +781,12 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Шинэ нууц үг хуучин нууц үгтэй ижил байж болохгүй" });
       }
 
-      // Update password
+      // Update password and clear mustChangePassword flag
       const hashedPassword = await hashPassword(newPassword);
-      await storage.updateUser(user.id, { passwordHash: hashedPassword });
+      await storage.updateUser(user.id, {
+        passwordHash: hashedPassword,
+        mustChangePassword: false  // Clear the first-login flag
+      });
 
       res.status(200).json({ message: "Нууц үг амжилттай солигдлоо" });
     } catch (err) {
@@ -694,6 +835,28 @@ export function setupAuth(app: Express) {
       // Don't send password hash
       const { passwordHash, ...safeUser } = updatedUser;
       res.json(safeUser);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Update User Settings
+  app.patch("/api/auth/settings", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const { settings } = req.body;
+
+      if (!settings || typeof settings !== 'object') {
+        return res.status(400).json({ message: "Settings object required" });
+      }
+
+      // Merge existing settings with new settings
+      const currentSettings = (user.settings as any) || {};
+      const newSettings = { ...currentSettings, ...settings };
+
+      const updatedUser = await storage.updateUser(user.id, { settings: newSettings });
+
+      res.json(updatedUser.settings);
     } catch (err) {
       next(err);
     }

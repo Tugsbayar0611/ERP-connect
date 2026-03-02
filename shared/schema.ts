@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, uuid, date, numeric, uniqueIndex, jsonb, check, AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, uuid, date, numeric, uniqueIndex, index, jsonb, check, AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -37,10 +37,23 @@ export const branches = pgTable("branches", {
   longitude: numeric("longitude", { precision: 11, scale: 8 }),
   geofenceRadius: integer("geofence_radius").default(100), // meters
   officeWifiSsid: text("office_wifi_ssid").array(), // Array of WiFi SSIDs
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   unqBranch: uniqueIndex("branch_tenant_name_idx").on(t.tenantId, t.name),
+}));
+
+export const companySettings = pgTable("company_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  workStartTime: text("work_start_time").notNull().default("09:00"),
+  workEndTime: text("work_end_time").notNull().default("18:00"),
+  lateThresholdMinutes: integer("late_threshold_minutes").notNull().default(0),
+  documentAccessPolicy: text("document_access_policy").notNull().default("history"), // 'strict' | 'history'
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  unqTenantSettings: uniqueIndex("company_settings_tenant_idx").on(t.tenantId),
 }));
 
 // ==========================================
@@ -58,12 +71,15 @@ export const users = pgTable("users", {
   status: text("status").notNull().default("active"), // 'pending' | 'active' | 'rejected' - Admin approval workflow
   isActive: boolean("is_active").notNull().default(true),
   lastLoginAt: timestamp("last_login_at"),
+  settings: jsonb("settings").default({}), // For storing UI preferences like favorites
   // 2FA (Two-Factor Authentication)
   twoFactorSecret: text("two_factor_secret"), // TOTP secret (encrypted in production)
   twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   signatureUrl: text("signature_url"), // Digital signature image URL
+  signatureTitle: text("signature_title"), // Customized title for signature (defaults to jobTitle if null)
   jobTitle: text("job_title"), // Албан тушаал (Ерөнхий захирал, г.м.)
   canSignDocuments: boolean("can_sign_documents").notNull().default(false), // Гарын үсэг зурах эрх
+  mustChangePassword: boolean("must_change_password").notNull().default(false), // First login password change
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({
@@ -80,8 +96,8 @@ export const sessions = pgTable("sessions", {
   tokenHash: text("token_hash").notNull(),
   ip: text("ip"),
   userAgent: text("user_agent"),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   revokedAt: timestamp("revoked_at"),
 });
 
@@ -130,20 +146,32 @@ export const userRoles = pgTable("user_roles", {
 
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
+
   tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
-  actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
-  eventTime: timestamp("event_time").notNull().defaultNow(),
-  entityType: text("entity_type").notNull(),
-  entityId: uuid("entity_id"),
+  actorId: uuid("actor_user_id").notNull(), // Mapped to actor_user_id
+  // actorRole removed as it doesn't exist in DB
+
+  entity: text("entity_type").notNull(), // Mapped to entity_type
+  entityId: uuid("entity_id").notNull(),
+
   action: text("action").notNull(),
-  status: text("status").notNull().default("success"),
-  message: text("message"),
+  status: text("status"), // Added to match DB
+  message: text("message"), // Added to match DB
+
   beforeData: jsonb("before_data"),
   afterData: jsonb("after_data"),
-  requestId: text("request_id"),
-  ip: text("ip"),
+
+  ipAddress: text("ip"), // Mapped to ip
   userAgent: text("user_agent"),
-});
+  requestId: text("request_id"),
+  // route removed as it doesn't exist in DB
+
+  createdAt: timestamp("event_time").defaultNow().notNull(), // Mapped to event_time
+}, (t) => ({
+  idxTenantTime: index("audit_tenant_time_idx").on(t.tenantId, t.createdAt),
+  idxEntity: index("audit_entity_idx").on(t.tenantId, t.entity, t.entityId),
+  idxActor: index("audit_actor_idx").on(t.tenantId, t.actorId, t.createdAt),
+}));
 
 // ==========================================
 // 5. HR (Departments & Employees)
@@ -163,11 +191,30 @@ export const departments = pgTable("departments", {
   unqDept: uniqueIndex("dept_tenant_name_idx").on(t.tenantId, t.name),
 }));
 
+export const jobTitles = pgTable("job_titles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(), // Монгол нэр (Захирал, Менежер, г.м)
+  code: text("code"), // JOB-001
+  departmentId: uuid("department_id").references(() => departments.id, { onDelete: "set null" }), // Optional department link
+  isActive: boolean("is_active").notNull().default(true),
+
+  settings: jsonb("settings"), // Flexible configuration for permissions/workflow mapping
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  unqJobTitle: uniqueIndex("job_title_tenant_name_idx").on(t.tenantId, t.name),
+}));
+
 export const employees = pgTable("employees", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
   branchId: uuid("branch_id").references(() => branches.id, { onDelete: "set null" }),
   departmentId: uuid("department_id").references(() => departments.id, { onDelete: "set null" }),
+  // New standardized job title
+  jobTitleId: uuid("job_title_id").references(() => jobTitles.id, { onDelete: "set null" }),
+
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }), // Link to users for RBAC
 
   employeeNo: text("employee_no"),
@@ -178,7 +225,7 @@ export const employees = pgTable("employees", {
   birthDate: date("birth_date"),
   phone: text("phone"),
   email: text("email"),
-  position: text("position"), // Албан тушаал (Ахлах хөгжүүлэгч, Менежер, гм)
+  position: text("position"), // OLD free-text field (Keep for backward compatibility)
 
   hireDate: date("hire_date").notNull(),
   terminationDate: date("termination_date"),
@@ -411,7 +458,10 @@ export const companyPosts = pgTable("company_posts", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   postType: text("post_type").notNull().default("announcement"), // 'announcement', 'birthday', 'achievement', 'event'
+  severity: text("severity").notNull().default("info"), // 'info', 'warning', 'critical'
   images: text("images").array(), // Array of image URLs
+  files: jsonb("files"), // Array of { name, url, size, type }
+  actions: jsonb("actions"), // Array of { label, url, style }
   likesCount: integer("likes_count").notNull().default(0),
   commentsCount: integer("comments_count").notNull().default(0),
   isPinned: boolean("is_pinned").notNull().default(false),
@@ -423,6 +473,7 @@ export const postLikes = pgTable("post_likes", {
   tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
   postId: uuid("post_id").references(() => companyPosts.id, { onDelete: "cascade" }).notNull(),
   employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  reactionType: text("reaction_type").notNull().default("like"), // 'like', 'love', 'haha', 'wow', 'sad', 'angry'
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => ({
   unqLike: uniqueIndex("post_like_uniq_idx").on(t.tenantId, t.postId, t.employeeId),
@@ -436,6 +487,56 @@ export const postComments = pgTable("post_comments", {
   content: text("content").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+
+// ==========================================
+// 9.5 PAYROLL STAGING (Canteen & Deductions)
+// ==========================================
+
+export const payrollStagingLines = pgTable("payroll_staging_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+
+  period: text("period").notNull(), // YYYY-MM
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+
+  sourceType: text("source_type").notNull(), // 'meal', 'advance', 'bonus', 'penalty'
+  sourceId: text("source_id").notNull(), // Idempotency key (e.g., 'meal:2024-02:emp-uuid')
+
+  amount: integer("amount").notNull().default(0), // Negative for deduction, positive for addition
+  currency: text("currency").notNull().default("MNT"),
+
+  status: text("status").notNull().default("pending"), // 'pending', 'approved', 'posted', 'voided'
+  description: text("description"),
+
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+
+  approvedBy: uuid("approved_by").references(() => users.id, { onDelete: "set null" }),
+  approvedAt: timestamp("approved_at"),
+
+  postedAt: timestamp("posted_at"), // When it was posted to GL/Payroll
+}, (t) => ({
+  unqStaging: uniqueIndex("staging_line_uniq_idx").on(t.tenantId, t.period, t.employeeId, t.sourceType), // One line per source type per period per employee
+  idxSource: index("staging_line_source_idx").on(t.sourceId),
+}));
+
+export const payrollStagingLinesRelations = relations(payrollStagingLines, ({ one }) => ({
+  tenant: one(tenants, { fields: [payrollStagingLines.tenantId], references: [tenants.id] }),
+  employee: one(employees, { fields: [payrollStagingLines.employeeId], references: [employees.id] }),
+  creator: one(users, { fields: [payrollStagingLines.createdBy], references: [users.id] }),
+  approver: one(users, { fields: [payrollStagingLines.approvedBy], references: [users.id] }),
+}));
+
+export const insertPayrollStagingLineSchema = createInsertSchema(payrollStagingLines).omit({
+  id: true,
+  createdAt: true,
+  approvedAt: true,
+  postedAt: true,
+});
+
+export type PayrollStagingLine = typeof payrollStagingLines.$inferSelect;
+export type InsertPayrollStagingLine = z.infer<typeof insertPayrollStagingLineSchema>;
 
 // ==========================================
 // 10. WEATHER WIDGET
@@ -509,7 +610,47 @@ export const documents = pgTable("documents", {
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+
+  // DMS Fields
+  docNumber: text("doc_number"),
+  description: text("description"),
+  priority: text("priority").default("normal"), // 'normal', 'urgent', 'critical'
+  status: text("status").default("draft"), // 'draft', 'pending', 'processing', 'completed', 'expired', 'unsolved'
+  currentHolderId: uuid("current_holder_id").references(() => users.id, { onDelete: "set null" }),
+
+  isArchived: boolean("is_archived").notNull().default(false),
+
+  // SLA Logic
+  deadline: timestamp("deadline"),
+  isOverdue: boolean("is_overdue").default(false),
+  createdBy: uuid("created_by").references(() => users.id),
+  internalNotes: text("internal_notes"), // New field for redaction
 });
+
+export const documentLogs = pgTable("document_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  documentId: uuid("document_id").references(() => documents.id, { onDelete: "cascade" }).notNull(),
+
+  actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+
+  fromUserId: uuid("from_user_id"),
+  toUserId: uuid("to_user_id"),
+
+  comment: text("comment"),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const documentReads = pgTable("document_reads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  documentId: uuid("document_id").references(() => documents.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  readAt: timestamp("read_at").notNull().defaultNow(),
+}, (t) => ({
+  unqRead: uniqueIndex("document_read_unq").on(t.tenantId, t.userId, t.documentId),
+  idxReadAt: index("document_read_at_idx").on(t.tenantId, t.userId, t.readAt),
+}));
 
 // ==========================================
 // 9. PRODUCTS (Бараа)
@@ -1188,6 +1329,12 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   payslips: many(payslips),
 }));
 
+export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
+  tenant: one(tenants, { fields: [leaveRequests.tenantId], references: [tenants.id] }),
+  employee: one(employees, { fields: [leaveRequests.employeeId], references: [employees.id] }),
+  approvedByUser: one(users, { fields: [leaveRequests.approvedBy], references: [users.id] }),
+}));
+
 export const productsRelations = relations(products, ({ one, many }) => ({
   tenant: one(tenants, { fields: [products.tenantId], references: [tenants.id] }),
   category: one(productCategories, { fields: [products.categoryId], references: [productCategories.id] }),
@@ -1285,11 +1432,23 @@ export const invoiceLinesRelations = relations(invoiceLines, ({ one }) => ({
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true }); // Tenant ID is self-managed or created by system admin
 export const insertBranchSchema = createInsertSchema(branches).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true });
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true, lastLoginAt: true, tenantId: true });
 export const insertSessionSchema = createInsertSchema(sessions);
 export const insertRoleSchema = createInsertSchema(roles).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true });
 export const insertPermissionSchema = createInsertSchema(permissions).omit({ id: true });
-export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, eventTime: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+
+
+export const insertJobTitleSchema = createInsertSchema(jobTitles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+});
+export type JobTitle = typeof jobTitles.$inferSelect;
+export type InsertJobTitle = z.infer<typeof insertJobTitleSchema>;
+export type DbInsertJobTitle = typeof jobTitles.$inferInsert;
 export const insertDepartmentSchema = createInsertSchema(departments).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true });
 export const insertEmployeeSchema = createInsertSchema(employees)
   .omit({ id: true, createdAt: true, updatedAt: true, tenantId: true })
@@ -1341,9 +1500,33 @@ export const insertPayslipSchema = createInsertSchema(payslips).omit({ id: true,
 export const insertPayslipEarningsSchema = createInsertSchema(payslipEarnings).omit({ id: true, tenantId: true });
 export const insertPayslipDeductionsSchema = createInsertSchema(payslipDeductions).omit({ id: true, tenantId: true });
 export const insertSalaryAdvanceSchema = createInsertSchema(salaryAdvances).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true });
+
+
+
 export const insertEmployeeAllowanceSchema = createInsertSchema(employeeAllowances).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true });
+
+export const payrollSubmissionSchema = z.object({
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  paymentDate: z.string(),
+  employeeId: z.string(),
+  baseSalary: z.number().or(z.string()),
+  netSalary: z.number().or(z.string()),
+  tax: z.number().or(z.string()).optional(),
+  socialInsurance: z.number().or(z.string()).optional(),
+  status: z.string().optional(),
+});
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true, tenantId: true });
-export const insertDocumentSchema = createInsertSchema(documents).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true });
+export const insertDocumentSchema = createInsertSchema(documents).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true, isOverdue: true });
+export const insertDocumentLogSchema = createInsertSchema(documentLogs).omit({ id: true, timestamp: true });
+export type DocumentLog = typeof documentLogs.$inferSelect;
+export type InsertDocumentLog = z.infer<typeof insertDocumentLogSchema>;
+export type DbInsertDocumentLog = typeof documentLogs.$inferInsert;
+
+export const insertDocumentReadSchema = createInsertSchema(documentReads).omit({ id: true, readAt: true, tenantId: true });
+export type DocumentRead = typeof documentReads.$inferSelect;
+export type InsertDocumentRead = z.infer<typeof insertDocumentReadSchema>;
+export type DbInsertDocumentRead = typeof documentReads.$inferInsert;
 export const insertProductCategorySchema = createInsertSchema(productCategories).omit({ id: true, createdAt: true, tenantId: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true })
   .extend({
@@ -1635,5 +1818,910 @@ export type QPayInvoice = typeof qpayInvoices.$inferSelect;
 export type EBarimtSettings = typeof ebarimtSettings.$inferSelect;
 export type DbInsertAuditLog = typeof auditLogs.$inferInsert;
 
+// ==========================================
+// PERFORMANCE & KPI (Гүйцэтгэлийн Удирдлага)
+// ==========================================
+
+export const performancePeriods = pgTable("performance_periods", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(), // Жишээ: "2024 - Эхний хагас жил"
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  status: text("status").notNull().default("active"), // 'active' | 'closed' | 'archived'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  unqPeriod: uniqueIndex("perf_period_tenant_name_idx").on(t.tenantId, t.name),
+}));
+
+export const performanceGoals = pgTable("performance_goals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  periodId: uuid("period_id").references(() => performancePeriods.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+
+  title: text("title").notNull(),
+  description: text("description"),
+
+  // Scoring & Metrics
+  metricType: text("metric_type").notNull().default("percent"), // 'percent' | 'number' | 'currency' | 'boolean'
+  targetValue: numeric("target_value", { precision: 14, scale: 2 }).notNull().default("100"),
+  currentValue: numeric("current_value", { precision: 14, scale: 2 }).notNull().default("0"),
+
+  weight: integer("weight").notNull().default(0), // 0-100
+  progress: integer("progress").notNull().default(0), // 0-100 (Calculated from current/target or manual)
+
+  // Workflow
+  status: text("status").notNull().default("draft"), // 'draft' | 'submitted' | 'approved' | 'evaluated' | 'locked'
+  dueDate: date("due_date"),
+
+  // Evaluation
+  managerId: uuid("manager_id").references(() => users.id, { onDelete: "set null" }), // Assigned evaluator
+  managerComment: text("manager_comment"),
+  qualityRating: integer("quality_rating"), // 1-5
+
+  evaluatorNotes: text("evaluator_notes"), // Keep for backward compatibility or merge with managerComment
+  evaluatedBy: uuid("evaluated_by").references(() => users.id, { onDelete: "set null" }),
+  evaluatedAt: timestamp("evaluated_at"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const kpiEvidence = pgTable("kpi_evidence", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  goalId: uuid("goal_id").references(() => performanceGoals.id, { onDelete: "cascade" }).notNull(),
+
+  type: text("type").notNull().default("file"), // 'file' | 'link'
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+
+  uploadedBy: uuid("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Performance Relations
+export const performancePeriodRelations = relations(performancePeriods, ({ many }) => ({
+  goals: many(performanceGoals),
+}));
+
+export const performanceGoalRelations = relations(performanceGoals, ({ one, many }) => ({
+  period: one(performancePeriods, {
+    fields: [performanceGoals.periodId],
+    references: [performancePeriods.id],
+  }),
+  employee: one(employees, {
+    fields: [performanceGoals.employeeId],
+    references: [employees.id],
+  }),
+  evaluator: one(users, {
+    fields: [performanceGoals.evaluatedBy],
+    references: [users.id],
+  }),
+  manager: one(users, {
+    fields: [performanceGoals.managerId],
+    references: [users.id],
+  }),
+  evidence: many(kpiEvidence),
+}));
+
+export const kpiEvidenceRelations = relations(kpiEvidence, ({ one }) => ({
+  goal: one(performanceGoals, {
+    fields: [kpiEvidence.goalId],
+    references: [performanceGoals.id],
+  }),
+  uploader: one(users, {
+    fields: [kpiEvidence.uploadedBy],
+    references: [users.id],
+  }),
+}));
+
+// Performance Zod Schemas
+export const insertPerformancePeriodSchema = createInsertSchema(performancePeriods).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPerformanceGoalSchema = createInsertSchema(performanceGoals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertKpiEvidenceSchema = createInsertSchema(kpiEvidence).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Performance Types
+export type PerformancePeriod = typeof performancePeriods.$inferSelect;
+export type InsertPerformancePeriod = z.infer<typeof insertPerformancePeriodSchema>;
+export type PerformanceGoal = typeof performanceGoals.$inferSelect;
+export type InsertPerformanceGoal = z.infer<typeof insertPerformanceGoalSchema>;
+export type KpiEvidence = typeof kpiEvidence.$inferSelect;
+export type InsertKpiEvidence = z.infer<typeof insertKpiEvidenceSchema>;
 
 
+
+// ==========================================
+// 15. DOCUMENT MANAGEMENT SYSTEM (DMS)
+// ==========================================
+
+// 'documents' table is defined in the main section (line ~490)
+
+
+
+// Relations
+export const documentRelations = relations(documents, ({ one, many }) => ({
+  tenant: one(tenants, { fields: [documents.tenantId], references: [tenants.id] }),
+  uploadedByUser: one(users, { fields: [documents.uploadedBy], references: [users.id] }),
+  currentHolder: one(users, { fields: [documents.currentHolderId], references: [users.id] }),
+  createdByUser: one(users, { fields: [documents.createdBy], references: [users.id] }),
+  logs: many(documentLogs),
+}));
+
+export const documentLogRelations = relations(documentLogs, ({ one }) => ({
+  document: one(documents, { fields: [documentLogs.documentId], references: [documents.id] }),
+  actor: one(users, { fields: [documentLogs.actorId], references: [users.id] }),
+  fromUser: one(users, { fields: [documentLogs.fromUserId], references: [users.id] }),
+  toUser: one(users, { fields: [documentLogs.toUserId], references: [users.id] }),
+}));
+
+// Zod Schemas
+// insertDocumentSchema & insertDocumentLogSchema are defined in the Zod section (line ~1358)
+
+// Types
+// DocumentLog types are defined in the Zod section
+// ... existing exports ...
+
+// ==========================================
+// Safety & HSE (Аюулгүй ажиллагаа)
+// ==========================================
+
+export const safetyIncidents = pgTable("safety_incidents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+
+  title: text("title").notNull(), // Incident type or brief title
+  incidentType: text("incident_type").notNull().default("incident"), // incident, near_miss, hazard, property_damage
+  description: text("description"), // Detailed description
+
+  reportedBy: uuid("reported_by").references(() => users.id, { onDelete: "set null" }), // User who reported
+  isAnonymous: boolean("is_anonymous").notNull().default(false),
+
+  date: timestamp("date").notNull().defaultNow(), // When it happened
+  location: text("location"), // Where it happened
+
+  severity: text("severity").notNull().default("low"), // low, medium, high, urgent
+  status: text("status").notNull().default("reported"), // reported, investigating, resolved, closed
+
+  assignedTo: uuid("assigned_to").references(() => users.id, { onDelete: "set null" }), // Supervisor/Manager
+  correctiveAction: text("corrective_action"), // Steps taken to fix/prevent
+  targetDate: timestamp("target_date"), // Expected resolution date
+  resolutionDate: timestamp("resolution_date"), // When it was actually resolved
+
+  imageUrl: text("image_url"), // Optional photo
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const safetyIncidentsRelations = relations(safetyIncidents, ({ one }) => ({
+  tenant: one(tenants, { fields: [safetyIncidents.tenantId], references: [tenants.id] }),
+  reporter: one(users, { fields: [safetyIncidents.reportedBy], references: [users.id] }),
+  assignedUser: one(users, { fields: [safetyIncidents.assignedTo], references: [users.id] }),
+}));
+
+export const insertSafetyIncidentSchema = createInsertSchema(safetyIncidents, {
+  date: z.coerce.date(),
+  targetDate: z.coerce.date().optional(),
+  resolutionDate: z.coerce.date().optional(),
+  isAnonymous: z.boolean().default(false),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+});
+
+export type SafetyIncident = typeof safetyIncidents.$inferSelect;
+export type InsertSafetyIncident = z.infer<typeof insertSafetyIncidentSchema>;
+export type DbInsertSafetyIncident = typeof safetyIncidents.$inferInsert;
+
+// ==========================================
+// Internal Communication System (Дотоод харилцаа)
+// ==========================================
+
+// --- Announcements (Зарлал) ---
+export const announcements = pgTable("announcements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  type: text("type").notNull().default("general"), // general, urgent, event, celebration, policy, safety
+  priority: text("priority").notNull().default("normal"), // normal, high
+
+  // Visibility targeting
+  visibilityType: text("visibility_type").notNull().default("all"), // all, department, role, users
+  targetDepartments: jsonb("target_departments"), // Array of department IDs
+  targetRoles: jsonb("target_roles"), // Array of role IDs
+  targetUsers: jsonb("target_users"), // Array of user IDs
+
+  isPinned: boolean("is_pinned").notNull().default(false),
+  expiresAt: timestamp("expires_at"),
+
+  createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const announcementsRelations = relations(announcements, ({ one, many }) => ({
+  tenant: one(tenants, { fields: [announcements.tenantId], references: [tenants.id] }),
+  createdBy: one(users, { fields: [announcements.createdById], references: [users.id] }),
+  reads: many(announcementReads),
+  comments: many(announcementComments),
+  reactions: many(announcementReactions),
+}));
+
+export const announcementReads = pgTable("announcement_reads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  announcementId: uuid("announcement_id").references(() => announcements.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  unqRead: uniqueIndex("announcement_read_user_idx").on(t.announcementId, t.userId),
+}));
+
+export const announcementReadsRelations = relations(announcementReads, ({ one }) => ({
+  announcement: one(announcements, { fields: [announcementReads.announcementId], references: [announcements.id] }),
+  user: one(users, { fields: [announcementReads.userId], references: [users.id] }),
+}));
+
+export const announcementComments = pgTable("announcement_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  announcementId: uuid("announcement_id").references(() => announcements.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const announcementCommentsRelations = relations(announcementComments, ({ one }) => ({
+  announcement: one(announcements, { fields: [announcementComments.announcementId], references: [announcements.id] }),
+  user: one(users, { fields: [announcementComments.userId], references: [users.id] }),
+}));
+
+export const announcementReactions = pgTable("announcement_reactions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  announcementId: uuid("announcement_id").references(() => announcements.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  emoji: text("emoji").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+  unqReaction: uniqueIndex("announcement_reaction_user_emoji_idx").on(t.announcementId, t.userId, t.emoji),
+}));
+
+export const announcementReactionsRelations = relations(announcementReactions, ({ one }) => ({
+  announcement: one(announcements, { fields: [announcementReactions.announcementId], references: [announcements.id] }),
+  user: one(users, { fields: [announcementReactions.userId], references: [users.id] }),
+}));
+
+// Zod Schemas for Announcements
+export const insertAnnouncementSchema = createInsertSchema(announcements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true,
+});
+
+export type Announcement = typeof announcements.$inferSelect;
+export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
+export type DbInsertAnnouncement = typeof announcements.$inferInsert;
+
+export type AnnouncementRead = typeof announcementReads.$inferSelect;
+export type AnnouncementComment = typeof announcementComments.$inferSelect;
+export type AnnouncementReaction = typeof announcementReactions.$inferSelect;
+
+// --- Chat System (Чат систем) ---
+export const chatChannels = pgTable("chat_channels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+
+  type: text("type").notNull(), // direct, group
+  name: text("name"), // Group chat name (null for direct)
+
+  // Unique key for direct chats: "minUserId_maxUserId" to prevent duplicates
+  uniqueKey: text("unique_key"),
+
+  lastMessageAt: timestamp("last_message_at"),
+  lastMessagePreview: text("last_message_preview"),
+
+  createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  unqDirectKey: uniqueIndex("chat_channel_unique_key_idx").on(t.tenantId, t.uniqueKey),
+}));
+
+export const chatChannelsRelations = relations(chatChannels, ({ one, many }) => ({
+  tenant: one(tenants, { fields: [chatChannels.tenantId], references: [tenants.id] }),
+  createdBy: one(users, { fields: [chatChannels.createdById], references: [users.id] }),
+  members: many(chatChannelMembers),
+  messages: many(chatMessages),
+}));
+
+export const chatChannelMembers = pgTable("chat_channel_members", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  channelId: uuid("channel_id").references(() => chatChannels.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+
+  isAdmin: boolean("is_admin").notNull().default(false),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+
+  // For unread count calculation
+  lastReadAt: timestamp("last_read_at"),
+}, (t) => ({
+  unqMember: uniqueIndex("chat_channel_member_user_idx").on(t.channelId, t.userId),
+}));
+
+export const chatChannelMembersRelations = relations(chatChannelMembers, ({ one }) => ({
+  channel: one(chatChannels, { fields: [chatChannelMembers.channelId], references: [chatChannels.id] }),
+  user: one(users, { fields: [chatChannelMembers.userId], references: [users.id] }),
+}));
+
+export const chatMessages = pgTable("chat_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  channelId: uuid("channel_id").references(() => chatChannels.id, { onDelete: "cascade" }).notNull(),
+  senderId: uuid("sender_id").references(() => users.id, { onDelete: "set null" }),
+
+  content: text("content").notNull(),
+  type: text("type").notNull().default("text"), // text, file, system
+
+  fileUrl: text("file_url"), // Optional file attachment
+  replyToId: uuid("reply_to_id"), // Reply to another message
+
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  isEdited: boolean("is_edited").notNull().default(false),
+  isDeleted: boolean("is_deleted").notNull().default(false),
+});
+
+export const chatMessagesRelations = relations(chatMessages, ({ one, many }) => ({
+  channel: one(chatChannels, { fields: [chatMessages.channelId], references: [chatChannels.id] }),
+  sender: one(users, { fields: [chatMessages.senderId], references: [users.id] }),
+  replyTo: one(chatMessages, { fields: [chatMessages.replyToId], references: [chatMessages.id] }),
+  reactions: many(chatMessageReactions),
+}));
+
+export const chatMessageReactions = pgTable("chat_message_reactions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  messageId: uuid("message_id").references(() => chatMessages.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  emoji: text("emoji").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+  unqMessageReaction: uniqueIndex("chat_message_reaction_user_emoji_idx").on(t.messageId, t.userId, t.emoji),
+}));
+
+export const chatMessageReactionsRelations = relations(chatMessageReactions, ({ one }) => ({
+  message: one(chatMessages, { fields: [chatMessageReactions.messageId], references: [chatMessages.id] }),
+  user: one(users, { fields: [chatMessageReactions.userId], references: [users.id] }),
+}));
+
+// Zod Schemas for Chat
+export const insertChatChannelSchema = createInsertSchema(chatChannels).omit({
+  id: true,
+  createdAt: true,
+  tenantId: true,
+  lastMessageAt: true,
+  lastMessagePreview: true,
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
+  isEdited: true,
+  isDeleted: true,
+});
+
+export type ChatChannel = typeof chatChannels.$inferSelect;
+export type InsertChatChannel = z.infer<typeof insertChatChannelSchema>;
+export type DbInsertChatChannel = typeof chatChannels.$inferInsert;
+
+export type ChatChannelMember = typeof chatChannelMembers.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+export type DbInsertChatMessage = typeof chatMessages.$inferInsert;
+
+export type ChatMessageReaction = typeof chatMessageReactions.$inferSelect;
+
+
+export const insertCompanySettingsSchema = createInsertSchema(companySettings);
+export type CompanySettings = typeof companySettings.$inferSelect;
+export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
+export type DbInsertCompanySettings = typeof companySettings.$inferInsert;
+
+// JobTitle definitions moved to line 1388
+
+// ==========================================
+// 14. ROSTER MANAGEMENT (Phase 1)
+// ==========================================
+
+export const shifts = pgTable("shifts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  startMinutes: integer("start_minutes").notNull(), // 0-1439
+  endMinutes: integer("end_minutes").notNull(), // 0-1439
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  unqName: uniqueIndex("shift_tenant_name_idx").on(t.tenantId, t.name),
+  chkStart: check("shift_start_chk", sql`${t.startMinutes} >= 0 AND ${t.startMinutes} < 1440`),
+  chkEnd: check("shift_end_chk", sql`${t.endMinutes} >= 0 AND ${t.endMinutes} < 1440`),
+}));
+
+export const rosters = pgTable("rosters", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  cycleDays: integer("cycle_days").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  unqName: uniqueIndex("roster_tenant_name_idx").on(t.tenantId, t.name),
+  chkCycle: check("roster_cycle_chk", sql`${t.cycleDays} > 0 AND ${t.cycleDays} <= 366`),
+}));
+
+export const rosterDays = pgTable("roster_days", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  rosterId: uuid("roster_id").references(() => rosters.id, { onDelete: "cascade" }).notNull(),
+  dayIndex: integer("day_index").notNull(), // 0-indexed
+  shiftId: uuid("shift_id").references(() => shifts.id, { onDelete: "cascade" }),
+  isOff: boolean("is_off").default(false).notNull(),
+}, (t) => ({
+  unqDay: uniqueIndex("roster_day_idx").on(t.tenantId, t.rosterId, t.dayIndex),
+  chkOffShift: check("roster_days_chk", sql`(${t.isOff} = true AND ${t.shiftId} IS NULL) OR (${t.isOff} = false AND ${t.shiftId} IS NOT NULL)`),
+}));
+
+export const rosterAssignments = pgTable("roster_assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  rosterId: uuid("roster_id").references(() => rosters.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  status: text("status").default("active").notNull(), // active/ended
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  idxEmp: index("roster_assign_emp_idx").on(t.tenantId, t.employeeId),
+  idxRoster: index("roster_assign_roster_idx").on(t.tenantId, t.rosterId),
+}));
+
+export const insertShiftSchema = createInsertSchema(shifts);
+export type Shift = typeof shifts.$inferSelect;
+export type InsertShift = z.infer<typeof insertShiftSchema>;
+
+export const insertRosterSchema = createInsertSchema(rosters);
+export type Roster = typeof rosters.$inferSelect;
+export type InsertRoster = z.infer<typeof insertRosterSchema>;
+
+export const insertRosterDaySchema = createInsertSchema(rosterDays);
+export type RosterDay = typeof rosterDays.$inferSelect;
+export type InsertRosterDay = z.infer<typeof insertRosterDaySchema>;
+
+export const insertRosterAssignmentSchema = createInsertSchema(rosterAssignments);
+export type RosterAssignment = typeof rosterAssignments.$inferSelect;
+export type InsertRosterAssignment = z.infer<typeof insertRosterAssignmentSchema>;
+
+// ==========================================
+// TRANSPORTATION
+// ==========================================
+
+export const vehicles = pgTable("vehicles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),              // e.g., "Bus-1"
+  plateNo: text("plate_no").notNull(),       // e.g., "1234УБА"
+  type: text("type").default("bus").notNull(), // bus/van/etc
+  capacity: integer("capacity").notNull(),   // seat count
+  layoutJson: jsonb("layout_json"),          // seat map config (rows/cols/seat numbers)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+}, (t) => ({
+  unqPlate: uniqueIndex("vehicle_tenant_plate_idx").on(t.tenantId, t.plateNo),
+  idxTenant: index("vehicle_tenant_idx").on(t.tenantId),
+  chkCap: check("vehicle_capacity_chk", sql`${t.capacity} > 0 AND ${t.capacity} <= 200`),
+}));
+
+export const routes = pgTable("routes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  code: text("code").notNull(),              // e.g., "UB-CAMP"
+  name: text("name").notNull(),              // e.g., "Ulaanbaatar → Camp"
+  fromLabel: text("from_label").notNull(),   // "Ulaanbaatar"
+  toLabel: text("to_label").notNull(),       // "Camp"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+}, (t) => ({
+  unqCode: uniqueIndex("route_tenant_code_idx").on(t.tenantId, t.code),
+  idxTenant: index("route_tenant_idx").on(t.tenantId),
+}));
+
+export const trips = pgTable("trips", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  routeId: uuid("route_id").references(() => routes.id, { onDelete: "cascade" }).notNull(),
+  vehicleId: uuid("vehicle_id").references(() => vehicles.id, { onDelete: "cascade" }).notNull(),
+  departureTime: timestamp("departure_time").notNull(), // timezone strategy: store UTC or local, be consistent
+  status: text("status").default("scheduled").notNull(), // scheduled/cancelled/closed/completed
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+}, (t) => ({
+  unqTrip: uniqueIndex("trip_unique_idx").on(t.tenantId, t.routeId, t.vehicleId, t.departureTime),
+  idxTime: index("trip_time_idx").on(t.tenantId, t.departureTime),
+  idxRoute: index("trip_route_idx").on(t.tenantId, t.routeId),
+  idxVehicle: index("trip_vehicle_idx").on(t.tenantId, t.vehicleId),
+}));
+
+export const seatReservations = pgTable("seat_reservations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  tripId: uuid("trip_id").references(() => trips.id, { onDelete: "cascade" }).notNull(),
+  seatNumber: text("seat_number").notNull(),     // "1A", "2B" гэх мэт (layout-аас)
+  passengerId: uuid("passenger_id").references(() => employees.id, { onDelete: "cascade" }).notNull(), // employeeId
+  status: text("status").default("confirmed").notNull(), // confirmed/cancelled
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  cancelledAt: timestamp("cancelled_at"),
+}, (t) => ({
+  unqSeat: uniqueIndex("seat_trip_seat_idx").on(t.tripId, t.seatNumber),
+  unqPassenger: uniqueIndex("seat_trip_passenger_idx").on(t.tripId, t.passengerId),
+  idxTrip: index("seat_trip_idx").on(t.tenantId, t.tripId),
+}));
+
+export const insertVehicleSchema = createInsertSchema(vehicles);
+export type Vehicle = typeof vehicles.$inferSelect;
+export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
+
+export const insertRouteSchema = createInsertSchema(routes);
+export type Route = typeof routes.$inferSelect;
+export type InsertRoute = z.infer<typeof insertRouteSchema>;
+
+export const insertTripSchema = createInsertSchema(trips);
+export type Trip = typeof trips.$inferSelect;
+export type InsertTrip = z.infer<typeof insertTripSchema>;
+
+export const insertSeatReservationSchema = createInsertSchema(seatReservations);
+export type SeatReservation = typeof seatReservations.$inferSelect;
+export type InsertSeatReservation = z.infer<typeof insertSeatReservationSchema>;
+
+// --- CANTEEN MODULE ---
+
+export const canteenWallets = pgTable("canteen_wallets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  balance: integer("balance").default(0).notNull(), // Stored in MNT (integers)
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  unqWallet: uniqueIndex("wallet_employee_idx").on(t.tenantId, t.employeeId),
+}));
+
+export const walletTransactions = pgTable("wallet_transactions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  walletId: uuid("wallet_id").references(() => canteenWallets.id, { onDelete: "cascade" }).notNull(),
+  amount: integer("amount").notNull(), // Positive for credit, negative for debit
+  type: text("type").notNull(), // 'credit', 'debit', 'correction'
+  referenceType: text("reference_type").notNull(), // 'manual_topup', 'meal_serving', 'refund'
+  referenceId: text("reference_id"), // ID of related entity (serving ID etc)
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: uuid("created_by").notNull(), // User who performed the action
+});
+
+export const canteenMenu = pgTable("canteen_menu", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  date: date("date").notNull(),
+  mealType: text("meal_type").notNull(), // 'lunch', 'dinner', 'breakfast'
+  items: jsonb("items").notNull(), // Array of strings or objects { name: "Soup", type: "main" }
+  price: integer("price").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  unqMenu: uniqueIndex("menu_date_type_idx").on(t.tenantId, t.date, t.mealType),
+}));
+
+export const mealServings = pgTable("meal_servings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  date: date("date").notNull(), // Serving date
+  mealType: text("meal_type").notNull(), // 'lunch', 'dinner'
+  price: integer("price").notNull(), // Actual price charged
+  status: text("status").default("served").notNull(), // 'served', 'voided'
+  servedAt: timestamp("served_at").defaultNow().notNull(),
+  // Void fields
+  voidedAt: timestamp("voided_at"),
+  voidedReason: text("voided_reason"),
+  voidedBy: uuid("voided_by").references(() => users.id, { onDelete: "set null" }),
+}, (t) => ({
+  unqServing: uniqueIndex("serving_employee_date_type_idx").on(t.tenantId, t.employeeId, t.date, t.mealType), // One meal per type per day
+}));
+
+export const insertCanteenWalletSchema = createInsertSchema(canteenWallets);
+export type CanteenWallet = typeof canteenWallets.$inferSelect;
+export type InsertCanteenWallet = z.infer<typeof insertCanteenWalletSchema>;
+
+export const insertWalletTransactionSchema = createInsertSchema(walletTransactions);
+export type WalletTransaction = typeof walletTransactions.$inferSelect;
+export type InsertWalletTransaction = z.infer<typeof insertWalletTransactionSchema>;
+
+export const insertCanteenMenuSchema = createInsertSchema(canteenMenu);
+export type CanteenMenu = typeof canteenMenu.$inferSelect;
+export type InsertCanteenMenu = z.infer<typeof insertCanteenMenuSchema>;
+
+
+
+export const insertMealServingSchema = createInsertSchema(mealServings);
+export type MealServing = typeof mealServings.$inferSelect;
+export type InsertMealServing = z.infer<typeof insertMealServingSchema>;
+
+export const mealOrders = pgTable("meal_orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  date: date("date").notNull(), // text YYYY-MM-DD
+  mealType: text("meal_type").notNull(), // 'lunch', 'dinner'
+
+  status: text("status").default("pending").notNull(), // 'pending', 'fulfilled', 'cancelled'
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  cancelledAt: timestamp("cancelled_at"),
+  fulfilledAt: timestamp("fulfilled_at"),
+
+  fulfilledBy: uuid("fulfilled_by").references(() => users.id, { onDelete: "set null" }),
+  servingId: uuid("serving_id").references(() => mealServings.id, { onDelete: "set null" }),
+}, (t) => ({
+  unqOrder: uniqueIndex("order_employee_date_type_idx").on(t.tenantId, t.employeeId, t.date, t.mealType), // One active intent per type per day (actually just one record per day/type regardless of status to keep history clean? Or unique on pending? Spec says unique on (tenant, emp, date, type) implies one attempt per meal. Re-ordering after cancel would require updating this row.)
+  idxLookup: index("order_lookup_idx").on(t.tenantId, t.date, t.mealType, t.status),
+  idxMyOrders: index("order_my_idx").on(t.tenantId, t.employeeId, t.date),
+}));
+
+export const insertMealOrderSchema = createInsertSchema(mealOrders);
+export type MealOrder = typeof mealOrders.$inferSelect;
+export type InsertMealOrder = z.infer<typeof insertMealOrderSchema>;
+
+
+
+// ==========================================
+// 19. ASSET MANAGEMENT (Uniforms & Equipment)
+// ==========================================
+
+export const assetIssuances = pgTable("asset_issuances", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  productId: uuid("product_id").references(() => products.id, { onDelete: "restrict" }).notNull(), // Link to inventory product
+
+  quantity: integer("quantity").notNull().default(1),
+  serialNumber: text("serial_number"), // Optional, specific serial
+
+  status: text("status").notNull().default("issued"), // issued, returned, lost, damaged
+
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  issuedBy: uuid("issued_by").references(() => users.id, { onDelete: "set null" }),
+
+  returnedAt: timestamp("returned_at"),
+  returnedBy: uuid("returned_by").references(() => users.id, { onDelete: "set null" }),
+
+  note: text("note"),
+}, (t) => ({
+  // Ensure unique serial number per tenant if present (and status is 'issued'?)
+  // Actually usually serials are unique to the ITEM globally or tenant-wide regardless of status if it's the same item.
+  // But if the same serial item is returned and re-issued? 
+  // We should track CURRENTLY ISSUED serials?
+  // Or just say serial number identifies the asset instance strictly.
+  // Let's make (tenantId, serialNumber) unique index WHERE status = 'issued' to prevent double issuing?
+  // For simplicity MVP: just index it.
+  idxAssetSerial: index("asset_serial_idx").on(t.tenantId, t.serialNumber),
+}));
+
+
+export const insertAssetIssuanceSchema = createInsertSchema(assetIssuances);
+export type AssetIssuance = typeof assetIssuances.$inferSelect;
+export type InsertAssetIssuance = z.infer<typeof insertAssetIssuanceSchema>;
+
+
+// ==========================================
+// 20. REQUESTS & WORKFLOWS (Phase 5)
+// ==========================================
+
+// Core Requests Table
+export const requests = pgTable("requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+
+  // type: 'leave' | 'official_letter' | 'asset_request' | ...
+  type: text("type").notNull(),
+
+  // status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'cancelled'
+  status: text("status").notNull().default('draft'),
+
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "cascade" }).notNull(), // User ID
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(), // Owner Employee ID
+
+  title: text("title"), // Optional summary
+  payload: jsonb("payload_json").notNull(), // Dynamic fields based on type
+
+  clientRequestId: text("client_request_id"), // Idempotency key
+  currentStep: integer("current_step").default(0), // Approval step pointer
+
+  // Phase 5.2 columns
+  officialLetterNo: text("official_letter_no"),
+  officialLetterTemplateVersion: integer("official_letter_template_version"),
+  finalizedAt: timestamp("finalized_at"), // When approved/letter number assigne
+
+  submittedAt: timestamp("submitted_at"),
+  decidedAt: timestamp("decided_at"),
+  deletedAt: timestamp("deleted_at"), // Soft delete
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  idxRequestTenantStatus: index("request_tenant_status_idx").on(t.tenantId, t.type, t.status),
+  idxRequestOwner: index("request_owner_idx").on(t.tenantId, t.employeeId, t.createdAt),
+  unqClientReq: uniqueIndex("request_client_id_idx").on(t.tenantId, t.createdBy, t.clientRequestId),
+}));
+
+// Request Approvals State
+export const requestApprovals = pgTable("request_approvals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  requestId: uuid("request_id").references(() => requests.id, { onDelete: "cascade" }).notNull(),
+
+  step: integer("step").notNull(), // 1, 2, 3...
+  approverId: uuid("approver_id").references(() => users.id, { onDelete: "cascade" }).notNull(), // User ID of assignee
+
+  // decision: 'approved' | 'rejected' | null (pending)
+  decision: text("decision"),
+  comment: text("comment"),
+
+  decidedAt: timestamp("decided_at"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  unqRequestStep: uniqueIndex("request_step_idx").on(t.requestId, t.step),
+  idxApproverPending: index("approver_pending_idx").on(t.tenantId, t.approverId, t.decision), // For inbox
+}));
+
+// Request Audit Timeline
+export const requestEvents = pgTable("request_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  requestId: uuid("request_id").references(() => requests.id, { onDelete: "cascade" }).notNull(),
+
+  actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }).notNull(),
+
+  // event: 'created' | 'submitted' | 'approved' | 'rejected' | 'cancelled' | 'comment_added' | 'pdf_generated'
+  event: text("event").notNull(),
+
+  meta: jsonb("meta_json"), // Snapshot of changes or comments
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  idxRequestTimeline: index("request_timeline_idx").on(t.tenantId, t.requestId, t.createdAt),
+}));
+
+export const insertRequestSchema = createInsertSchema(requests);
+export type Request = typeof requests.$inferSelect;
+export type InsertRequest = z.infer<typeof insertRequestSchema>;
+export type DbInsertRequest = typeof requests.$inferInsert;
+
+export const insertRequestEventSchema = createInsertSchema(requestEvents);
+export type RequestEvent = typeof requestEvents.$inferSelect;
+export type InsertRequestEvent = z.infer<typeof insertRequestEventSchema>;
+
+
+// ==========================================
+// 21. OFFICIAL DOCS & SEQUENCES (Phase 5.2)
+// ==========================================
+
+export const sequences = pgTable("sequences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  key: text("key").notNull(), // 'official_letter_2026'
+  currentVal: integer("current_val").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  unqSequence: uniqueIndex("sequence_key_idx").on(t.tenantId, t.key),
+}));
+
+export const documentTemplates = pgTable("document_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  key: text("key").notNull(), // 'official_letter'
+  version: integer("version").notNull(),
+  htmlTemplate: text("html_template").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  unqTemplateVersion: uniqueIndex("template_version_idx").on(t.tenantId, t.key, t.version),
+  // Ideally we enforce only one active via logic
+}));
+
+export const requestDocuments = pgTable("request_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  requestId: uuid("request_id").references(() => requests.id, { onDelete: "cascade" }).notNull(),
+
+  docType: text("doc_type").notNull(), // 'official_letter_pdf'
+  templateVersion: integer("template_version"),
+
+  filePath: text("file_path"), // Key in storage
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  unqRequestDoc: uniqueIndex("request_doc_idx").on(t.tenantId, t.requestId, t.docType),
+}));
+
+// Note: We need to alter 'requests' table to add columns.
+// Since Drizzle just defines schema here, I will add columns to 'requests' definition above.
+// But 'requests' is already defined on line 2503 approx.
+// I must go UP and edit it.
+
+// ==========================================
+// PHASE 6: SECURITY & DIGITAL ID
+// ==========================================
+
+// User Sessions - Track active login sessions per user
+export const userSessions = pgTable("user_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+
+  sessionTokenHash: text("session_token_hash").notNull(), // SHA256 of session ID
+  deviceName: text("device_name"), // "Chrome Windows", "iPhone" etc
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: uuid("revoked_by").references(() => users.id, { onDelete: "set null" }),
+  revokeReason: text("revoke_reason"),
+}, (t) => ({
+  unqToken: uniqueIndex("user_session_token_hash_idx").on(t.sessionTokenHash),
+  idxUser: index("user_session_user_idx").on(t.tenantId, t.userId, t.revokedAt),
+  idxSeen: index("user_session_seen_idx").on(t.tenantId, t.lastSeenAt),
+}));
+
+export const insertUserSessionSchema = createInsertSchema(userSessions).omit({ id: true, createdAt: true, lastSeenAt: true });
+export type UserSession = typeof userSessions.$inferSelect;
+export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
+
+// ==========================================
+// NOTIFICATIONS (Read State)
+// ==========================================
+
+export const notificationReads = pgTable("notification_reads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  notificationId: text("notification_id").notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  unqRead: uniqueIndex("notification_read_user_notif_idx").on(t.userId, t.notificationId),
+}));
+
+export const notificationSettings = pgTable("notification_settings", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  lastReadAllAt: timestamp("last_read_all_at", { withTimezone: true }).notNull().default(sql`'1970-01-01'::timestamp`),
+});
+
+export const insertNotificationReadSchema = createInsertSchema(notificationReads).omit({ id: true });
+export type NotificationRead = typeof notificationReads.$inferSelect;
+
+export const insertNotificationSettingSchema = createInsertSchema(notificationSettings);
+export type NotificationSetting = typeof notificationSettings.$inferSelect;

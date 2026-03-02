@@ -35,28 +35,33 @@ export function SignatureSettings({ onDirtyChange, onSave }: SignatureSettingsPr
 
     const [isLoading, setIsLoading] = useState(false);
     const [preview, setPreview] = useState<string | null>(user?.signatureUrl || null);
-    const [jobTitle, setJobTitle] = useState(user?.jobTitle || "");
+
+    // Initialize signatureTitle with fallback to jobTitle if empty
+    const [signatureTitle, setSignatureTitle] = useState(user?.signatureTitle ?? user?.jobTitle ?? "");
+
     const [activeTab, setActiveTab] = useState<"upload" | "draw">("upload");
     const [isDirty, setIsDirty] = useState(false);
 
     // Sync with user data
     useEffect(() => {
-        if (user?.signatureUrl) {
-            setPreview(user.signatureUrl);
-        }
-        if (user?.jobTitle) {
-            setJobTitle(user.jobTitle);
+        if (user) {
+            setPreview(user.signatureUrl || null);
+            setSignatureTitle(user.signatureTitle ?? user.jobTitle ?? "");
         }
     }, [user]);
 
     // Track dirty state
     useEffect(() => {
+        const currentSig = user?.signatureUrl || null;
+        const currentTitle = user?.signatureTitle ?? user?.jobTitle ?? "";
+
         const hasChanges =
-            preview !== (user?.signatureUrl || null) ||
-            jobTitle !== (user?.jobTitle || "");
+            preview !== currentSig ||
+            signatureTitle !== currentTitle;
+
         setIsDirty(hasChanges);
         onDirtyChange?.(hasChanges);
-    }, [preview, jobTitle, user?.signatureUrl, user?.jobTitle, onDirtyChange]);
+    }, [preview, signatureTitle, user, onDirtyChange]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -107,12 +112,22 @@ export function SignatureSettings({ onDirtyChange, onSave }: SignatureSettingsPr
         try {
             setIsLoading(true);
 
+            // Logic: If signatureTitle is empty or matches jobTitle, we can save as empty string
+            // Backend will treat empty string as NULL, restoring fallback behavior
+            const normalizedTitle = signatureTitle.trim();
+            const jobTitle = (user?.jobTitle || "").trim();
+
+            // If user cleared it or set it same as job title, send empty string => gets saved as NULL
+            const titleToSend = (normalizedTitle === "" || normalizedTitle === jobTitle)
+                ? ""
+                : normalizedTitle;
+
             const res = await fetch("/api/users/me/signature", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     signatureUrl: preview,
-                    jobTitle: jobTitle || null,
+                    signatureTitle: titleToSend,
                 }),
             });
 
@@ -162,19 +177,34 @@ export function SignatureSettings({ onDirtyChange, onSave }: SignatureSettingsPr
                 </div>
             )}
 
-            {/* Job Title */}
+            {/* Official Job Title (Read-Only) */}
+            <Card className="bg-muted/30">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-medium text-muted-foreground uppercase tracking-wide">
+                        Албан тушаал (HR БҮРТГЭЛТЭЙ)
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-lg font-semibold">{user?.jobTitle || "—"}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Энэ мэдээллийг зөвхөн HR админ өөрчлөх боломжтой.
+                    </p>
+                </CardContent>
+            </Card>
+
+            {/* Signature Title */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-lg">Албан тушаал</CardTitle>
+                    <CardTitle className="text-lg">Гарын үсгийн нэр</CardTitle>
                     <CardDescription>
-                        Гарын үсгийн доор харагдах албан тушаалын нэр
+                        Гарын үсгийн доор харагдах нэр (Хоосон орхивол албан тушаал автоматаар гарна)
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Input
-                        value={jobTitle}
-                        onChange={(e) => setJobTitle(e.target.value)}
-                        placeholder="Жишээ: Ерөнхий захирал, Санхүүгийн захирал"
+                        value={signatureTitle}
+                        onChange={(e) => setSignatureTitle(e.target.value)}
+                        placeholder="Албан тушаалаас автоматаар авна"
                         className="max-w-md"
                     />
                 </CardContent>
@@ -196,15 +226,16 @@ export function SignatureSettings({ onDirtyChange, onSave }: SignatureSettingsPr
                                 "flex items-center justify-center",
                                 "min-h-[160px] rounded-lg border-2 border-dashed",
                                 "bg-muted/30 transition-colors",
+                                "bg-[url('/grid-pattern.svg')] bg-center", // Optional texture
                                 preview ? "border-primary/30" : "border-muted-foreground/20"
                             )}
                         >
                             {preview ? (
-                                <div className="relative group p-4">
+                                <div className="relative group p-4 w-full h-full flex items-center justify-center">
                                     <img
                                         src={preview}
                                         alt="Гарын үсэг"
-                                        className="max-h-32 object-contain"
+                                        className="max-h-32 max-w-full object-contain"
                                     />
                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded">
                                         <Button
@@ -314,13 +345,17 @@ export function SignatureSettings({ onDirtyChange, onSave }: SignatureSettingsPr
                 <CardContent>
                     <div
                         className={cn(
-                            "bg-white border rounded-lg shadow-sm",
+                            "bg-white border rounded-lg shadow-sm graph-paper",
                             "aspect-[210/297] max-w-md mx-auto p-8",
                             "relative"
                         )}
+                        style={{
+                            backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)',
+                            backgroundSize: '20px 20px'
+                        }}
                     >
                         {/* Mock document content */}
-                        <div className="space-y-4">
+                        <div className="space-y-4 opacity-50">
                             <div className="h-4 bg-gray-200 rounded w-1/3" />
                             <div className="h-3 bg-gray-100 rounded w-full" />
                             <div className="h-3 bg-gray-100 rounded w-5/6" />
@@ -340,11 +375,11 @@ export function SignatureSettings({ onDirtyChange, onSave }: SignatureSettingsPr
                                     className="h-12 ml-auto object-contain"
                                 />
                             ) : (
-                                <div className="h-12 w-24 border-b-2 border-gray-400 border-dashed" />
+                                <div className="h-12 w-24 border-b-2 border-gray-400 border-dashed ml-auto" />
                             )}
-                            {jobTitle && (
-                                <p className="text-xs font-semibold text-gray-700">{jobTitle}</p>
-                            )}
+                            <p className="text-xs font-semibold text-gray-800">
+                                {signatureTitle || user?.jobTitle || "Албан тушаал"}
+                            </p>
                             {user?.fullName && (
                                 <p className="text-xs text-gray-600">{user.fullName}</p>
                             )}
@@ -353,7 +388,7 @@ export function SignatureSettings({ onDirtyChange, onSave }: SignatureSettingsPr
                 </CardContent>
             </Card>
 
-            {/* Save Button (alternative to sticky bar) */}
+            {/* Save Button */}
             <div className="flex justify-end">
                 <Button
                     onClick={handleSave}

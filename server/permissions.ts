@@ -8,6 +8,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
+import { isEmployee } from "../shared/roles";
 
 /**
  * Check if user has permission for a resource and action
@@ -56,7 +57,7 @@ export function requirePermission(resource: string, action: string) {
     // Admin users bypass permission checks (for now)
     // TODO: Check if user has "admin" role or system admin flag
     const userRoles = await storage.getUserRoles(userId);
-    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem);
+    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem) || req.user?.role === 'admin';
 
     if (isAdmin) {
       return next();
@@ -64,6 +65,21 @@ export function requirePermission(resource: string, action: string) {
 
     const hasPermission = await checkPermission(userId, resource, action);
     if (!hasPermission) {
+      // Fallback: Check if user has legacy "employee" role and allow specific resources
+      // This bridges the gap for users who haven't been assigned RBAC roles yet
+      if (isEmployee(req.user.role)) {
+        const ALLOWED_RESOURCES = ['performance', 'attendance', 'leave_request', 'news', 'document', 'safety'];
+        if (ALLOWED_RESOURCES.includes(resource)) {
+          // Protect sensitive performance actions
+          const SENSITIVE_ACTIONS = ['approve', 'evaluate', 'lock', 'delete'];
+          if (resource === 'performance' && SENSITIVE_ACTIONS.includes(action)) {
+            // Deny - only managers/admins should do these
+          } else {
+            return next();
+          }
+        }
+      }
+
       // Standard error format for permission denied
       return res.status(403).json({
         error: "PERMISSION_DENIED",

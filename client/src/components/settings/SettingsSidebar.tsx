@@ -12,6 +12,8 @@ import {
     User,
     ChevronRight,
     Lock,
+    Clock,
+    Briefcase,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -27,7 +29,9 @@ const settingsItems: SettingsSidebarItem[] = [
     { id: "profile", label: "Профайл", icon: User },
     { id: "organization", label: "Байгууллага", icon: Building2 },
     { id: "office", label: "Оффис", icon: MapPin },
+    { id: "work-hours", label: "Ажлын цаг", icon: Clock },
     { id: "signature", label: "Гарын үсэг", icon: PenTool },
+    { id: "job-titles", label: "Албан тушаал", icon: Briefcase },
     { id: "users", label: "Хэрэглэгчид", icon: Users, adminOnly: true },
     { id: "integrations", label: "Интеграц", icon: Plug, adminOnly: true },
     { id: "roles", label: "Эрх & Permissions", icon: Shield, adminOnly: true },
@@ -41,11 +45,27 @@ interface SettingsSidebarProps {
 
 export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps) {
     const { user } = useAuth();
-    const isAdmin = user?.role === "Admin";
+    const role = user?.role;
+    const isAdmin = role === "Admin";
+    const isManager = role === "Manager";
+    // Check if simple employee
+    const isEmployee = !isAdmin && !isManager;
 
-    const filteredItems = settingsItems.filter(
-        (item) => !item.adminOnly || isAdmin
-    );
+    const filteredItems = settingsItems.filter((item) => {
+        // Admin sees everything
+        if (isAdmin) return true;
+
+        // Manager sees most things except admin-only (unless we want to hide some from manager too)
+        if (isManager) return !item.adminOnly;
+
+        // Employee sees ONLY Profile and Security (and maybe Signature if needed)
+        // User explicitly asked for: Profile, Password (Security), 2FA (Security)
+        if (isEmployee) {
+            return ["profile", "security", "signature"].includes(item.id);
+        }
+
+        return !item.adminOnly;
+    });
 
     return (
         <aside className="w-64 border-r bg-muted/30 h-full flex-shrink-0">

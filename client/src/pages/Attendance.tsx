@@ -8,6 +8,9 @@ import { useQuery } from "@tanstack/react-query";
 // Updated imports for new schema
 import type { Employee, InsertAttendanceDay, AttendanceDay } from "@shared/schema";
 import { z } from "zod";
+import { useAuth } from "@/hooks/use-auth";
+import { isEmployee, isPrivileged } from "@shared/roles";
+import EmployeeAttendanceView from "@/components/attendance/EmployeeAttendanceView";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -46,14 +49,21 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const Δφ = (lat2 - lat1) * Math.PI / 180;
   const Δλ = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c; // Distance in meters
 }
 
 export default function Attendance() {
+  const { user } = useAuth();
   const { attendance = [], isLoading, createAttendance, updateAttendance, deleteAttendance } = useAttendance();
+
+  // If simple employee, show specialized view
+  // Use centralized role helper
+  if (isEmployee(user?.role) && !isPrivileged(user?.role)) {
+    return <EmployeeAttendanceView />;
+  }
   const [open, setOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceDay | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -62,14 +72,14 @@ export default function Attendance() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null); // For drill-down drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { toast } = useToast();
-  
+
   // Table filters
   const [dateRangeFilter, setDateRangeFilter] = useState<"today" | "week" | "month" | "all">("month");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [issuesOnly, setIssuesOnly] = useState(false); // Only late/absent
   const [groupBy, setGroupBy] = useState<"date" | "employee" | "none">("none");
-  
+
   // Geofencing state
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
@@ -79,14 +89,14 @@ export default function Attendance() {
     branchName: string;
     radius: number;
   } | null>(null);
-  
+
   // Selfie state
   const [checkInPhoto, setCheckInPhoto] = useState<string | null>(null);
   const [checkOutPhoto, setCheckOutPhoto] = useState<string | null>(null);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState<"checkIn" | "checkOut" | null>(null);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  
+
   // Update video element when stream changes
   useEffect(() => {
     if (videoRef.current && videoStream) {
@@ -95,7 +105,7 @@ export default function Attendance() {
         console.error("Video play error:", err);
       });
     }
-    
+
     // Cleanup
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
@@ -105,7 +115,7 @@ export default function Attendance() {
       }
     };
   }, [videoStream]);
-  
+
   // Get branches with location data
   const { data: branches = [] } = useQuery<any[]>({
     queryKey: ["/api/branches"],
@@ -118,7 +128,8 @@ export default function Attendance() {
 
   // Ажилчдын жагсаалт
   const { data: employees = [] } = useQuery<Employee[]>({
-    queryKey: ["/api/employees"],
+    queryKey: ["/api/employees", user?.id, (user as any)?.tenantId],
+    enabled: !!user,
     queryFn: async () => {
       const res = await fetch("/api/employees");
       if (!res.ok) throw new Error("Failed to fetch employees");
@@ -163,12 +174,12 @@ export default function Attendance() {
       // Check if mediaDevices is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         // Check if we're on localhost or secure context
-        const isSecureContext = window.isSecureContext || 
-          location.protocol === 'https:' || 
-          location.hostname === 'localhost' || 
+        const isSecureContext = window.isSecureContext ||
+          location.protocol === 'https:' ||
+          location.hostname === 'localhost' ||
           location.hostname === '127.0.0.1' ||
           location.hostname === '[::1]';
-        
+
         if (!isSecureContext) {
           toast({
             title: "Камер боломжгүй",
@@ -188,36 +199,36 @@ export default function Attendance() {
       }
 
       setIsCapturingPhoto(type);
-      
+
       // Request camera permission with better error handling
       // Try different constraints if the first one fails
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
             facingMode: "user", // Front camera
             width: { ideal: 640 },
             height: { ideal: 480 }
-          }, 
-          audio: false 
+          },
+          audio: false
         });
       } catch (constraintError: any) {
         // If facingMode fails, try without it
         console.warn("Primary constraint failed, trying fallback:", constraintError);
-        stream = await navigator.mediaDevices.getUserMedia({ 
+        stream = await navigator.mediaDevices.getUserMedia({
           video: true,
-          audio: false 
+          audio: false
         });
       }
-      
+
       setVideoStream(stream);
     } catch (err: any) {
       console.error("Camera error:", err);
       setIsCapturingPhoto(null);
-      
+
       // Handle specific error types
       let errorMessage = "Камерын зөвшөөрөл авах боломжгүй байна.";
-      
+
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
         errorMessage = "Камерын зөвшөөрөл татгалзсан байна. Браузерын тохиргоонд орж камерын зөвшөөрөл өгнө үү.";
       } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
@@ -245,7 +256,7 @@ export default function Attendance() {
     if (!videoRef.current || !videoStream) return;
 
     const video = videoRef.current;
-    
+
     // Ensure video is ready
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       toast({
@@ -261,22 +272,22 @@ export default function Attendance() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
-      
+
       if (ctx) {
         ctx.drawImage(video, 0, 0);
         const photoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        
+
         if (isCapturingPhoto === "checkIn") {
           setCheckInPhoto(photoDataUrl);
         } else if (isCapturingPhoto === "checkOut") {
           setCheckOutPhoto(photoDataUrl);
         }
-        
+
         // Stop camera
         videoStream.getTracks().forEach(track => track.stop());
         setVideoStream(null);
         setIsCapturingPhoto(null);
-        
+
         toast({
           title: "Амжилттай",
           description: "Селфи амжилттай авлаа.",
@@ -432,7 +443,7 @@ export default function Attendance() {
     if (!attendance) return [];
     return attendance.filter((rec: AttendanceDay) => isSameDay(new Date(rec.workDate), date));
   };
-  
+
   // Get day summary statistics (for calendar summary chips)
   const getDaySummary = (date: Date) => {
     const records = getDayRecords(date);
@@ -444,7 +455,7 @@ export default function Attendance() {
       sick: 0,
       other: 0,
     };
-    
+
     records.forEach((rec: AttendanceDay) => {
       const status = (rec.status || "present").toLowerCase();
       if (status === "present") summary.present++;
@@ -454,10 +465,10 @@ export default function Attendance() {
       else if (status === "sick") summary.sick++;
       else summary.other++;
     });
-    
+
     return summary;
   };
-  
+
   // Open drill-down drawer for a specific day
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
@@ -488,7 +499,7 @@ export default function Attendance() {
         setUserLocation({ lat: latitude, lon: longitude });
 
         // Find branch with location data
-        const branchWithLocation = branches.find((b: any) => 
+        const branchWithLocation = branches.find((b: any) =>
           b.latitude && b.longitude && b.geofenceRadius
         );
 
@@ -535,7 +546,7 @@ export default function Attendance() {
         console.error("Geolocation error:", error);
         toast({
           title: "Алдаа гарлаа",
-          description: error.message === "User denied Geolocation" 
+          description: error.message === "User denied Geolocation"
             ? "Байршлын зөвшөөрөл өгөөгүй байна."
             : "Байршлыг тодорхойлоход алдаа гарлаа.",
           variant: "destructive",
@@ -590,7 +601,7 @@ export default function Attendance() {
   const getDateRange = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (dateRangeFilter === "today") {
       return { start: today, end: today };
     } else if (dateRangeFilter === "week") {
@@ -606,19 +617,19 @@ export default function Attendance() {
   const filteredAttendanceForTable = attendance
     .filter((rec: AttendanceDay) => {
       const recDate = new Date(rec.workDate);
-      
+
       // Search filter
       if (search) {
         const emp = employees.find(e => e.id === rec.employeeId);
         const empName = emp ? `${emp.firstName} ${emp.lastName}`.toLowerCase() : "";
         const dateStr = format(recDate, "yyyy-MM-dd");
-        if (!empName.includes(search.toLowerCase()) && 
-            !dateStr.includes(search) &&
-            !getStatusText(rec.status || "present").toLowerCase().includes(search.toLowerCase())) {
+        if (!empName.includes(search.toLowerCase()) &&
+          !dateStr.includes(search) &&
+          !getStatusText(rec.status || "present").toLowerCase().includes(search.toLowerCase())) {
           return false;
         }
       }
-      
+
       // Date range filter
       const dateRange = getDateRange();
       if (dateRange) {
@@ -627,14 +638,14 @@ export default function Attendance() {
           return false;
         }
       }
-      
+
       // Status filter
       if (statusFilter !== "all") {
         if ((rec.status || "present").toLowerCase() !== statusFilter.toLowerCase()) {
           return false;
         }
       }
-      
+
       // Issues only (late/absent)
       if (issuesOnly) {
         const status = (rec.status || "present").toLowerCase();
@@ -642,7 +653,7 @@ export default function Attendance() {
           return false;
         }
       }
-      
+
       return true;
     })
     .sort((a: AttendanceDay, b: AttendanceDay) => {
@@ -703,7 +714,7 @@ export default function Attendance() {
           </Button>
 
           {/* Ирц бүртгэх Button - Opens dialog */}
-          <Button 
+          <Button
             className="shadow-lg shadow-primary/25 hover:shadow-primary/30"
             onClick={() => {
               setEditingRecord(null);
@@ -776,7 +787,7 @@ export default function Attendance() {
           });
         }
       }}>
-        <DialogContent 
+        <DialogContent
           className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
           onInteractOutside={() => {
             // Cleanup video stream when closing
@@ -787,31 +798,102 @@ export default function Attendance() {
             }
           }}
         >
-            <DialogHeader>
-              <DialogTitle>{editingRecord ? "Ирцийн бүртгэл засах" : "Шинэ ирц бүртгэх"}</DialogTitle>
-            </DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingRecord ? "Ирцийн бүртгэл засах" : "Шинэ ирц бүртгэх"}</DialogTitle>
+          </DialogHeader>
 
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-4">
-                {/* Ажилтан */}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-4">
+              {/* Ажилтан */}
+              <FormField
+                control={form.control}
+                name="employeeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ажилтан</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ажилтнаа сонгоно уу" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {employees.map((emp) => (
+                          <SelectItem key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.employeeNo})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Огноо */}
+              <FormField
+                control={form.control}
+                name="workDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Огноо</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} value={field.value} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Ирсэн / Явсан цаг */}
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="employeeId"
+                  name="checkIn"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Ажилтан</FormLabel>
+                      <FormLabel>Ирсэн цаг</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} value={field.value} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="checkOut"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Явсан цаг</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} value={field.value} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Төлөв */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Төлөв</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Ажилтнаа сонгоно уу" />
+                            <SelectValue placeholder="Төлөв сонгоно уу" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {employees.map((emp) => (
-                            <SelectItem key={emp.id} value={emp.id}>
-                              {emp.firstName} {emp.lastName} ({emp.employeeNo})
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="present">Ирсэн</SelectItem>
+                          <SelectItem value="absent">Ирээгүй</SelectItem>
+                          <SelectItem value="late">Хоцорсон</SelectItem>
+                          <SelectItem value="sick">Өвчтэй чөлөө</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -819,275 +901,204 @@ export default function Attendance() {
                   )}
                 />
 
-                {/* Огноо */}
+                {/* Ажилласан цаг */}
                 <FormField
                   control={form.control}
-                  name="workDate"
+                  name="workHours"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Огноо</FormLabel>
+                      <FormLabel>Ажилласан цаг</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} value={field.value} />
+                        <Input
+                          type="number"
+                          min="0"
+                          max="24"
+                          step="0.5"
+                          {...field}
+                          value={field.value}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              </div>
 
-                {/* Ирсэн / Явсан цаг */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="checkIn"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ирсэн цаг</FormLabel>
-                        <FormControl>
-                          <Input type="time" {...field} value={field.value} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="checkOut"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Явсан цаг</FormLabel>
-                        <FormControl>
-                          <Input type="time" {...field} value={field.value} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Төлөв */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Төлөв</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Төлөв сонгоно уу" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="present">Ирсэн</SelectItem>
-                            <SelectItem value="absent">Ирээгүй</SelectItem>
-                            <SelectItem value="late">Хоцорсон</SelectItem>
-                            <SelectItem value="sick">Өвчтэй чөлөө</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Ажилласан цаг */}
-                  <FormField
-                    control={form.control}
-                    name="workHours"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ажилласан цаг</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="24"
-                            step="0.5"
-                            {...field}
-                            value={field.value}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Selfie Check-in Photo */}
-                <div className="space-y-2">
-                  <FormLabel>Ирцийн селфи зураг 📸</FormLabel>
-                  {!checkInPhoto && !isCapturingPhoto ? (
-                    <div className="space-y-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => startCamera("checkIn")}
-                        className="w-full"
-                      >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Селфи авах
-                      </Button>
-                      <div className="text-xs text-muted-foreground space-y-1 p-2 bg-muted/50 rounded">
-                        <p className="font-medium">💡 Камерын зөвшөөрөл өгөх заавар:</p>
-                        <ol className="list-decimal list-inside ml-2 space-y-1">
-                          <li>Браузерын хаягны мөрний зүүн талд заагийн icon (🔒) дээр дарах</li>
-                          <li>"Камер" эсвэл "Camera" сонгох</li>
-                          <li>"Зөвшөөрөх" эсвэл "Allow" дарна</li>
-                          <li>Эсвэл: <a href="chrome://settings/content/camera" target="_blank" className="text-primary underline">chrome://settings/content/camera</a> (Chrome)</li>
-                        </ol>
-                        <p className="text-orange-600 dark:text-orange-400 mt-2">
-                          ⚠️ Хэрэв localhost дээр ажиллахгүй бол камерын зөвшөөрөл өгсөн эсэхийг шалгана уу.
-                        </p>
-                      </div>
-                    </div>
-                  ) : isCapturingPhoto === "checkIn" ? (
-                    <div className="space-y-2">
-                      <div className="relative bg-black rounded-lg overflow-hidden">
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          className="w-full max-h-64"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          onClick={capturePhoto}
-                          className="flex-1"
-                        >
-                          <Camera className="w-4 h-4 mr-2" />
-                          Зураг авах
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={cancelCamera}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : checkInPhoto ? (
-                    <div className="space-y-2">
-                      <div className="relative rounded-lg overflow-hidden border">
-                        <img src={checkInPhoto} alt="Check-in selfie" className="w-full max-h-64 object-cover" />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => removePhoto("checkIn")}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => startCamera("checkIn")}
-                        className="w-full"
-                      >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Дахин авах
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Selfie Check-out Photo */}
-                <div className="space-y-2">
-                  <FormLabel>Явцын селфи зураг 📸 (Сонголттой)</FormLabel>
-                  {!checkOutPhoto && !isCapturingPhoto ? (
-                    <div className="space-y-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => startCamera("checkOut")}
-                        className="w-full"
-                      >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Селфи авах
-                      </Button>
-                      <p className="text-xs text-muted-foreground">
-                        💡 Камерын зөвшөөрөл өгөх: Браузерын хаягны мөрний заагийн icon дээр дарах → Камер → Зөвшөөрөх
+              {/* Selfie Check-in Photo */}
+              <div className="space-y-2">
+                <FormLabel>Ирцийн селфи зураг 📸</FormLabel>
+                {!checkInPhoto && !isCapturingPhoto ? (
+                  <div className="space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => startCamera("checkIn")}
+                      className="w-full"
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      Селфи авах
+                    </Button>
+                    <div className="text-xs text-muted-foreground space-y-1 p-2 bg-muted/50 rounded">
+                      <p className="font-medium">💡 Камерын зөвшөөрөл өгөх заавар:</p>
+                      <ol className="list-decimal list-inside ml-2 space-y-1">
+                        <li>Браузерын хаягны мөрний зүүн талд заагийн icon (🔒) дээр дарах</li>
+                        <li>"Камер" эсвэл "Camera" сонгох</li>
+                        <li>"Зөвшөөрөх" эсвэл "Allow" дарна</li>
+                        <li>Эсвэл: <a href="chrome://settings/content/camera" target="_blank" className="text-primary underline">chrome://settings/content/camera</a> (Chrome)</li>
+                      </ol>
+                      <p className="text-orange-600 dark:text-orange-400 mt-2">
+                        ⚠️ Хэрэв localhost дээр ажиллахгүй бол камерын зөвшөөрөл өгсөн эсэхийг шалгана уу.
                       </p>
                     </div>
-                  ) : isCapturingPhoto === "checkOut" ? (
-                    <div className="space-y-2">
-                      <div className="relative bg-black rounded-lg overflow-hidden">
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          className="w-full max-h-64"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          onClick={capturePhoto}
-                          className="flex-1"
-                        >
-                          <Camera className="w-4 h-4 mr-2" />
-                          Зураг авах
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={cancelCamera}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
+                  </div>
+                ) : isCapturingPhoto === "checkIn" ? (
+                  <div className="space-y-2">
+                    <div className="relative bg-black rounded-lg overflow-hidden">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full max-h-64"
+                      />
                     </div>
-                  ) : checkOutPhoto ? (
-                    <div className="space-y-2">
-                      <div className="relative rounded-lg overflow-hidden border">
-                        <img src={checkOutPhoto} alt="Check-out selfie" className="w-full max-h-64 object-cover" />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => removePhoto("checkOut")}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="flex-1"
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Зураг авах
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => startCamera("checkOut")}
-                        className="w-full"
+                        onClick={cancelCamera}
                       >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Дахин авах
+                        <X className="w-4 h-4" />
                       </Button>
                     </div>
-                  ) : null}
-                </div>
+                  </div>
+                ) : checkInPhoto ? (
+                  <div className="space-y-2">
+                    <div className="relative rounded-lg overflow-hidden border">
+                      <img src={checkInPhoto} alt="Check-in selfie" className="w-full max-h-64 object-cover" />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => removePhoto("checkIn")}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => startCamera("checkIn")}
+                      className="w-full"
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      Дахин авах
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={createAttendance.isPending || updateAttendance.isPending}
-                >
-                  {(createAttendance.isPending || updateAttendance.isPending) ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Хадгалагдаж байна...
-                    </>
-                  ) : (
-                    editingRecord ? "Хадгалах" : "Бүртгэх"
-                  )}
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+              {/* Selfie Check-out Photo */}
+              <div className="space-y-2">
+                <FormLabel>Явцын селфи зураг 📸 (Сонголттой)</FormLabel>
+                {!checkOutPhoto && !isCapturingPhoto ? (
+                  <div className="space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => startCamera("checkOut")}
+                      className="w-full"
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      Селфи авах
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      💡 Камерын зөвшөөрөл өгөх: Браузерын хаягны мөрний заагийн icon дээр дарах → Камер → Зөвшөөрөх
+                    </p>
+                  </div>
+                ) : isCapturingPhoto === "checkOut" ? (
+                  <div className="space-y-2">
+                    <div className="relative bg-black rounded-lg overflow-hidden">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full max-h-64"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="flex-1"
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Зураг авах
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={cancelCamera}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : checkOutPhoto ? (
+                  <div className="space-y-2">
+                    <div className="relative rounded-lg overflow-hidden border">
+                      <img src={checkOutPhoto} alt="Check-out selfie" className="w-full max-h-64 object-cover" />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => removePhoto("checkOut")}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => startCamera("checkOut")}
+                      className="w-full"
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      Дахин авах
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={createAttendance.isPending || updateAttendance.isPending}
+              >
+                {(createAttendance.isPending || updateAttendance.isPending) ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Хадгалагдаж байна...
+                  </>
+                ) : (
+                  editingRecord ? "Хадгалах" : "Бүртгэх"
+                )}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {/* Харагдах хэлбэр сонгох Tabs */}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "calendar" | "table")} className="w-full">
@@ -1151,122 +1162,122 @@ export default function Attendance() {
 
         {/* Календарь харагдац */}
         <TabsContent value="calendar" className="space-y-8">
-      {/* Календарь Grid */}
-      <div className="bg-card rounded-xl border shadow-sm p-6 overflow-hidden">
-        {/* Гаригууд */}
-        <div className="grid grid-cols-7 text-center text-sm font-medium text-muted-foreground mb-4">
-          <div>Даваа</div>
-          <div>Мягмар</div>
-          <div>Лхагва</div>
-          <div>Пүрэв</div>
-          <div>Баасан</div>
-          <div className="text-primary font-bold">Бямба</div>
-          <div className="text-primary font-bold">Ням</div>
-        </div>
+          {/* Календарь Grid */}
+          <div className="bg-card rounded-xl border shadow-sm p-6 overflow-hidden">
+            {/* Гаригууд */}
+            <div className="grid grid-cols-7 text-center text-sm font-medium text-muted-foreground mb-4">
+              <div>Даваа</div>
+              <div>Мягмар</div>
+              <div>Лхагва</div>
+              <div>Пүрэв</div>
+              <div>Баасан</div>
+              <div className="text-primary font-bold">Бямба</div>
+              <div className="text-primary font-bold">Ням</div>
+            </div>
 
-        <div className="grid grid-cols-7 gap-3">
-          {Array.from({ length: startDayOffset }, (_, i) => (
-            <div key={`empty-${i}`} className="h-24 sm:h-32 bg-muted/5 rounded-xl border border-transparent" />
-          ))}
+            <div className="grid grid-cols-7 gap-3">
+              {Array.from({ length: startDayOffset }, (_, i) => (
+                <div key={`empty-${i}`} className="h-24 sm:h-32 bg-muted/5 rounded-xl border border-transparent" />
+              ))}
 
-          {monthDays.map((day) => {
-            const records = getDayRecords(day);
-            const dayStr = format(day, "yyyy-MM-dd");
-            const matchesSearch = search === "" ||
-              dayStr.includes(search) ||
-              records.some((rec) => {
-                const emp = employees.find((e) => e.id === rec.employeeId);
-                return emp && `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(search.toLowerCase());
-              });
+              {monthDays.map((day) => {
+                const records = getDayRecords(day);
+                const dayStr = format(day, "yyyy-MM-dd");
+                const matchesSearch = search === "" ||
+                  dayStr.includes(search) ||
+                  records.some((rec) => {
+                    const emp = employees.find((e) => e.id === rec.employeeId);
+                    return emp && `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(search.toLowerCase());
+                  });
 
-            if (!matchesSearch && search !== "") return <div key={day.toString()} className="h-32 hidden" />;
+                if (!matchesSearch && search !== "") return <div key={day.toString()} className="h-32 hidden" />;
 
-            return (
-              <div
-                key={day.toString()}
-                className={`h-24 sm:h-32 border rounded-xl p-2 flex flex-col gap-2 transition-all hover:shadow-md
+                return (
+                  <div
+                    key={day.toString()}
+                    className={`h-24 sm:h-32 border rounded-xl p-2 flex flex-col gap-2 transition-all hover:shadow-md
                   ${isSameDay(day, new Date()) ? "border-primary bg-primary/5" : "border-border bg-card"}`}
-              >
-                <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full
+                  >
+                    <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full
                    ${isSameDay(day, new Date()) ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
-                  {format(day, "d")}
-                </span>
+                      {format(day, "d")}
+                    </span>
 
-                <div 
-                  className="flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar cursor-pointer"
-                  onClick={() => handleDayClick(day)}
-                >
-                  {records.length === 0 ? (
-                    <span className="text-[10px] text-muted-foreground">-</span>
-                  ) : records.length <= 4 ? (
-                    // Show dots if 4 or fewer employees (simple case)
-                    <TooltipProvider>
-                      <div className="flex flex-wrap gap-1">
-                        {records.map((rec) => (
-                          <Tooltip key={rec.id}>
-                            <TooltipTrigger asChild>
-                              <div
-                                className={`w-3 h-3 rounded-full ${getStatusColor(rec.status || 'Present')}`}
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="font-bold">{getEmployeeName(rec.employeeId)}</p>
-                              <p className="text-xs">{getStatusText(rec.status || 'Present')} • {(rec.minutesWorked || 0) / 60}h</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </TooltipProvider>
-                  ) : (
-                    // Show summary chips if more than 4 employees (enterprise-ready)
-                    (() => {
-                      const summary = getDaySummary(day);
-                      return (
-                        <div className="space-y-0.5 text-[9px]">
-                          {summary.present > 0 && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-                              <span className="text-green-700 dark:text-green-400">Ирсэн: {summary.present}</span>
+                    <div
+                      className="flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar cursor-pointer"
+                      onClick={() => handleDayClick(day)}
+                    >
+                      {records.length === 0 ? (
+                        <span className="text-[10px] text-muted-foreground">-</span>
+                      ) : records.length <= 4 ? (
+                        // Show dots if 4 or fewer employees (simple case)
+                        <TooltipProvider>
+                          <div className="flex flex-wrap gap-1">
+                            {records.map((rec) => (
+                              <Tooltip key={rec.id}>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    className={`w-3 h-3 rounded-full ${getStatusColor(rec.status || 'Present')}`}
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="font-bold">{getEmployeeName(rec.employeeId)}</p>
+                                  <p className="text-xs">{getStatusText(rec.status || 'Present')} • {(rec.minutesWorked || 0) / 60}h</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            ))}
+                          </div>
+                        </TooltipProvider>
+                      ) : (
+                        // Show summary chips if more than 4 employees (enterprise-ready)
+                        (() => {
+                          const summary = getDaySummary(day);
+                          return (
+                            <div className="space-y-0.5 text-[9px]">
+                              {summary.present > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                                  <span className="text-green-700 dark:text-green-400">Ирсэн: {summary.present}</span>
+                                </div>
+                              )}
+                              {summary.late > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0" />
+                                  <span className="text-yellow-700 dark:text-yellow-400">Хоцорсон: {summary.late}</span>
+                                </div>
+                              )}
+                              {summary.absent > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                                  <span className="text-red-700 dark:text-red-400">Ирээгүй: {summary.absent}</span>
+                                </div>
+                              )}
+                              {summary.vacation > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-purple-500 flex-shrink-0" />
+                                  <span className="text-purple-700 dark:text-purple-400">Чөлөө: {summary.vacation}</span>
+                                </div>
+                              )}
+                              {summary.sick > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                  <span className="text-blue-700 dark:text-blue-400">Өвчтэй: {summary.sick}</span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                          {summary.late > 0 && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0" />
-                              <span className="text-yellow-700 dark:text-yellow-400">Хоцорсон: {summary.late}</span>
-                            </div>
-                          )}
-                          {summary.absent > 0 && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
-                              <span className="text-red-700 dark:text-red-400">Ирээгүй: {summary.absent}</span>
-                            </div>
-                          )}
-                          {summary.vacation > 0 && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 rounded-full bg-purple-500 flex-shrink-0" />
-                              <span className="text-purple-700 dark:text-purple-400">Чөлөө: {summary.vacation}</span>
-                            </div>
-                          )}
-                          {summary.sick > 0 && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                              <span className="text-blue-700 dark:text-blue-400">Өвчтэй: {summary.sick}</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                          );
+                        })()
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-      {/* Легенд - Compact pills in top filter bar instead of separate section */}
+          {/* Легенд - Compact pills in top filter bar instead of separate section */}
         </TabsContent>
-        
+
         {/* Drill-down Drawer for Day Details */}
         <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
           <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
@@ -1278,11 +1289,11 @@ export default function Attendance() {
                 Энэ өдрийн бүх ажилтнуудын ирцийн мэдээлэл
               </SheetDescription>
             </SheetHeader>
-            
+
             {selectedDay && (() => {
               const dayRecords = getDayRecords(selectedDay);
               const summary = getDaySummary(selectedDay);
-              
+
               return (
                 <div className="mt-6 space-y-4">
                   {/* Summary Stats */}
@@ -1312,7 +1323,7 @@ export default function Attendance() {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Employee List */}
                   <div className="space-y-2">
                     <h3 className="font-semibold text-sm">Ажилтнууд ({dayRecords.length})</h3>
@@ -1353,7 +1364,7 @@ export default function Attendance() {
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Quick Actions */}
                   <div className="pt-4 border-t">
                     <Button
@@ -1390,7 +1401,7 @@ export default function Attendance() {
                 Бүх ажилчдын ирцийн бүртгэл хүснэгт хэлбэрээр
               </CardDescription>
             </CardHeader>
-            
+
             {/* Filter Bar */}
             <div className="px-6 pb-4 space-y-3 border-b">
               <div className="flex flex-wrap items-center gap-3">
@@ -1406,7 +1417,7 @@ export default function Attendance() {
                     <SelectItem value="all">Бүгд</SelectItem>
                   </SelectContent>
                 </Select>
-                
+
                 {/* Status Filter */}
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-36 h-8 text-xs">
@@ -1421,7 +1432,7 @@ export default function Attendance() {
                     <SelectItem value="sick">Өвчтэй</SelectItem>
                   </SelectContent>
                 </Select>
-                
+
                 {/* Issues Only Toggle */}
                 <div className="flex items-center gap-2">
                   <Switch
@@ -1433,7 +1444,7 @@ export default function Attendance() {
                     Зөвхөн асуудалтай
                   </Label>
                 </div>
-                
+
                 {/* Grouping Toggle */}
                 <Select value={groupBy} onValueChange={(v: any) => setGroupBy(v)}>
                   <SelectTrigger className="w-36 h-8 text-xs">
@@ -1445,14 +1456,14 @@ export default function Attendance() {
                     <SelectItem value="employee">Ажилтнаар</SelectItem>
                   </SelectContent>
                 </Select>
-                
+
                 {/* Results count */}
                 <div className="ml-auto text-xs text-muted-foreground">
                   {filteredAttendanceForTable.length} бүртгэл
                 </div>
               </div>
             </div>
-            
+
             <CardContent className="pt-4">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
@@ -1487,7 +1498,7 @@ export default function Attendance() {
                             acc[dateStr].push(rec);
                             return acc;
                           }, {});
-                          
+
                           return Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a)).map(([dateStr, recs]) => (
                             <React.Fragment key={dateStr}>
                               <TableRow className="bg-muted/50">
@@ -1548,7 +1559,7 @@ export default function Attendance() {
                             acc[name].push(rec);
                             return acc;
                           }, {});
-                          
+
                           return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([name, recs]) => (
                             <React.Fragment key={name}>
                               <TableRow className="bg-muted/50">

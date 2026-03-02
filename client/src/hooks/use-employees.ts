@@ -1,14 +1,55 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
-import type { InsertEmployee, Employee } from "@shared/schema";
+import type { InsertEmployee, JobTitle } from "@shared/schema";
 import { handleApiError, extractErrorMessage } from "@/lib/api-error-handler";
+import { useAuth } from "@/hooks/use-auth";
+import type { Employee } from "@shared/schema";
+
+export function useJobTitles(options?: { isActive?: boolean }) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery<JobTitle[]>({
+    queryKey: ["/api/job-titles", options?.isActive],
+    queryFn: async () => {
+      const url = new URL("/api/job-titles", window.location.origin);
+      if (options?.isActive !== undefined) {
+        url.searchParams.append("isActive", options.isActive.toString());
+      }
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error("Failed to fetch job titles");
+      return res.json();
+    }
+  });
+
+  const toggleStatus = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const res = await fetch(`/api/job-titles/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive }),
+      });
+      if (!res.ok) throw new Error("Status update failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/job-titles"] });
+    }
+  });
+
+  return {
+    ...query,
+    toggleStatus
+  };
+}
 
 export function useEmployees() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // 1. Ажилчдын жагсаалт авах
   const { data: employees, isLoading } = useQuery<Employee[]>({
-    queryKey: [api.employees.list.path],
+    queryKey: [api.employees.list.path, user?.id],
+    enabled: !!user,
     queryFn: async () => {
       const res = await fetch(api.employees.list.path);
       if (!res.ok) {
@@ -81,7 +122,7 @@ export function useEmployees() {
   const deleteEmployees = useMutation({
     mutationFn: async (ids: string[]) => {
       const results = await Promise.allSettled(
-        ids.map(id => 
+        ids.map(id =>
           fetch(`/api/employees/${id}`, {
             method: "DELETE",
             credentials: "include",

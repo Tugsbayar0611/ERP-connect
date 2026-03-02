@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@shared/routes";
+import { useAuth } from "@/hooks/use-auth";
 
 export function useStats() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: [api.stats.get.path],
+    queryKey: [api.stats.get.path, user?.id],
+    enabled: !!user,
     queryFn: async () => {
       const res = await fetch(api.stats.get.path, {
         credentials: 'include', // Include cookies for session

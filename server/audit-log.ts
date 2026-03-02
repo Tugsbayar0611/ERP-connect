@@ -41,17 +41,16 @@ export async function createAuditLog(
 
     const log: DbInsertAuditLog = {
       tenantId: context.tenantId,
-      actorUserId: context.userId,
-      entityType,
-      entityId: entityId || null,
+      actorId: context.userId,
+      entity: entityType,
+      entityId: entityId || "system",
       action,
-      status,
-      message: message || `${action} ${entityType}${entityId ? ` ${entityId}` : ""}`,
       beforeData: beforeData ? JSON.parse(JSON.stringify(beforeData)) : null,
       afterData: afterData ? JSON.parse(JSON.stringify(afterData)) : null,
-      requestId: context.requestId || null,
-      ip: context.ip || null,
+      ipAddress: context.ip || null,
       userAgent: context.userAgent || null,
+      status, // Pass status
+      message, // Pass message
     };
 
     await storage.createAuditLog(log);

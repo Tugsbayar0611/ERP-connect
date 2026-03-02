@@ -31,6 +31,21 @@ tsc_*.txt
 .DS_Store
 Thumbs.db
 
+# Uploaded files (user data, not source code)
+uploads/
+
+# Debug/temp files
+*.txt
+!.gitignore
+*.mjs
+reproduce_issue.ts
+verify_api_via_fetch.ts
+cleanup_hr.py
+cleanup_hr_draft.py
+refactor_routes.py
+temp_lines.csv
+users_list.txt
+
 # If server/public is GENERATED (uploads/build output) keep ignored:
 server/public/
 

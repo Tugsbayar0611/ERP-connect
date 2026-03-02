@@ -10,6 +10,17 @@ export interface TenantUser {
     createdAt: string;
     tenantId: string;
     employeeId?: string;
+    signatureUrl?: string | null;
+    signatureTitle?: string | null;
+    jobTitle?: string | null;
+}
+
+export interface ForwardRecipient {
+    id: string;
+    fullName: string;
+    email?: string;
+    jobTitle?: string;
+    category: string; // 'Manager', 'HR', 'Registry', 'Employee', 'Other'
 }
 
 // Fetch pending users for approval
@@ -96,6 +107,21 @@ export function useCompanyInfo() {
             const res = await fetch("/api/company-info");
             if (!res.ok) {
                 throw new Error("Компанийн мэдээллийг авахад алдаа гарлаа");
+            }
+            return res.json();
+        },
+    });
+}
+
+// Fetch document forward recipients (filtered by RBAC)
+export function useForwardRecipients() {
+    return useQuery<ForwardRecipient[]>({
+        queryKey: ["/api/documents/forward-recipients"],
+        queryFn: async () => {
+            const res = await fetch("/api/documents/forward-recipients");
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || "Failed to fetch recipients");
             }
             return res.json();
         },

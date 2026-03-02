@@ -2,14 +2,23 @@ import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { PasswordChangeModal } from "@/components/PasswordChangeModal";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+
+  // Check if user needs to change password
+  useEffect(() => {
+    if (user && (user as any).mustChangePassword) {
+      setShowPasswordChange(true);
+    }
+  }, [user]);
 
   // Global keyboard shortcuts
   useKeyboardShortcuts([
@@ -64,11 +73,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 md:pl-64">
           <MobileNav />
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto animate-in-fade">
-          <div className="max-w-7xl mx-auto w-full space-y-8">
-            {children}
-          </div>
-        </main>
+          <main className="flex-1 p-4 md:p-8 overflow-y-auto animate-in-fade">
+            <div className="max-w-7xl mx-auto w-full space-y-8">
+              {children}
+            </div>
+          </main>
         </div>
       </div>
       <KeyboardShortcutsDialog
@@ -76,6 +85,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
         onOpenChange={setShowShortcuts}
         shortcuts={globalShortcuts}
       />
+      <PasswordChangeModal
+        open={showPasswordChange}
+        isRequired={(user as any)?.mustChangePassword === true}
+        onClose={() => setShowPasswordChange(false)}
+      />
     </>
   );
 }
+

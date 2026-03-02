@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SettingsSidebar } from "@/components/settings/SettingsSidebar";
 import { StickySaveBar } from "@/components/settings/StickySaveBar";
 import { SignatureSettings } from "@/components/settings/SignatureSettings";
+import { CompanySettings } from "@/components/settings/CompanySettings";
+import { JobTitlesSettings } from "@/components/settings/JobTitlesSettings";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import { useToast } from "@/hooks/use-toast";
@@ -711,137 +713,7 @@ function EBarimtSettingsCard() {
   );
 }
 
-function SignatureSettingsCard() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isUploading, setIsUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(user?.signatureUrl || null);
 
-  // Sync preview with user data
-  useEffect(() => {
-    if (user?.signatureUrl) {
-      setPreview(user.signatureUrl);
-    }
-  }, [user]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast({
-        title: "Файлын хэмжээ хэт том",
-        description: "2MB-аас бага хэмжээтэй зураг оруулна уу.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSave = async () => {
-    if (!preview) return;
-
-    try {
-      setIsUploading(true);
-      const res = await fetch("/api/users/me/signature", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signatureUrl: preview }),
-      });
-
-      if (!res.ok) throw new Error("Failed to save signature");
-
-      const updatedUser = await res.json();
-      // Update query cache
-      queryClient.setQueryData(["/api/auth/me"], updatedUser);
-
-      toast({ title: "Амжилттай", description: "Гарын үсэг хадгалагдлаа." });
-    } catch (error) {
-      toast({
-        title: "Алдаа",
-        description: "Гарын үсэг хадгалахад алдаа гарлаа.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleClear = async () => {
-    setPreview(null);
-    try {
-      setIsUploading(true);
-      const res = await fetch("/api/users/me/signature", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signatureUrl: null }),
-      });
-
-      if (!res.ok) throw new Error("Failed to clear signature");
-
-      const updatedUser = await res.json();
-      queryClient.setQueryData(["/api/auth/me"], updatedUser);
-
-      toast({ title: "Амжилттай", description: "Гарын үсэг устгагдлаа." });
-    } catch (error) {
-      // Ignore error if just clearing local preview that wasn't saved
-      console.error(error);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3">
-          <PenTool className="w-6 h-6 text-primary" />
-          Гарын үсэг
-        </CardTitle>
-        <CardDescription>Баримт бичигт ашиглагдах цахим гарын үсэг</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg bg-slate-50 dark:bg-slate-900/50">
-          {preview ? (
-            <div className="relative group">
-              <img src={preview} alt="Signature" className="max-h-32 object-contain" />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded">
-                <Button variant="destructive" size="sm" onClick={handleClear}>
-                  <X className="w-4 h-4 mr-2" />
-                  Устгах
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground p-8">
-              <PenTool className="w-12 h-12 mx-auto mb-3 opacity-20" />
-              <p>Гарын үсэг оруулаагүй байна</p>
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <div className="grid w-full items-center gap-1.5">
-            <Label htmlFor="signature">Зураг оруулах (PNG/JPG, тунгалаг дэвсгэртэй бол сайн)</Label>
-            <Input id="signature" type="file" accept="image/*" onChange={handleFileChange} />
-          </div>
-
-          <Button onClick={handleSave} disabled={isUploading || !preview || preview === user?.signatureUrl}>
-            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Хадгалах
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 // Branch Settings Component
 function BranchSettingsCard() {
@@ -1435,6 +1307,7 @@ export default function Settings() {
                 {activeTab === "integrations" && "Интеграц"}
                 {activeTab === "roles" && "Эрх & Permissions"}
                 {activeTab === "security" && "Аюулгүй байдал"}
+                {activeTab === "job-titles" && "Албан тушаал"}
               </span>
             </div>
 
@@ -1572,11 +1445,25 @@ export default function Settings() {
               </div>
             )}
 
+            {/* Work Hours Tab - NEW */}
+            {activeTab === "work-hours" && (
+              <div className="space-y-6">
+                <CompanySettings />
+              </div>
+            )}
+
             {/* Security Tab */}
             {activeTab === "security" && (
               <div className="space-y-6">
                 <ChangePasswordForm />
                 <TwoFactorAuth />
+              </div>
+            )}
+
+            {/* Job Titles Tab */}
+            {activeTab === "job-titles" && (
+              <div className="space-y-6">
+                <JobTitlesSettings />
               </div>
             )}
 

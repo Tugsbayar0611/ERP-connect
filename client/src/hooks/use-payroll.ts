@@ -53,3 +53,17 @@ export function usePayroll() {
     createPayroll,
   };
 }
+
+// 3. Миний цалингийн хуудас авах (Ажилтанд зориулсан)
+export function useMyPayslips(employeeId?: string) {
+  return useQuery<Payroll[]>({
+    queryKey: ["/api/payslips", employeeId],
+    queryFn: async () => {
+      // If employeeId is provided, query specific, otherwise default (server handles self for employees)
+      const url = employeeId ? `/api/payslips?employeeId=${employeeId}` : `/api/payslips`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch payslips");
+      return await res.json();
+    },
+  });
+}
