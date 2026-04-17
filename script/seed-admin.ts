@@ -35,7 +35,7 @@ async function seed() {
 
   // 2. Admin user
   const existingUser = await db.query.users.findFirst({
-    where: eq(users.email, "admin"),
+    where: eq(users.email, "admin@gmail.com"),
   });
 
   let adminUser = existingUser;
@@ -46,7 +46,7 @@ async function seed() {
 
     const [created] = await db.insert(users).values({
       tenantId: tenant!.id,
-      email: "admin",
+      email: "admin@gmail.com",
       fullName: "System Admin",
       passwordHash,
       role: "Admin",
@@ -54,7 +54,7 @@ async function seed() {
     }).returning();
 
     adminUser = created;
-    console.log("Admin user created: admin / admin123");
+    console.log("Admin user created: admin@gmail.com / admin123");
   } else {
     console.log("Admin user already exists.");
   }
