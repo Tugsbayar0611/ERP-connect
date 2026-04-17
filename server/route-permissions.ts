@@ -18,6 +18,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   // === HR Module ===
   { method: "POST", path: "/api/employees", permission: { resource: "employee", action: "create" } },
   { method: "PUT", path: /^\/api\/employees\/[^/]+$/, permission: { resource: "employee", action: "update" } },
+  { method: "DELETE", path: /^\/api\/employees\/[^/]+$/, permission: { resource: "employee", action: "delete" } },
   // Job Titles
   { method: "POST", path: "/api/job-titles", permission: { resource: "employee", action: "create" } },
   { method: "DELETE", path: /^\/api\/job-titles\/[^/]+$/, permission: { resource: "employee", action: "delete" } },

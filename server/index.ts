@@ -9,7 +9,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { pool } from "./db"; // DB холболт тест хийхэд ашиглая
 import { initializeSocket } from "./socket";
-
+import { rateLimitStore } from "./security";
 const app = express();
 const httpServer = createServer(app);
 
@@ -96,6 +96,15 @@ app.get("/api/db-test", async (_req, res, next) => {
   try {
     const result = await pool.query("SELECT NOW()");
     res.json({ now: result.rows[0].now });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/api/reset-rate-limit", (req, res, next) => {
+  try {
+    rateLimitStore.clear();
+    res.send("Rate limit reset хийлээ");
   } catch (err) {
     next(err);
   }

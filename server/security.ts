@@ -38,7 +38,7 @@ export function validatePasswordStrength(password: string): { valid: boolean; me
 /**
  * Rate limiting store (in-memory, for production use Redis)
  */
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+export const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 /**
  * Rate limiting middleware

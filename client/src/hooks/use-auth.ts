@@ -33,7 +33,7 @@ export function useAuth() {
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        if (res.status === 401) throw new Error("Буруу нэвтрэх мэдээлэл");
+        if (res.status === 401) throw new Error("Нэвтрэх нэр эсвэл нууц үг буруу байна");
         const errorMessage = await extractErrorMessage(res);
         throw new Error(errorMessage || "Нэвтрэхэд алдаа гарлаа");
       }

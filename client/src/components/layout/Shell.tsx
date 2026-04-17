@@ -74,7 +74,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="flex-1 flex flex-col min-w-0 md:pl-64">
           <MobileNav />
           <main className="flex-1 p-4 md:p-8 overflow-y-auto animate-in-fade">
-            <div className="max-w-7xl mx-auto w-full space-y-8">
+            <div className="w-full space-y-8">
               {children}
             </div>
           </main>

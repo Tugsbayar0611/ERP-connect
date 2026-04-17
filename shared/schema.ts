@@ -66,7 +66,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().default(""), // Added for distinct login identifier
   email: text("email").notNull(),
   fullName: text("full_name"),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"),
   role: text("role").notNull().default("User"), // Added for backward compatibility
   status: text("status").notNull().default("active"), // 'pending' | 'active' | 'rejected' - Admin approval workflow
   isActive: boolean("is_active").notNull().default(true),
@@ -80,6 +80,8 @@ export const users = pgTable("users", {
   jobTitle: text("job_title"), // Албан тушаал (Ерөнхий захирал, г.м.)
   canSignDocuments: boolean("can_sign_documents").notNull().default(false), // Гарын үсэг зурах эрх
   mustChangePassword: boolean("must_change_password").notNull().default(false), // First login password change
+  inviteTokenHash: text("invite_token_hash"), // Урилгын токен
+  inviteExpiresAt: timestamp("invite_expires_at"), // Урилгын хугацаа
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({

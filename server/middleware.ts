@@ -55,10 +55,13 @@ export const checkPermission = async (req: any, res: any, next: any) => {
     const isWriteOperation = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
 
     if (isWriteOperation) {
+
         // Check if route has explicit permission mapping
         // Use originalUrl to get the full path including /api prefix, but strip query params
         const fullPath = req.originalUrl.split('?')[0];
         const permission = getRoutePermission(req.method, fullPath);
+        console.log("fullPath", fullPath);
+        console.log("permission", getRoutePermission(req.method, fullPath));
         if (!permission) {
             // No explicit permission mapping = DENY by default
             return res.status(403).json({

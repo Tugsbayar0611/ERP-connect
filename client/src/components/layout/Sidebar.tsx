@@ -114,16 +114,16 @@ const originalNavGroups: NavGroup[] = [
       { href: "/admin/transport", label: "Тээвэр", icon: Bus },
     ],
   },
-  {
-    title: "Finance",
-    items: [
-      { href: "/invoices", label: "Нэхэмжлэх", icon: Receipt },
-      { href: "/journals", label: "Ерөнхий журнал (GL)", icon: BookMarked },
-      { href: "/accounts", label: "Дансны төлөвлөгөө", icon: FileSpreadsheet },
-      { href: "/tax-codes", label: "Татварын тохиргоо", icon: FileCheck },
-      { href: "/bank-statements", label: "Банкны хуулга", icon: Banknote },
-    ],
-  },
+  // {
+  //   title: "Finance",
+  //   items: [
+  //     { href: "/invoices", label: "Нэхэмжлэх", icon: Receipt },
+  //     { href: "/journals", label: "Ерөнхий журнал (GL)", icon: BookMarked },
+  //     { href: "/accounts", label: "Дансны төлөвлөгөө", icon: FileSpreadsheet },
+  //     { href: "/tax-codes", label: "Татварын тохиргоо", icon: FileCheck },
+  //     { href: "/bank-statements", label: "Банкны хуулга", icon: Banknote },
+  //   ],
+  // },
   {
     title: "System",
     items: [

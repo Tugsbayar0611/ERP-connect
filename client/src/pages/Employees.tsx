@@ -67,10 +67,11 @@ import { useRoles } from "@/hooks/use-roles";
 import { EmployeeAllowancesDialog } from "@/components/employees/EmployeeAllowancesDialog";
 import { SalaryAdvanceRequestForm } from "@/components/employees/SalaryAdvanceRequestForm";
 import { AddJobTitleDialog } from "@/components/employees/AddJobTitleDialog";
+import { AddDepartmentDialog } from "@/components/employees/AddDepartmentDialog";
+import { Mail } from "lucide-react";
 
 const employeeFormSchema = insertEmployeeSchema.extend({
   createUser: z.boolean().optional().default(false),
-  password: z.string().optional(),
   role: z.string().optional(), // System Role
 });
 
@@ -100,7 +101,8 @@ export default function Employees(): JSX.Element {
     null
   );
   const [isSalaryAdvanceOpen, setIsSalaryAdvanceOpen] = useState(false);
-  const [isAddJobTitleOpen, setIsAddJobTitleOpen] = useState(false); // New state logic
+  const [isAddJobTitleOpen, setIsAddJobTitleOpen] = useState(false);
+  const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10); // Items per page
@@ -131,7 +133,7 @@ export default function Employees(): JSX.Element {
       departmentId: undefined,
       position: "", // Албан тушаал
       createUser: false,
-      password: "",
+      role: "User",
     },
   });
 
@@ -151,9 +153,8 @@ export default function Employees(): JSX.Element {
 
       position: "",
       jobTitleId: undefined, // New
-      createUser: false,
-      password: "",
-      role: "User", // Default role needs match string in DB or Role Name? DB uses 'User', 'Admin', 'HR'. I'll map it.
+      createUser: true,
+      role: "User",
     } as any);
     setIsEditOpen(true);
   }, [form]);
@@ -189,9 +190,8 @@ export default function Employees(): JSX.Element {
 
       position: (employee as any).position || "",
       jobTitleId: (employee as any).jobTitleId || undefined,
-      createUser: false,
-      password: "",
-      role: "User", // Default
+      createUser: true,
+      role: "User",
     } as any);
     setIsEditOpen(true);
   }, [form]);
@@ -248,7 +248,7 @@ export default function Employees(): JSX.Element {
     if (!window.confirm(`Та ${employee.firstName} ${employee.lastName}-г устгахдаа итгэлтэй байна уу?`)) {
       return;
     }
-
+    console.log(employee, "aaaaaaaaaaaaaa");
     try {
       await deleteEmployee.mutateAsync(employee.id);
       toast({
@@ -552,7 +552,7 @@ export default function Employees(): JSX.Element {
             Ажилтнууд
           </h2>
           <p className="text-muted-foreground mt-1">
-            Таны байгууллагын ажилтнуудыг удирдах.
+            Байгууллагын ажилтнуудыг удирдах.
           </p>
         </div>
 
@@ -581,7 +581,7 @@ export default function Employees(): JSX.Element {
               onSubmit={form.handleSubmit(onSubmit)}
               className="space-y-6 pt-4"
             >
-              {/* Нэр + Овог */}
+              {/* Үндсэн мэдээлэл: Нэр + Овог */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -612,7 +612,7 @@ export default function Employees(): JSX.Element {
                 />
               </div>
 
-              {/* Код + Статус */}
+              {/* Код + Хэлтэс */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -627,6 +627,120 @@ export default function Employees(): JSX.Element {
                     </FormItem>
                   )}
                 />
+
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <FormField
+                      control={form.control}
+                      name="departmentId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Хэлтэс</FormLabel>
+                          <Select
+                            onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
+                            value={field.value || "none"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Хэлтэс сонгох" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">Бусад</SelectItem>
+                              {departments.map((dept) => (
+                                <SelectItem key={dept.id} value={dept.id}>
+                                  {dept.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  {isManager && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mb-1"
+                      onClick={() => setIsAddDepartmentOpen(true)}
+                      title="Шинэ хэлтэс нэмэх"
+                    >
+                      +
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Албан тушаал + Төлөв */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <FormField
+                      control={form.control}
+                      name="jobTitleId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Албан тушаал</FormLabel>
+                          <Select
+                            onValueChange={(val) => {
+                              field.onChange(val);
+                              // Also update 'position' text for backward compatibility
+                              const title = jobTitles.find(t => t.id === val);
+                              if (title) form.setValue("position", title.name);
+                            }}
+                            value={field.value || undefined}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Албан тушаал сонгох" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {jobTitles
+                                .filter(t => t.isActive || t.id === field.value)
+                                .map((title) => (
+                                  <SelectItem key={title.id} value={title.id} className="items-start">
+                                    <div className="flex flex-col text-left">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold">{title.name}</span>
+                                        {!title.isActive && (
+                                          <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                                            Идэвхгүй
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <span className="text-xs text-muted-foreground">
+                                        {title.code || ""}
+                                        {title.departmentId && departments?.find(d => d.id === title.departmentId)?.name ? ` • ${departments.find(d => d.id === title.departmentId)?.name}` : ""}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          {/* <FormDescription className="text-xs">
+                            Албан тушаал нь стандарт жагсаалтаас сонгогдоно (HR).
+                          </FormDescription> */}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  {isManager && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="" // Align with input box
+                      onClick={() => setIsAddJobTitleOpen(true)}
+                      title="Шинэ албан тушаал нэмэх"
+                    >
+                      +
+                    </Button>
+                  )}
+                </div>
 
                 <FormField
                   control={form.control}
@@ -643,247 +757,10 @@ export default function Employees(): JSX.Element {
                         <SelectContent>
                           <SelectItem value="active">Идэвхтэй</SelectItem>
                           <SelectItem value="probation">Туршилтын</SelectItem>
-                          <SelectItem value="on_leave">Амралттай</SelectItem>
-                          <SelectItem value="inactive">Идэвхгүй</SelectItem>
+                          <SelectItem value="on_leave">Чөлөөтэй</SelectItem>
                           <SelectItem value="terminated">Гарсан</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="departmentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Хэлтэс</FormLabel>
-                    <Select
-                      onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
-                      value={field.value || "none"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Хэлтэс сонгох (сонголттой)" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Хэлтэсгүй</SelectItem>
-                        {departments.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Албан тушаал (Job Title) */}
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <FormField
-                    control={form.control}
-                    name="jobTitleId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Албан тушаал</FormLabel>
-                        <Select
-                          onValueChange={(val) => {
-                            field.onChange(val);
-                            // Also update 'position' text for backward compatibility
-                            const title = jobTitles.find(t => t.id === val);
-                            if (title) form.setValue("position", title.name);
-                          }}
-                          value={field.value || undefined}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Албан тушаал сонгох" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {jobTitles
-                              .filter(t => t.isActive || t.id === field.value)
-                              .map((title) => (
-                                <SelectItem key={title.id} value={title.id} className="items-start">
-                                  <div className="flex flex-col text-left">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold">{title.name}</span>
-                                      {!title.isActive && (
-                                        <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                                          Идэвхгүй
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <span className="text-xs text-muted-foreground">
-                                      {title.code || ""}
-                                      {title.departmentId && departments?.find(d => d.id === title.departmentId)?.name ? ` • ${departments.find(d => d.id === title.departmentId)?.name}` : ""}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription className="text-xs">
-                          Албан тушаал нь стандарт жагсаалтаас сонгогдоно (HR).
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                {isManager && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="mb-8" // Align with input box (offset label + description) - approximate
-                    onClick={() => setIsAddJobTitleOpen(true)}
-                    title="Шинэ албан тушаал нэмэх"
-                  >
-                    + Нэмэх
-                  </Button>
-                )}
-              </div>
-
-              {/* Create User Section - Only for new employees */}
-              {!selectedEmployee && (
-                <div className="space-y-4 pt-4 border-t">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="createUser"
-                      onCheckedChange={(checked) => {
-                        form.setValue("createUser", checked === true);
-                      }}
-                    />
-                    <label
-                      htmlFor="createUser"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Системд нэвтрэх эрх үүсгэх
-                    </label>
-                  </div>
-
-                  {form.watch("createUser") && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Нууц үг</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder="Нууц үг" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="role"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Системийн эрх</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value || "User"}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Эрх сонгох" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="User">Ажилтан (Employee)</SelectItem>
-                                <SelectItem value="Manager">Менежер (Manager)</SelectItem>
-                                <SelectItem value="HR">Хүний нөөц (HR)</SelectItem>
-                                <SelectItem value="Admin">Админ (Admin)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* РД (Регистрийн дугаар) */}
-              <FormField
-                control={form.control}
-                name="nationalId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Регистрийн дугаар (РД)</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="ИБ99061111"
-                        maxLength={10}
-                        value={field.value ?? ""}
-                        onChange={(e) => {
-                          let value = e.target.value.toUpperCase(); // Convert to uppercase
-
-                          // First 2 characters: allow Cyrillic letters only
-                          if (value.length > 0 && value.length <= 2) {
-                            value = value.replace(/[^А-ЯЁ]/g, '');
-                          }
-                          // After 2 characters: allow digits only
-                          else if (value.length > 2) {
-                            const firstTwo = value.substring(0, 2).replace(/[^А-ЯЁ]/g, '');
-                            const rest = value.substring(2).replace(/\D/g, '').slice(0, 8);
-                            value = firstTwo + rest;
-                          }
-
-                          field.onChange(value);
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                    <p className="text-xs text-muted-foreground">
-                      Формат: 2 кирилл үсэг + 8 оронтой тоо (жишээ: ИБ99061111, УА12345678)
-                    </p>
-                  </FormItem>
-                )}
-              />
-
-              {/* Email + Утас */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Имэйл</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="example@gmail.com"
-                          {...field}
-                          value={field.value ?? ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Утасны дугаар</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="88001234"
-                          {...field}
-                          value={field.value ?? ""}
-                        />
-                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -928,6 +805,162 @@ export default function Employees(): JSX.Element {
                 )}
               </div>
 
+              {/* Create User Section - Only for new employees */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="createUser"
+                    checked={form.watch("createUser")}
+                    onCheckedChange={(checked) => {
+                      form.setValue("createUser", checked === true);
+                    }}
+                  />
+                  <label
+                    htmlFor="createUser"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Системийн эрх үүсгэх
+                  </label>
+                </div>
+
+                {form.watch("createUser") && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Имэйл</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="example@gmail.com"
+                              {...field}
+                              value={field.value ?? ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="role"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Системийн эрх</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value || "User"}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Эрх сонгох" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="User">Ажилтан (Employee)</SelectItem>
+                              <SelectItem value="Manager">Менежер (Manager)</SelectItem>
+                              <SelectItem value="HR">Хүний нөөц (HR)</SelectItem>
+                              <SelectItem value="Admin">Админ (Admin)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="col-span-1 sm:col-span-2">
+                      <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
+                        <Mail className="w-4 h-4 flex-shrink-0" />
+                        <span>Урилгын холбоос имэйлээр илгээгдэнэ. Хэрэглэгч өөрийн нууц үгийг тохируулна.</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Засах үед Имэйл */}
+              {/* {selectedEmployee && (
+                <div className="pt-4 border-t">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Имэйл</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="example@gmail.com"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )} */}
+
+              {/* Нэмэлтээр заавал бөглөх шаардлагагүй */}
+              <div className="space-y-4 pt-4 border-t">
+                <h4 className="text-sm font-medium text-muted-foreground">Нэмэлтээр заавал бөглөх шаардлагагүй</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Утасны дугаар</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="88001234"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="nationalId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Регистрийн дугаар (РД)</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="ИБ99061111"
+                            maxLength={10}
+                            value={field.value ?? ""}
+                            onChange={(e) => {
+                              let value = e.target.value.toUpperCase();
+
+                              if (value.length > 0 && value.length <= 2) {
+                                value = value.replace(/[^А-ЯЁ]/g, '');
+                              }
+                              else if (value.length > 2) {
+                                const firstTwo = value.substring(0, 2).replace(/[^А-ЯЁ]/g, '');
+                                const rest = value.substring(2).replace(/\D/g, '').slice(0, 8);
+                                value = firstTwo + rest;
+                              }
+
+                              field.onChange(value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                        <p className="text-xs text-muted-foreground">
+                          Формат: 2 кирилл үсэг + 8 оронтой тоо
+                        </p>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
               <Button
                 type="submit"
                 className="w-full"
@@ -945,6 +978,24 @@ export default function Employees(): JSX.Element {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Inline Add Department Dialog */}
+      <AddDepartmentDialog
+        open={isAddDepartmentOpen}
+        onOpenChange={setIsAddDepartmentOpen}
+        onSuccess={(deptId) => {
+          form.setValue("departmentId", deptId);
+        }}
+      />
+
+      {/* Inline Add Job Title Dialog */}
+      <AddJobTitleDialog
+        open={isAddJobTitleOpen}
+        onOpenChange={setIsAddJobTitleOpen}
+        onSuccess={(jobTitleId) => {
+          form.setValue("jobTitleId", jobTitleId);
+        }}
+      />
 
       {/* View Modal */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>

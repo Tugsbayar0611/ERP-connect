@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  email: z.string().email("Имэйл хаяг буруу байна").min(1, "Имэйл хаяг оруулна уу"),
+  email: z.string().email("Имэйл хаяг буруу байна").min(1, "Имэйл хаяг оруулна уу").refine(val => val.toLowerCase().endsWith('@mtcone.net'), { message: "Зөвхөн @mtcone.net хаягаар бүртгүүлэх боломжтой" }),
   username: z.string().min(3, "Нэвтрэх нэр 3-аас багагүй байх ёстой").max(50, "Нэвтрэх нэр хэт урт байна"),
   password: z.string()
     .min(8, "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой")
@@ -44,7 +44,7 @@ const registerSchema = z.object({
 
 // Schema for joining an existing company
 const joinRegisterSchema = z.object({
-  email: z.string().email("Имэйл хаяг буруу байна").min(1, "Имэйл хаяг оруулна уу"),
+  email: z.string().email("Имэйл хаяг буруу байна").min(1, "Имэйл хаяг оруулна уу").refine(val => val.toLowerCase().endsWith('@mtcone.net'), { message: "Зөвхөн @mtcone.net хаягаар бүртгүүлэх боломжтой" }),
   username: z.string().min(3, "Нэвтрэх нэр 3-аас багагүй байх ёстой").max(50, "Нэвтрэх нэр хэт урт байна"),
   password: z.string()
     .min(8, "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой")
@@ -76,13 +76,28 @@ const resetPasswordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const acceptInvitationSchema = z.object({
+  inviteToken: z.string().min(1, "Урилгын токен шаардлагатай"),
+  newPassword: z.string()
+    .min(8, "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой")
+    .regex(/[A-Z]/, "Нууц үг дор хаяж 1 том үсэг агуулсан байх ёстой")
+    .regex(/[a-z]/, "Нууц үг дор хаяж 1 жижиг үсэг агуулсан байх ёстой")
+    .regex(/[0-9]/, "Нууц үг дор хаяж 1 тоо агуулсан байх ёстой")
+    .max(100, "Нууц үг хэт урт байна"),
+  confirmPassword: z.string().min(1, "Нууц үг давтах шаардлагатай"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Нууц үг таарахгүй байна",
+  path: ["confirmPassword"],
+});
+
 type LoginFormData = z.infer<typeof loginSchema>;
 type RegisterFormData = z.infer<typeof registerSchema>;
 type JoinRegisterFormData = z.infer<typeof joinRegisterSchema>;
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
+type AcceptInvitationFormData = z.infer<typeof acceptInvitationSchema>;
 
-type ViewMode = "login" | "register" | "forgot-password" | "reset-password";
+type ViewMode = "login" | "register" | "forgot-password" | "reset-password" | "accept-invitation";
 type RegistrationMode = "create" | "join";
 
 export default function Login() {
@@ -104,6 +119,7 @@ export default function Login() {
 
   // Reset Token (Dev mode helper)
   const [resetToken, setResetToken] = useState("");
+  const [isAcceptingInvitation, setIsAcceptingInvitation] = useState(false);
 
   // Registration mode: create new company vs join existing
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("create");
@@ -156,6 +172,62 @@ export default function Login() {
     defaultValues: { token: "", newPassword: "", confirmPassword: "" },
   });
 
+  const acceptInvitationForm = useForm<AcceptInvitationFormData>({
+    resolver: zodResolver(acceptInvitationSchema),
+    mode: "onChange",
+    defaultValues: { inviteToken: "", newPassword: "", confirmPassword: "" },
+  });
+
+  // Check URL params on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inviteToken = params.get("inviteToken");
+    const error = params.get("error");
+
+    if (inviteToken) {
+      setViewMode("accept-invitation");
+      acceptInvitationForm.setValue("inviteToken", inviteToken);
+    }
+
+    if (error === "domain") {
+      setTimeout(() => {
+        toast({
+          variant: "destructive",
+          title: "Нэвтрэх боломжгүй",
+          description: "Зөвхөн @mtcone.net хаягаар нэвтрэх боломжтой.",
+        });
+      }, 100);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error === "unverified_email") {
+      setTimeout(() => {
+        toast({
+          variant: "destructive",
+          title: "Имэйл баталгаажилт",
+          description: "Google дансны имэйл баталгаажаагүй байна.",
+        });
+      }, 100);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error === "no_tenant") {
+      setTimeout(() => {
+        toast({
+          variant: "destructive",
+          title: "Компани бүртгэгдээгүй байна",
+          description: "Систем дээр компани бүртгэгдээгүй бөгөөд шинэ хэрэглэгч үүсгэх боломжгүй байна. Эхлээд системд компани бүртгүүлнэ үү.",
+        });
+      }, 100);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error === "google_auth_failed") {
+      setTimeout(() => {
+        toast({
+          variant: "destructive",
+          title: "Алдаа",
+          description: "Google-ээр нэвтрэхэд алдаа гарлаа.",
+        });
+      }, 100);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handlers
   const onSubmitLogin = async (data: LoginFormData) => {
     try {
@@ -166,7 +238,7 @@ export default function Login() {
       }
       setLocation("/");
     } catch (err: any) {
-      loginForm.setError("root", { message: err.message || "Буруу нэвтрэх мэдээлэл" });
+      loginForm.setError("root", { message: err.message || "Нэвтрэх нэр эсвэл нууц үг буруу байна" });
     }
   };
 
@@ -303,6 +375,32 @@ export default function Login() {
     }
   };
 
+  const onSubmitAcceptInvitation = async (data: AcceptInvitationFormData) => {
+    try {
+      setIsAcceptingInvitation(true);
+      const res = await fetch("/api/auth/accept-invitation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: data.inviteToken, newPassword: data.newPassword }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Урилга баталгаажуулахад алдаа гарлаа");
+      }
+
+      toast({ title: "Амжилттай", description: "Нууц үг тохируулагдлаа. Нэвтэрнэ үү." });
+      setViewMode("login");
+      acceptInvitationForm.reset();
+      // Clear URL params
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (err: any) {
+      acceptInvitationForm.setError("root", { message: err.message });
+    } finally {
+      setIsAcceptingInvitation(false);
+    }
+  };
+
   const handle2FAVerify = async () => {
     try {
       const res = await fetch("/api/auth/2fa/verify-login", {
@@ -339,6 +437,12 @@ export default function Login() {
           title: "Шинэ нууц үг",
           subtitle: "Шинэ нууц үгээ оруулна уу",
           icon: <KeyRound className="w-8 h-8 text-white" />,
+        };
+      case "accept-invitation":
+        return {
+          title: "Урилга хүлээн авах",
+          subtitle: "Нууц үгээ тохируулж системд нэвтэрнэ үү",
+          icon: <UserPlus className="w-8 h-8 text-white" />,
         };
       default:
         return {
@@ -789,6 +893,72 @@ export default function Login() {
                 <Button type="submit" className="w-full h-12 text-base rounded-xl sidebar-gradient" disabled={isResetting}>
                   {isResetting ? "Шинэчилж байна..." : "Хадгалах"}
                 </Button>
+              </form>
+            </Form>
+          )}
+
+          {/* ACCEPT INVITATION FORM */}
+          {viewMode === "accept-invitation" && (
+            <Form {...acceptInvitationForm}>
+              <form onSubmit={acceptInvitationForm.handleSubmit(onSubmitAcceptInvitation)} className="space-y-5">
+                <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Таныг MonERP системд урьсан байна. Нууц үгээ тохируулж системд нэвтэрнэ үү.
+                  </p>
+                </div>
+
+                <FormField
+                  control={acceptInvitationForm.control}
+                  name="newPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Нууц үг</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input type={showPassword ? "text" : "password"} className="h-12 pr-10" placeholder="••••••••" {...field} />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormDescription className="text-xs">Хамгийн багадаа 8 тэмдэгт, 1 том үсэг, 1 жижиг үсэг, 1 тоо</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={acceptInvitationForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Нууц үг давтах</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input type={showConfirmPassword ? "text" : "password"} className="h-12 pr-10" placeholder="••••••••" {...field} />
+                          <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {acceptInvitationForm.formState.errors.root && (
+                  <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm text-center">
+                    {acceptInvitationForm.formState.errors.root.message}
+                  </div>
+                )}
+
+                <Button type="submit" className="w-full h-12 text-base rounded-xl sidebar-gradient" disabled={isAcceptingInvitation}>
+                  {isAcceptingInvitation ? "Хадгалж байна..." : "Нууц үг тохируулж нэвтрэх"}
+                </Button>
+
+                <button type="button" onClick={() => setViewMode("login")} className="w-full text-center text-sm font-semibold text-primary hover:underline">
+                  Нэвтрэх хуудас руу буцах
+                </button>
               </form>
             </Form>
           )}
