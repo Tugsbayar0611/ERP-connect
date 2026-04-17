@@ -109,8 +109,7 @@ export function updateSessionActivity(req: any, res: any, next: any) {
  * HTTPS enforcement middleware (production only)
  */
 export function enforceHTTPS(req: any, res: any, next: any) {
-  if (process.env.NODE_ENV === "production") {
-    // Check if request is secure (behind proxy)
+  if (process.env.NODE_ENV === "production" && process.env.FORCE_HTTPS === "true") {
     const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
 
     if (!isSecure) {
