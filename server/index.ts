@@ -160,7 +160,7 @@ app.use((req, res, next) => {
   });
 
   // Vite / static
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && process.env.FORCE_HTTPS === "true") {
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");
