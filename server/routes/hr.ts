@@ -298,30 +298,42 @@ router.post("/employees", requireTenantAndPermission, async (req: any, res) => {
 
         // 2. Create User Login if requested
         if (createUser) {
-            if (!otherData.email || !password) {
-                return res.status(400).json({ message: "Email and password are required to create a user account" });
+            if (!otherData.email || !role) {
+                return res.status(400).json({ message: "Системийн эрх үүсгэхэд имэйл болон эрх шаардлагатай" });
             }
 
             // Check if user with email already exists
             const existingUser = await storage.getUserByUsername(otherData.email);
             if (existingUser) {
-                return res.status(400).json({ message: "User with this email already exists" });
+                return res.status(400).json({ message: "Энэ имэйл хаягтай хэрэглэгч аль хэдийн бүртгэгдсэн байна" });
             }
 
-            const { hashPassword } = await import("../auth");
-            const hashedPassword = await hashPassword(password);
+            const crypto = await import("crypto");
+            const { sendInvitationEmail } = await import("../email");
+
+            const rawToken = crypto.randomBytes(32).toString("hex");
+            const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+            const expiresAt = new Date();
+            expiresAt.setHours(expiresAt.getHours() + 48); // Valid for 48 hours
+
             const newUser = await storage.createUser({
                 tenantId: req.tenantId,
                 email: otherData.email,
                 username: otherData.email,
-                passwordHash: hashedPassword,
+                passwordHash: null as any, // Nullable initially
+                inviteTokenHash: tokenHash,
+                inviteExpiresAt: expiresAt,
                 fullName: `${otherData.firstName} ${otherData.lastName || ''}`.trim(),
-                role: role || "employee", // Use requested role or default
-                status: "active",
+                role: role,
+                status: "invited", // Different from active
                 isActive: true,
-                mustChangePassword: true
+                mustChangePassword: false, // They'll set it during invite acceptance
             });
             userId = newUser.id;
+
+            // Send invite email asynchronously
+            sendInvitationEmail(otherData.email, rawToken, otherData.firstName).catch(console.error);
         }
 
         const input = {
@@ -362,7 +374,16 @@ router.put("/employees/:id", requireTenantAndPermission, async (req: any, res) =
             return res.status(404).json({ message: "Employee not found" });
         }
 
-        const input = insertEmployeeSchema.partial().parse(req.body); // Allow partial updates
+        const { role, ...employeeFields } = req.body;
+        const input = insertEmployeeSchema.partial().parse(employeeFields); // Allow partial updates
+        
+        // Update user role if user exists and role is submitted
+        let userRoleUpdated = false;
+        if (existing.userId && role) {
+            await storage.updateUser(existing.userId, { role });
+            userRoleUpdated = true;
+        }
+
         const employeeBefore = existing;
         const employee = await storage.updateEmployee(req.params.id, input);
 
@@ -2252,8 +2273,8 @@ router.post("/job-titles", requireTenantAndPermission, async (req: any, res) => 
     try {
         const { name, code } = req.body;
 
-        if (!name || !code) {
-            return res.status(400).json({ message: "Албан тушаалын нэр болон код заавал." });
+        if (!name) {
+            return res.status(400).json({ message: "Албан тушаалын нэр заавал." });
         }
 
         const data = { ...req.body, tenantId: req.tenantId };
@@ -2263,7 +2284,7 @@ router.post("/job-titles", requireTenantAndPermission, async (req: any, res) => 
         if (existing.some(t => t.name.toLowerCase() === name.toLowerCase())) {
             return res.status(409).json({ message: "Ийм нэртэй албан тушаал байна." });
         }
-        if (existing.some(t => (t.code || "").toLowerCase() === code.toLowerCase())) {
+        if (code && existing.some(t => (t.code || "").toLowerCase() === code.toLowerCase())) {
             return res.status(409).json({ message: "Ийм код аль хэдийн ашиглагдаж байна." });
         }
 

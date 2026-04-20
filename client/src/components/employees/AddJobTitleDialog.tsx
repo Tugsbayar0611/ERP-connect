@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const jobTitleSchema = z.object({
     name: z.string().min(1, "Албан тушаалын нэр заавал"),
-    code: z.string().min(1, "Код заавал").regex(/^[A-Z0-9_]+$/, "Том үсэг, доогуур зураас ашиглана (Жишээ: WAREHOUSE_KEEPER)"),
+    code: z.string().regex(/^[A-Z0-9_]*$/, "Том үсэг, доогуур зураас ашиглана").optional().or(z.literal("")),
     departmentId: z.string().optional(),
 });
 

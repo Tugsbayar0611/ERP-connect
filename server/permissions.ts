@@ -55,12 +55,20 @@ export function requirePermission(resource: string, action: string) {
     }
 
     // Admin users bypass permission checks (for now)
-    // TODO: Check if user has "admin" role or system admin flag
     const userRoles = await storage.getUserRoles(userId);
-    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem) || req.user?.role === 'admin';
+    const userLegacyRole = req.user?.role?.toLowerCase() || '';
+    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem) || userLegacyRole === 'admin';
 
     if (isAdmin) {
       return next();
+    }
+
+    // HR and Managers can bypass HR-related resources if using legacy roles
+    if (userLegacyRole === 'hr' || userLegacyRole === 'manager') {
+      const HR_RESOURCES = ['employee', 'attendance', 'leave_request', 'payroll', 'performance', 'job_title'];
+      if (HR_RESOURCES.includes(resource)) {
+        return next();
+      }
     }
 
     const hasPermission = await checkPermission(userId, resource, action);
@@ -108,7 +116,8 @@ export function requireAnyPermission(...permissions: Array<{ resource: string; a
     }
 
     const userRoles = await storage.getUserRoles(userId);
-    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem);
+    const userLegacyRole = req.user?.role?.toLowerCase() || '';
+    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem) || userLegacyRole === 'admin';
 
     if (isAdmin) {
       return next();
@@ -143,7 +152,8 @@ export function requireAllPermissions(...permissions: Array<{ resource: string; 
     }
 
     const userRoles = await storage.getUserRoles(userId);
-    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem);
+    const userLegacyRole = req.user?.role?.toLowerCase() || '';
+    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem) || userLegacyRole === 'admin';
 
     if (isAdmin) {
       return next();

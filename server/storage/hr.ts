@@ -19,8 +19,14 @@ import { UserStorage } from "./user";
 
 export class HRStorage extends UserStorage {
     // --- Employees ---
-    async getEmployees(tenantId: string): Promise<Employee[]> {
-        return await db.select().from(employees).where(eq(employees.tenantId, tenantId));
+    async getEmployees(tenantId: string): Promise<any[]> {
+        return await db.select({
+            ...getTableColumns(employees),
+            role: users.role
+        })
+            .from(employees)
+            .leftJoin(users, eq(employees.userId, users.id))
+            .where(eq(employees.tenantId, tenantId));
     }
 
     async getEmployee(id: string): Promise<Employee | undefined> {

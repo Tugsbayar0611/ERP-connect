@@ -121,18 +121,20 @@ export function useEmployees() {
   // 5. Олон ажилтан устгах (BULK DELETE)
   const deleteEmployees = useMutation({
     mutationFn: async (ids: string[]) => {
-      const results = await Promise.allSettled(
-        ids.map(id =>
-          fetch(`/api/employees/${id}`, {
+      const results = await Promise.all(
+        ids.map(async (id) => {
+          const res = await fetch(`/api/employees/${id}`, {
             method: "DELETE",
             credentials: "include",
-          })
-        )
+          });
+          if (!res.ok) {
+            const errorMessage = await extractErrorMessage(res);
+            throw new Error(errorMessage || `Ажилтан устгахад алдаа гарлаа: ${id}`);
+          }
+          return id;
+        })
       );
-      const failed = results.filter(r => r.status === "rejected");
-      if (failed.length > 0) {
-        throw new Error(`${failed.length} ажилтан устгахад алдаа гарлаа`);
-      }
+      return results;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.employees.list.path] });

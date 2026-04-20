@@ -9,7 +9,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { pool } from "./db"; // DB холболт тест хийхэд ашиглая
 import { initializeSocket } from "./socket";
-
+import { rateLimitStore } from "./security";
 const app = express();
 const httpServer = createServer(app);
 
@@ -101,6 +101,15 @@ app.get("/api/db-test", async (_req, res, next) => {
   }
 });
 
+app.get("/api/reset-rate-limit", (req, res, next) => {
+  try {
+    rateLimitStore.clear();
+    res.send("Rate limit reset хийлээ");
+  } catch (err) {
+    next(err);
+  }
+});
+
 // API log middleware
 app.use((req, res, next) => {
   const start = Date.now();
@@ -151,8 +160,14 @@ app.use((req, res, next) => {
   });
 
   // Vite / static
-  if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
+  if (process.env.NODE_ENV === "production" && process.env.FORCE_HTTPS === "true") {
+    app.use((req: any, res: any, next: any) => {
+      const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
+      if (!isSecure) {
+        return res.redirect(301, `https://${req.headers.host}${req.url}`);
+      }
+      next();
+    });
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);

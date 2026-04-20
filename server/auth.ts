@@ -175,8 +175,8 @@ export function setupAuth(app: Express) {
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.passwordHash))) {
-          return done(null, false, { message: "Буруу нэвтрэх мэдээлэл" });
+        if (!user || !user.passwordHash || !(await comparePasswords(password, user.passwordHash))) {
+          return done(null, false, { message: "Нэвтрэх нэр эсвэл  нууц үг буруу байна" });
         }
 
         // Check user status for admin approval workflow
@@ -185,6 +185,9 @@ export function setupAuth(app: Express) {
         }
         if ((user as any).status === "rejected") {
           return done(null, false, { message: "Таны хүсэлт татгалзагдсан байна. Админтай холбогдоно уу." });
+        }
+        if ((user as any).status === "invited") {
+          return done(null, false, { message: "Та имэйлээр ирсэн урилгын линкээр нууц үгээ тохируулна уу." });
         }
 
         return done(null, user);
@@ -209,57 +212,70 @@ export function setupAuth(app: Express) {
         async (accessToken, refreshToken, profile, done) => {
           try {
             const googleEmail = profile.emails?.[0]?.value;
+            const isEmailVerified = profile.emails?.[0]?.verified;
             if (!googleEmail) {
-              return done(new Error("Google account email not found"), undefined);
+              return done(new Error("google_email_not_found"), undefined);
+            }
+            if (isEmailVerified === false) {
+              return done(new Error("google_email_not_verified"), undefined);
+            }
+            if (!googleEmail.toLowerCase().endsWith("@mtcone.net")) {
+              return done(new Error("unauthorized_domain"), undefined);
             }
 
             // Check if user exists
             let user = await storage.getUserByEmail(googleEmail);
 
             if (!user) {
-              // Create new user with Google account
-              // First, check if we need to create a tenant (for new users)
-              // For simplicity, create a default tenant if needed
-              const defaultTenant = await storage.getTenant(process.env.DEFAULT_TENANT_ID || "");
+              // Find the existing company tenant (we have one company: mtcone.net)
+              // Look up the first active tenant instead of relying on DEFAULT_TENANT_ID env
+              const { db } = await import("./db");
+              const { tenants } = await import("@shared/schema");
+              const { asc } = await import("drizzle-orm");
 
-              if (!defaultTenant) {
-                // Create default tenant if not exists
-                const generatedCode = await storage.generateUniqueCompanyCode();
-                const newTenant = await storage.createTenant({
-                  name: `${profile.displayName || "User"}'s Organization`,
-                  code: generatedCode,
-                  countryCode: "MN",
-                  timezone: "Asia/Ulaanbaatar",
-                  currencyCode: "MNT",
+              const [firstTenant] = await db
+                .select()
+                .from(tenants)
+                .orderBy(asc(tenants.createdAt))
+                .limit(1);
+
+              if (!firstTenant) {
+                console.error("Google OAuth: No tenant found in database. Please create a company first.");
+                return done(new Error("no_tenant"), undefined);
+              }
+
+              const dummyPassword = randomBytes(32).toString("hex");
+              const hashedPassword = await hashPassword(dummyPassword);
+
+              user = await storage.createUser({
+                tenantId: firstTenant.id,
+                email: googleEmail,
+                username: googleEmail,
+                passwordHash: hashedPassword,
+                fullName: profile.displayName || profile.name?.givenName || googleEmail,
+                isActive: true,
+                status: "active",
+              });
+
+              // Auto-link to Employee record if email matches
+              await storage.linkUserToEmployeeByEmail(user.id, googleEmail, firstTenant.id);
+
+              // Check if employee was linked. If not, auto-create one.
+              const existingEmployee = await storage.getEmployeeByUserId(user.id);
+              if (!existingEmployee) {
+                await storage.createEmployee({
+                  tenantId: firstTenant.id,
+                  userId: user.id,
+                  firstName: profile.name?.givenName || profile.displayName?.split(' ')[0] || googleEmail.split('@')[0],
+                  lastName: profile.name?.familyName || profile.displayName?.split(' ').slice(1).join(' ') || '',
+                  email: googleEmail,
+                  hireDate: new Date().toISOString().split('T')[0],
                   status: "active",
                 });
-
-                // Create user with Google account (no password needed)
-                const dummyPassword = randomBytes(32).toString("hex"); // Random password for OAuth users
-                const hashedPassword = await hashPassword(dummyPassword);
-
-                user = await storage.createUser({
-                  tenantId: newTenant.id,
-                  email: googleEmail,
-                  username: googleEmail, // Use email as username for Google users
-                  passwordHash: hashedPassword, // OAuth users don't use password
-                  fullName: profile.displayName || profile.name?.givenName || googleEmail,
-                  isActive: true,
-                });
-              } else {
-                // Use existing tenant
-                const dummyPassword = randomBytes(32).toString("hex");
-                const hashedPassword = await hashPassword(dummyPassword);
-
-                user = await storage.createUser({
-                  tenantId: defaultTenant.id,
-                  email: googleEmail,
-                  username: googleEmail, // Use email as username for Google users
-                  passwordHash: hashedPassword,
-                  fullName: profile.displayName || profile.name?.givenName || googleEmail,
-                  isActive: true,
-                });
+                console.log(`Google OAuth: Created new employee profile for ${googleEmail}`);
               }
+
+              console.log(`Google OAuth: Created new user ${googleEmail} under tenant ${firstTenant.name}`);
             }
 
             return done(null, user);
@@ -309,6 +325,11 @@ export function setupAuth(app: Express) {
 
       // Normalize email for matching
       const normalizedEmail = email?.trim().toLowerCase();
+
+      // Domain check
+      if (normalizedEmail && !normalizedEmail.endsWith('@mtcone.net')) {
+        return res.status(400).json({ message: "Зөвхөн @mtcone.net хаягаар бүртгүүлэх боломжтой" });
+      }
 
       // Check for existing username (global check)
       const existingUser = await storage.getUserByUsername(username);
@@ -540,6 +561,54 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Accept Invitation - Use token to set initial password
+  app.post("/api/auth/accept-invitation", createRateLimiter(15 * 60 * 1000, 5), async (req, res, next) => {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || !newPassword) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+
+      // Password strength validation
+      const passwordValidation = validatePasswordStrength(newPassword);
+      if (!passwordValidation.valid) {
+        return res.status(400).json({ message: passwordValidation.message });
+      }
+
+      // Hash the provided token with SHA256 to compare with stored hash
+      const shaTokenHash = createHash("sha256").update(token).digest("hex");
+
+      const { db } = await import("./db");
+      const { users } = await import("@shared/schema");
+      
+      const userResult = await db.query.users.findFirst({
+        where: (t: any, { eq, and, gt }: any) => and(
+          eq(t.inviteTokenHash, shaTokenHash),
+          eq(t.status, "invited"),
+          gt(t.inviteExpiresAt, new Date())
+        )
+      });
+
+      if (!userResult) {
+        return res.status(400).json({ message: "Invalid or expired invitation token" });
+      }
+
+      // Update password and status
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(userResult.id, { 
+        passwordHash: hashedPassword,
+        inviteTokenHash: null,
+        inviteExpiresAt: null,
+        status: "active",
+        mustChangePassword: false
+      });
+
+      res.status(200).json({ message: "Invitation accepted. You can now log in." });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.post("/api/auth/login", createRateLimiter(15 * 60 * 1000, 5), async (req, res, next) => {
     passport.authenticate("local", async (err: any, user: any, info: any) => {
       if (err) return next(err);
@@ -765,6 +834,9 @@ export function setupAuth(app: Express) {
       }
 
       // Verify old password
+      if (!userData.passwordHash) {
+        return res.status(400).json({ message: "Нууцүг тохируулагдаагүй байна. Имэйлээр ирсэн урилгын линкээр нууц үгээ тохируулна уу." });
+      }
       const isOldPasswordValid = await comparePasswords(oldPassword, userData.passwordHash);
       if (!isOldPasswordValid) {
         return res.status(400).json({ message: "Хуучин нууц үг буруу байна" });
@@ -868,10 +940,35 @@ export function setupAuth(app: Express) {
 
     app.get(
       "/api/auth/google/callback",
-      passport.authenticate("google", { failureRedirect: "/login?error=google_auth_failed" }),
-      (req, res) => {
-        // Successful authentication, redirect to home
-        res.redirect("/");
+      (req, res, next) => {
+        passport.authenticate("google", (err: any, user: any, info: any) => {
+          if (err) {
+            if (err.message === "unauthorized_domain") {
+              return res.redirect("/login?error=domain");
+            }
+            if (err.message === "google_email_not_verified") {
+              return res.redirect("/login?error=unverified_email");
+            }
+            if (err.message === "no_tenant") {
+              return res.redirect("/login?error=no_tenant");
+            }
+            console.error("Google OAuth error:", err);
+            return res.redirect("/login?error=google_auth_failed");
+          }
+          if (!user) {
+            return res.redirect("/login?error=google_auth_failed");
+          }
+          req.login(user, async (loginErr) => {
+            if (loginErr) return res.redirect("/login?error=google_auth_failed");
+            storage.updateUserLastLogin(user.id).catch(console.error);
+            await insertUserSession(req, user);
+            
+            req.session.save((err) => {
+              if (err) console.error("Google OAuth session save error:", err);
+              return res.redirect("/");
+            });
+          });
+        })(req, res, next);
       }
     );
   }

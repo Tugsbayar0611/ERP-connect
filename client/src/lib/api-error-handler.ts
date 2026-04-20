@@ -71,11 +71,11 @@ export async function handleApiError(error: unknown): Promise<string> {
     if (error.message.includes("алдаа") || error.message.includes("шаардлагатай")) {
       return error.message;
     }
-    
+
     // Common error messages - translate if needed
     const translations: Record<string, string> = {
       "Failed to fetch": "Сүлжээний алдаа. Интернэт холболтоо шалгана уу.",
-      "Invalid credentials": "Буруу нэвтрэх мэдээлэл",
+      "Invalid credentials": "Нэвтрэх нэр эсвэл  нууц үг буруу байна",
       "Login failed": "Нэвтрэхэд алдаа гарлаа",
       "Failed to fetch user": "Хэрэглэгчийн мэдээлэл авахад алдаа гарлаа",
     };

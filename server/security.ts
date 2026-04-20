@@ -38,7 +38,7 @@ export function validatePasswordStrength(password: string): { valid: boolean; me
 /**
  * Rate limiting store (in-memory, for production use Redis)
  */
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+export const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 /**
  * Rate limiting middleware
@@ -109,8 +109,7 @@ export function updateSessionActivity(req: any, res: any, next: any) {
  * HTTPS enforcement middleware (production only)
  */
 export function enforceHTTPS(req: any, res: any, next: any) {
-  if (process.env.NODE_ENV === "production") {
-    // Check if request is secure (behind proxy)
+  if (process.env.NODE_ENV === "production" && process.env.FORCE_HTTPS === "true") {
     const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
 
     if (!isSecure) {

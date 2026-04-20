@@ -139,6 +139,76 @@ ${resetToken}
 }
 
 /**
+ * Send invitation email
+ */
+export async function sendInvitationEmail(
+  to: string,
+  inviteToken: string,
+  userName?: string
+): Promise<void> {
+  const emailTransporter = getTransporter();
+  
+  if (!emailTransporter) {
+    if (process.env.NODE_ENV === "development") {
+      console.log("🎟️ Invitation Token (Dev Mode):", inviteToken);
+      console.log("📧 Would send invitation email to:", to);
+    }
+    return; // Don't throw for invitations so employee creation doesn't fail if SMTP is missing
+  }
+
+  const loginUrl = `${process.env.APP_URL || "http://localhost:5000"}/login?inviteToken=${inviteToken}`;
+  const smtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@monerp.mn";
+
+  const mailOptions = {
+    from: `MonERP <${smtpFrom}>`,
+    to,
+    subject: "MonERP Системд урьж байна",
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; color: #999; font-size: 12px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>MonERP</h1>
+              <p>Системд нэгдэх урилга</p>
+            </div>
+            <div class="content">
+              <p>Сайн байна уу${userName ? ` ${userName}` : ""},</p>
+              <p>Таныг MonERP системд бүртгэж урилга илгээлээ. Доорх линк дээр дарж нууц үгээ тохируулан системд нэвтэрнэ үү:</p>
+              <p style="text-align: center;">
+                <a href="${loginUrl}" class="button">Нууц үг тохируулж нэвтрэх</a>
+              </p>
+              <p>Энэхүү урилга нь хүлээн авснаас хойш 48 цагийн дотор хүчинтэй байна.</p>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} MonERP. Бүх эрх хуулиар хамгаалагдсан.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+  };
+
+  try {
+    await emailTransporter.sendMail(mailOptions);
+    console.log(`✅ Invitation email sent to: ${to}`);
+  } catch (error: any) {
+    console.error("❌ Error sending invitation email:", error);
+  }
+}
+
+/**
  * Test email configuration
  */
 export async function testEmailConfig(): Promise<boolean> {
