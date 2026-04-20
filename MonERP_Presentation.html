@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonERP — Enterprise Resource Planning System | Дэлгэрэнгүй Танилцуулга</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#6366f1;--primary-d:#4f46e5;--accent:#06b6d4;--bg:#0f172a;--bg2:#1e293b;--card:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--green:#22c55e;--orange:#f97316;--red:#ef4444;--purple:#a855f7;--pink:#ec4899;--yellow:#eab308;--blue:#3b82f6;--teal:#14b8a6;--emerald:#10b981}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+.deck{position:relative;width:100vw;height:100vh}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:60px 80px;opacity:0;transform:translateX(60px);transition:all .5s cubic-bezier(.4,0,.2,1);pointer-events:none;overflow-y:auto}
+.slide.active{opacity:1;transform:translateX(0);pointer-events:auto}
+.slide.prev{opacity:0;transform:translateX(-60px)}
+
+/* Progress bar */
+.progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--accent));z-index:200;transition:width .4s ease}
+
+/* Nav */
+.nav{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:100;background:rgba(30,41,59,.9);backdrop-filter:blur(12px);padding:8px 16px;border-radius:999px;border:1px solid rgba(99,102,241,.3)}
+.nav button{width:10px;height:10px;border-radius:50%;border:2px solid var(--muted);background:transparent;cursor:pointer;transition:.3s}
+.nav button.active{background:var(--primary);border-color:var(--primary);transform:scale(1.3)}
+.nav button:hover{border-color:var(--primary)}
+.counter{position:fixed;bottom:35px;right:40px;font-size:13px;color:var(--muted);z-index:100;font-weight:500}
+.arrows{position:fixed;top:50%;z-index:100}
+.arrow{background:rgba(30,41,59,.8);backdrop-filter:blur(8px);border:1px solid rgba(99,102,241,.3);color:var(--text);width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:.3s}
+.arrow:hover{background:var(--primary);border-color:var(--primary)}
+.arrow-l{position:fixed;left:16px;top:50%;transform:translateY(-50%)}
+.arrow-r{position:fixed;right:16px;top:50%;transform:translateY(-50%)}
+
+/* Section label */
+.section-label{position:fixed;top:20px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:var(--accent);z-index:100;opacity:.7}
+
+/* Typography */
+h1{font-size:3rem;font-weight:800;line-height:1.2;margin-bottom:16px}
+h2{font-size:2.2rem;font-weight:700;margin-bottom:12px}
+h3{font-size:1.3rem;font-weight:600;margin-bottom:8px}
+.gradient{background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--muted);font-size:1rem;max-width:700px;text-align:center;line-height:1.7}
+.tag{display:inline-block;padding:5px 14px;border-radius:999px;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:1px}
+
+/* Cards Grid */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;max-width:1100px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;width:100%;max-width:1100px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;width:100%;max-width:1100px}
+.card{background:var(--card);border:1px solid rgba(148,163,184,.12);border-radius:14px;padding:24px;transition:.3s}
+.card:hover{border-color:var(--primary);transform:translateY(-3px);box-shadow:0 8px 30px rgba(99,102,241,.12)}
+.card-icon{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:14px}
+.card h3{font-size:1.05rem;margin-bottom:5px}
+.card p{color:var(--muted);font-size:.83rem;line-height:1.6}
+.card ul{color:var(--muted);font-size:.82rem;line-height:1.75;padding-left:16px}
+.card ul li{margin-bottom:1px}
+
+/* Feature list */
+.feat{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px}
+.feat-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.feat h4{font-size:.95rem;font-weight:600;margin-bottom:3px}
+.feat p{color:var(--muted);font-size:.82rem;line-height:1.5}
+
+/* Tech stack */
+.tech-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.tech{background:var(--card);border:1px solid rgba(148,163,184,.12);border-radius:10px;padding:14px 20px;text-align:center;min-width:100px;transition:.3s}
+.tech:hover{border-color:var(--primary);transform:translateY(-2px)}
+.tech .icon{font-size:24px;margin-bottom:6px}
+.tech .name{font-weight:600;font-size:.85rem}
+.tech .desc{color:var(--muted);font-size:.72rem;margin-top:3px}
+
+/* Workflow */
+.workflow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin:16px 0}
+.wf-step{background:var(--card);border:1px solid rgba(148,163,184,.15);border-radius:10px;padding:10px 16px;text-align:center;font-size:.82rem;font-weight:500}
+.wf-arrow{color:var(--accent);font-size:18px;font-weight:700}
+
+/* Stats */
+.stat{text-align:center;padding:20px}
+.stat .num{font-size:2.4rem;font-weight:800;margin-bottom:4px}
+.stat .label{color:var(--muted);font-size:.85rem}
+
+/* Scrollbar */
+.slide::-webkit-scrollbar{width:5px}
+.slide::-webkit-scrollbar-track{background:transparent}
+.slide::-webkit-scrollbar-thumb{background:rgba(99,102,241,.3);border-radius:3px}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:7px;font-size:.78rem;font-weight:500}
+
+/* Arch diagram */
+.arch{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:900px}
+.arch-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.arch-box{padding:10px 18px;border-radius:9px;font-size:.82rem;font-weight:600;text-align:center;min-width:90px}
+.arch-arrow{font-size:22px;color:var(--muted)}
+
+/* Comparison table */
+.comp-table{width:100%;max-width:900px;border-collapse:collapse;font-size:.85rem}
+.comp-table th{background:rgba(99,102,241,.15);padding:10px 16px;text-align:left;font-weight:600;border-bottom:2px solid var(--primary)}
+.comp-table td{padding:8px 16px;border-bottom:1px solid rgba(148,163,184,.1)}
+.comp-table tr:hover td{background:rgba(99,102,241,.05)}
+
+/* Two col layout */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;width:100%;max-width:1100px;align-items:start}
+
+/* Mini card compact */
+.mini-card{background:var(--card);border:1px solid rgba(148,163,184,.12);border-radius:10px;padding:14px 18px;margin-bottom:10px}
+.mini-card h4{font-size:.9rem;font-weight:600;margin-bottom:4px}
+.mini-card p{color:var(--muted);font-size:.78rem;line-height:1.5}
+
+/* Number grid */
+.num-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:100%;max-width:900px}
+.num-card{background:var(--card);border:1px solid rgba(148,163,184,.12);border-radius:12px;padding:20px;text-align:center}
+.num-card .number{font-size:2rem;font-weight:800;margin-bottom:4px}
+.num-card .desc{color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="progress-bar" id="progressBar"></div>
+<div class="section-label" id="sectionLabel"></div>
+<div class="deck" id="deck">
+
+<!-- ============================================ -->
+<!-- SLIDE 1: Title -->
+<!-- ============================================ -->
+<div class="slide active" data-section="Танилцуулга">
+  <div style="text-align:center">
+    <div style="width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:36px;font-weight:900;color:#fff">M</div>
+    <h1><span class="gradient">MonERP</span></h1>
+    <p style="font-size:1.3rem;color:var(--accent);font-weight:500;margin-bottom:20px">Enterprise Resource Planning System</p>
+    <p class="sub">Байгууллагын бүхий л үйл ажиллагааг нэг платформ дээрээс удирдах, автоматжуулах, хянах боломжийг олгоно.</p>
+    <div style="margin-top:36px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <span class="tag" style="background:rgba(99,102,241,.15);color:var(--primary)">🏢 15+ Модуль</span>
+      <span class="tag" style="background:rgba(6,182,212,.15);color:var(--accent)">🇲🇳 100% Монгол</span>
+      <span class="tag" style="background:rgba(34,197,94,.15);color:var(--green)">⚡ Real-time</span>
+      <span class="tag" style="background:rgba(168,85,247,.15);color:var(--purple)">🔒 RBAC + 2FA</span>
+      <span class="tag" style="background:rgba(249,115,22,.15);color:var(--orange)">📊 AI Dashboard</span>
+      <span class="tag" style="background:rgba(236,72,153,.15);color:var(--pink)">🌐 Multi-tenant</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 2: Асуудал & Шийдэл -->
+<!-- ============================================ -->
+<div class="slide" data-section="Танилцуулга">
+  <h2 style="text-align:center;margin-bottom:8px"><span class="gradient">Яагаад MonERP?</span></h2>
+  <p class="sub" style="margin-bottom:32px">Байгууллагуудын тулгамдаж буй асуудлууд ба MonERP-ийн шийдэл</p>
+  <div class="grid2">
+    <div class="card" style="border-left:3px solid var(--red)">
+      <h3 style="color:var(--red)">❌ Одоогийн асуудлууд</h3>
+      <ul>
+        <li>Олон тусдаа систем (Excel, 1С, цаасан бүртгэл)</li>
+        <li>Мэдээлэл тархсан, нэгтгэл хэцүү</li>
+        <li>Гар ажиллагаа ихтэй, алдаа гарах</li>
+        <li>Цаг хугацааны алдагдал</li>
+        <li>Тайлан гаргахад удаан</li>
+        <li>Ажилтнуудын харилцаа доголдолтой</li>
+        <li>Аюулгүй байдлын хяналт сул</li>
+        <li>Цалин тооцоолол гар ажиллагаатай</li>
+        <li>Ирцийн бүртгэл найдваргүй</li>
+      </ul>
+    </div>
+    <div class="card" style="border-left:3px solid var(--green)">
+      <h3 style="color:var(--green)">✅ MonERP Шийдэл</h3>
+      <ul>
+        <li>Бүх модулиуд нэг платформд</li>
+        <li>Нэгдсэн PostgreSQL мэдээллийн сан</li>
+        <li>Автоматжуулсан тооцоолол (НДШ, ХХОАТ)</li>
+        <li>Real-time WebSocket мэдэгдэл</li>
+        <li>Шууд тайлан, PDF/Excel экспорт</li>
+        <li>Дотоод чат, мэдээний самбар</li>
+        <li>RBAC + 2FA + Audit Log хамгаалалт</li>
+        <li>Geofencing + Selfie ирц бүртгэл</li>
+        <li>AI мөнгөний урсгалын таамаглал</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 3: Системийн бүтэц -->
+<!-- ============================================ -->
+<div class="slide" data-section="Системийн тойм">
+  <h2 style="text-align:center;margin-bottom:8px"><span class="gradient">Системийн модулиуд</span></h2>
+  <p class="sub" style="margin-bottom:28px">MonERP нь 15+ үндсэн модулиас бүрдсэн нэгдсэн систем</p>
+  <div class="grid4" style="max-width:1200px">
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">📊</div><h3 style="font-size:.9rem">Хянах самбар</h3><p style="font-size:.72rem">KPI, AI, Цаг агаар</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">👥</div><h3 style="font-size:.9rem">Хүний нөөц</h3><p style="font-size:.72rem">Ажилтан, Хэлтэс</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">📅</div><h3 style="font-size:.9rem">Ирцийн бүртгэл</h3><p style="font-size:.72rem">Geofencing, Selfie</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">💳</div><h3 style="font-size:.9rem">Цалин</h3><p style="font-size:.72rem">НДШ, ХХОАТ авто</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">🎯</div><h3 style="font-size:.9rem">Гүйцэтгэл</h3><p style="font-size:.72rem">KPI, Үнэлгээ</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">💰</div><h3 style="font-size:.9rem">Санхүү</h3><p style="font-size:.72rem">GL, Нэхэмжлэх</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">📦</div><h3 style="font-size:.9rem">Агуулах</h3><p style="font-size:.72rem">Бараа, Нөөц</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">🛒</div><h3 style="font-size:.9rem">Борлуулалт</h3><p style="font-size:.72rem">Sales, Purchase</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">🤝</div><h3 style="font-size:.9rem">CRM</h3><p style="font-size:.72rem">Харилцагчид</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">🚌</div><h3 style="font-size:.9rem">Тээвэр</h3><p style="font-size:.72rem">Маршрут, Захиалга</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">🍽️</div><h3 style="font-size:.9rem">Цайны газар</h3><p style="font-size:.72rem">Wallet, QR</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">⚠️</div><h3 style="font-size:.9rem">HSE</h3><p style="font-size:.72rem">Аюулгүй байдал</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">💬</div><h3 style="font-size:.9rem">Чат</h3><p style="font-size:.72rem">WebSocket Real-time</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">📄</div><h3 style="font-size:.9rem">Баримт (DMS)</h3><p style="font-size:.72rem">Хянах, Батлах</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">📨</div><h3 style="font-size:.9rem">Хүсэлт</h3><p style="font-size:.72rem">Workflow Engine</p></div>
+    <div class="card" style="text-align:center;padding:16px"><div style="font-size:28px;margin-bottom:8px">📰</div><h3 style="font-size:.9rem">Мэдээ</h3><p style="font-size:.72rem">Like, Comment</p></div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 4: Dashboard — дэлгэрэнгүй -->
+<!-- ============================================ -->
+<div class="slide" data-section="Dashboard">
+  <h2><span class="gradient">📊 Хянах самбар (Dashboard)</span></h2>
+  <p class="sub" style="margin-bottom:28px">Бүх KPI нэг дэлгэцэнд. Удирдлагын шийдвэр гаргахад тусална.</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-icon" style="background:rgba(99,102,241,.15)">📈</div>
+      <h3>Бодит цагийн KPI Widget-ууд</h3>
+      <ul>
+        <li>Нийт/идэвхтэй ажилтны тоо</li>
+        <li>Өнөөдрийн ирцийн хувь (%) — Ирсэн/Хоцорсон/Тасалсан</li>
+        <li>Сарын цалингийн зардал (нийт, цэвэр)</li>
+        <li>Борлуулалтын орлого, тренд</li>
+        <li>Хүлээгдэж буй хүсэлтүүд (батлах)</li>
+        <li>Агуулах: дуусах хугацааны сэрэмжлүүлэг</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(168,85,247,.15)">🧠</div>
+      <h3>AI Мөнгөний урсгал (Cash Flow)</h3>
+      <ul>
+        <li>7 хоногийн орлого/зарлагын таамаглал</li>
+        <li>Цэвэр мөнгөн урсгал (Net Cash Flow)</li>
+        <li>Нэхэмжлэх дээр суурилсан тооцоолол</li>
+        <li>Итгэлцлийн түвшин: High / Medium / Low</li>
+        <li>Автомат зөвлөмж — "Бэлтгэн нийлүүлэгчдэд төлбөр хийхэд тохиромжтой"</li>
+        <li>Data Points Used тоо харагдана</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(6,182,212,.15)">🌤️</div>
+      <h3>Цаг агаар & Валют</h3>
+      <ul>
+        <li>Улаанбаатарын бодит цаг агаар (OpenWeatherMap API)</li>
+        <li>Хүйтний/халуун сэрэмжлүүлэг → WFH санал</li>
+        <li>USD, CNY, RUB, KRW ханш</li>
+        <li>Валют хөрвүүлэгч (built-in calculator)</li>
+        <li>30 мин тутамд автомат шинэчлэл</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(249,115,22,.15)">🏆</div>
+      <h3>Нэмэлт виджетүүд</h3>
+      <ul>
+        <li><b>Wall of Fame</b> — Шилдэг ажилтнууд (Kudos оноо)</li>
+        <li><b>И-Баримтын статус</b> — Өнөөдөр илгээсэн/амжилттай/алдаа</li>
+        <li><b>Нэхэмжлэхийн төлөв</b> — Төлөгдсөн/Overdue/7 хоногт</li>
+        <li><b>Zen Mode</b> — 🟢 Хэвийн / 🔴 Анхаар</li>
+        <li><b>Demo Mode</b> — Танилцуулга харуулахад demo дата</li>
+        <li><b>Recharts график</b> — 6 сарын тренд</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 5: HR — Ажилтны удирдлага -->
+<!-- ============================================ -->
+<div class="slide" data-section="Хүний нөөц">
+  <h2><span class="gradient">👥 Хүний нөөцийн удирдлага</span></h2>
+  <p class="sub" style="margin-bottom:28px">Ажилтны бүх мэдээллийг бүртгэх, удирдах, тайлагнах иж бүрэн модуль</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-icon" style="background:rgba(59,130,246,.15)">👤</div>
+      <h3>Ажилтны бүртгэл</h3>
+      <ul>
+        <li>Профайл: нэр, код, РД (регистрийн дугаар), утас, имэйл</li>
+        <li>Хэлтэс, албан тушаал → <b>Job Titles</b> модуль</li>
+        <li>Салбар (Branch) хуваарилалт</li>
+        <li>Статус: Идэвхтэй / Туршилтын / Амралт / Гарсан</li>
+        <li>Суурь цалин, банкны данс, төлбөрийн давтамж</li>
+        <li>Системд нэвтрэх эрх → <b>User автомат үүсгэх</b></li>
+        <li>Олноор сонгож устгах (Bulk Delete)</li>
+        <li>CSV/Excel экспорт, хэвлэх</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(34,197,94,.15)">🏢</div>
+      <h3>Хэлтэс & Албан тушаал</h3>
+      <ul>
+        <li>Хэлтэс CRUD (нэмэх, засах, устгах)</li>
+        <li>Мод бүтцийн хэлтэс (parentDepartment)</li>
+        <li>Хэлтэс бүрт менежер тохируулах</li>
+        <li>Ажилтны тоо, статистик</li>
+        <li><b>Job Titles</b> — Стандартчилсан албан тушаал</li>
+        <li>Хэлтэс dotor-д код, салбар зэрэг мэдээлэл</li>
+        <li>Org Chart харагдац</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(236,72,153,.15)">🎮</div>
+      <h3>Gamification систем</h3>
+      <ul>
+        <li><b>Kudos оноо</b> — Ажилтнуудыг урамшуулах</li>
+        <li><b>Achievements</b>: Early Bird, Perfect Month, Perfect Week</li>
+        <li><b>Points History</b> — Оноо нэмэгдсэн/хасагдсан түүх</li>
+        <li><b>Wall of Fame</b> — Dashboard дээр шилдэгүүд</li>
+        <li>Ирцийн тогтмол байдлаас оноо олгох</li>
+        <li>Kudos source: attendance, achievement, manual</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(234,179,8,.15)">🔔</div>
+      <h3>Мэдэгдэл & Шинж чанарууд</h3>
+      <ul>
+        <li><b>Төрсөн өдрийн сануулга</b> — 7 хоногийн дотор</li>
+        <li><b>Туршилтын хугацаа</b> — Дуусах ажилтнуудын жагсаалт</li>
+        <li><b>Гэрээний хугацаа</b> — Дуусах сэрэмжлүүлэг</li>
+        <li>Ажилтны профайл зураг</li>
+        <li>Шүүлтүүр: Хэлтэс, статус, хайлт</li>
+        <li>Хэвлэх, PDF, Excel export</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 6: Ирцийн бүртгэл -->
+<!-- ============================================ -->
+<div class="slide" data-section="Хүний нөөц">
+  <h2><span class="gradient">📅 Ирцийн бүртгэл (Attendance)</span></h2>
+  <p class="sub" style="margin-bottom:28px">Geofencing, Selfie зураг, олон бүртгэлийн хэлбэр</p>
+  <div class="grid3">
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">📍</div>
+      <h3>Geofencing бүртгэл</h3>
+      <ul>
+        <li>Салбарын координат (lat/lon) тохируулах</li>
+        <li>Geofence радиус: 50-500 метр</li>
+        <li>Автомат Check-in/Check-out</li>
+        <li>GPS байршил бүртгэгдэнэ</li>
+        <li>Оффис WiFi SSID-ээр баталгаажуулах</li>
+        <li>Admin → Branch Settings → тохируулах</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">📸</div>
+      <h3>Selfie ирц бүртгэл</h3>
+      <ul>
+        <li>Camera ашиглан selfie авах</li>
+        <li>Check-in зураг / Check-out зураг</li>
+        <li>Base64 кодчилсон хадгална</li>
+        <li>Admin хянах боломж</li>
+        <li>Хуурамч ирц бүртгэлээс хамгаалах</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">📊</div>
+      <h3>Ирцийн тайлан</h3>
+      <ul>
+        <li><b>Календарь горим</b> — Сар бүрийн ирц хүснэгтээр</li>
+        <li><b>Хүснэгт горим</b> — Бүх ажилтны ирц</li>
+        <li>8 төрлийн төлөв: Ирсэн, Хоцорсон, Тасалсан, Чөлөө, Өвчтэй, Амралт, Бизнес аялал, Remote</li>
+        <li>Сарын тайлан, хэлтсээр шүүх</li>
+        <li>Ажилтны өөрийнхөө ирцийн харагдац</li>
+        <li>Ажилласан цагийн тооцоо</li>
+      </ul>
+    </div>
+  </div>
+  <div style="margin-top:24px;text-align:center">
+    <p style="color:var(--accent);font-weight:600;font-size:.85rem">✅ Ирцийн workflow:</p>
+    <div class="workflow">
+      <div class="wf-step">Ажилтан Check-in</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">📍 GPS / 📸 Selfie</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">Автомат бүртгэл</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">Check-out</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">Ажилласан цаг</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">Цалин тооцоо</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 7: Ээлж & Чөлөө -->
+<!-- ============================================ -->
+<div class="slide" data-section="Хүний нөөц">
+  <h2><span class="gradient">🗓️ Ээлж, Чөлөө & Хуваарь</span></h2>
+  <p class="sub" style="margin-bottom:28px">Ажилтнуудын ээлжийн хуваарь, чөлөөний workflow, roster удирдлага</p>
+  <div class="grid2">
+    <div class="card" style="border:1px solid rgba(99,102,241,.3)">
+      <h3>📋 Ээлжийн хуваарь (Roster)</h3>
+      <ul>
+        <li><b>Roster Calendar</b> — Сар/7 хоногийн хуваарь</li>
+        <li><b>Ээлжийн Template Builder</b> — урьдчилсан загвар</li>
+        <li>Ээлж тодорхойлох: эхлэх/дуусах цаг, нэр, өнгө</li>
+        <li>Drag & drop ээлж оноох (менежер)</li>
+        <li>Ажилтан өөрийн ээлжийг харах (My Roster)</li>
+        <li>Хэлтэс, салбар бүрт тусдаа хуваарь</li>
+        <li>Олон ээлж: Түр/Шөнийн/Өдрийн, гэх мэт</li>
+      </ul>
+    </div>
+    <div class="card" style="border:1px solid rgba(34,197,94,.3)">
+      <h3>🏖️ Чөлөөний систем (Leave)</h3>
+      <ul>
+        <li><b>4 төрлийн чөлөө:</b> Ээлжийн амралт, Өвчний, Хувийн, Бусад</li>
+        <li>Чөлөө хүсэх → Менежер батлах/татгалзах</li>
+        <li>Эхлэх-дуусах огноо, шалтгаан</li>
+        <li>Батлах үед <b>ирцийн бүртгэл автомат</b> үүснэ</li>
+        <li>Хүлээгдэж буй/Батлагдсан/Татгалзсан статус</li>
+        <li>Ажилтан өөрийн чөлөөг хянах</li>
+        <li>Чөлөөний үлдэгдэл тооцоо</li>
+      </ul>
+    </div>
+  </div>
+  <div style="margin-top:24px;text-align:center">
+    <p style="color:var(--green);font-weight:600;font-size:.85rem">✅ Чөлөөний workflow:</p>
+    <div class="workflow">
+      <div class="wf-step" style="border-color:var(--blue)">Ажилтан хүсэлт</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step" style="border-color:var(--orange)">Pending</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step" style="border-color:var(--purple)">Менежер хянах</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step" style="border-color:var(--green)">✅ Батлах / ❌ Татгалзах</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step" style="border-color:var(--accent)">Ирц автомат бүртгэгдэнэ</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 8: Цалин -->
+<!-- ============================================ -->
+<div class="slide" data-section="Цалин">
+  <h2><span class="gradient">💳 Цалингийн систем (Payroll)</span></h2>
+  <p class="sub" style="margin-bottom:28px">Монголын хууль тогтоомжид нийцсэн автомат цалин тооцоолол</p>
+  <div class="grid2">
+    <div class="card" style="border:1px solid rgba(99,102,241,.3)">
+      <h3>🧮 Татварын тооцоолол</h3>
+      <ul>
+        <li><b>НДШ (SHI)</b> — Ажилтан 11.5%, Ажил олгогч 12.5%</li>
+        <li><b>ХХОАТ (PIT)</b> — Шатлалт татвар (10-25%)</li>
+        <li>Доод цалин: ₮550,000 (2025)</li>
+        <li>Автомат тооцоолол — суурь цалин оруулахад бүгд тооцоологдоно</li>
+        <li>Татварын хөнгөлөлт тохиргоо</li>
+        <li>Ажил олгогчийн зардал тус тусад нь</li>
+      </ul>
+    </div>
+    <div class="card" style="border:1px solid rgba(34,197,94,.3)">
+      <h3>📊 Ирцэд суурилсан тооцоо</h3>
+      <ul>
+        <li>Ажилласан өдрийн тооноос цалин тооцоолно</li>
+        <li>Өдрийн цалин = Суурь / Ажлын өдөр</li>
+        <li>Илүү цаг, урамшуулал нэмэх</li>
+        <li><b>Хагас сарын тохиргоо:</b> 1-14, 15-сарын сүүл</li>
+        <li>Payroll Run: draft → processing → approved → paid</li>
+        <li>Олон салбар бүрт тусдаа Run</li>
+      </ul>
+    </div>
+    <div class="card" style="border:1px solid rgba(249,115,22,.3)">
+      <h3>💵 Нэмэгдэл & Урьдчилгаа</h3>
+      <ul>
+        <li><b>Нэмэгдэл (Allowances)</b> — Унаа, хоол, гэх мэт</li>
+        <li>Тогтмол/нэг удаагийн нэмэгдэл</li>
+        <li>Татвартай/татваргүй тохиргоо (isTaxable, isSHI, isPIT)</li>
+        <li>Хүчинтэй хугацаа: effectiveFrom → effectiveTo</li>
+        <li><b>Цалингийн урьдчилгаа</b> → Батлах workflow</li>
+        <li><b>Зээлийн суутгал</b>: сар бүр / нэг удаа / хүүтэй</li>
+        <li>Хоолны суутgal (Canteen wallet-ээс автомат)</li>
+      </ul>
+    </div>
+    <div class="card" style="border:1px solid rgba(168,85,247,.3)">
+      <h3>📋 Payslip & Тайлан</h3>
+      <ul>
+        <li><b>Payslip (Цалингийн хуудас)</b> — ажилтан бүрт</li>
+        <li>Earnings breakdown: суурь + нэмэгдлүүд</li>
+        <li>Deductions breakdown: НДШ + ХХОАТ + зээл</li>
+        <li>Олноор батлах / устгах (Bulk)</li>
+        <li><b>Pending → Processing → Paid</b> статус</li>
+        <li>Цалингийн түүх, сарын тайлан</li>
+        <li>Dashboard-д сарын цалингийн зардлын график</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 9: Гүйцэтгэл (Performance) -->
+<!-- ============================================ -->
+<div class="slide" data-section="Хүний нөөц">
+  <h2><span class="gradient">🎯 Гүйцэтгэлийн удирдлага (Performance)</span></h2>
+  <p class="sub" style="margin-bottom:28px">KPI зорилт тавих, хянах, үнэлэх, тайлагнах бүрэн workflow</p>
+  <div class="two-col">
+    <div>
+      <div class="mini-card" style="border-left:3px solid var(--primary)">
+        <h4>📌 Үнэлгээний Үе (Period)</h4>
+        <p>Хагас жил / Улирал / Жилийн зорилт. Active → Locked → Archived статус. Admin/Manager үүсгэнэ.</p>
+      </div>
+      <div class="mini-card" style="border-left:3px solid var(--green)">
+        <h4>🎯 Зорилт (Goal)</h4>
+        <p>Гарчиг, тайлбар, Metric Type (%, тоо, мөнгө, boolean), Зорилтот утга, Одоогийн утга, Жин (weight 0-100%), дуусах огноо.</p>
+      </div>
+      <div class="mini-card" style="border-left:3px solid var(--accent)">
+        <h4>📊 Оноо тооцоолол</h4>
+        <p>Оноо = (Weight × Progress × Quality Rating) / 500. Quality Rating: 1-5 (Менежерийн үнэлгээ). Нийт жин 100% байх шаардлагатай.</p>
+      </div>
+      <div class="mini-card" style="border-left:3px solid var(--purple)">
+        <h4>📑 Evidence & Audit</h4>
+        <p>Зорилт бүрт нотлох баримт хавсаргах. Бүх өөрчлөлтийн audit trail. Хэн, хэзээ, юу өөрчилсөн.</p>
+      </div>
+    </div>
+    <div>
+      <div class="mini-card" style="border-left:3px solid var(--orange)">
+        <h4>🔄 Workflow</h4>
+        <p>Draft → Submitted → Approved → Evaluated → Locked. Ажилтан зорилт тавих → Менежер батлах → Гүйцэтгэл оруулах → Менежер үнэлэх.</p>
+      </div>
+      <div class="mini-card" style="border-left:3px solid var(--yellow)">
+        <h4>👥 Багийн тайлан (Team Report)</h4>
+        <p>Менежер бүх багийнхаа зорилтыг харах. Bulk Approve — олноор батлах. Хайлт & шүүлтүүр. Excel экспорт.</p>
+      </div>
+      <div class="mini-card" style="border-left:3px solid var(--pink)">
+        <h4>📥 Inbox систем</h4>
+        <p>Менежерийн Inbox — батлах/үнэлэх зорилтууд автоматаар орж ирнэ. Статус бүрээр шүүх.</p>
+      </div>
+      <div class="mini-card" style="border-left:3px solid var(--red)">
+        <h4>🔒 Period Lock & PDF</h4>
+        <p>Үнэлгээний үе → Түгжих (Lock). Түгжсэний дараа өөрчлөлт хийх боломжгүй. PDF тайлан хэвлэх (jsPDF).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 10: Санхүү — GL & Нэхэмжлэх -->
+<!-- ============================================ -->
+<div class="slide" data-section="Санхүү">
+  <h2><span class="gradient">💰 Санхүү & Нягтлан бодох бүртгэл</span></h2>
+  <p class="sub" style="margin-bottom:28px">Нэхэмжлэх, ерөнхий журнал, дансны төлөвлөгөө, банкны хуулга</p>
+  <div class="grid3">
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">🧾</div>
+      <h3>Нэхэмжлэх (Invoices)</h3>
+      <ul>
+        <li>Худалдан авалт & борлуулалтын нэхэмжлэх</li>
+        <li>Автомат дугаарлалт (INV-2024-001)</li>
+        <li>Төлөлтийн хяналт: Draft → Posted → Paid / Overdue</li>
+        <li><b>PDF хэвлэх</b> — компанийн лого, гарын үсэг</li>
+        <li><b>QPay QR</b> → QR код үүсгэх → Төлбөр хүлээх</li>
+        <li><b>И-Баримт</b> → PosAPI 3.0 автомат илгээх</li>
+        <li>Нэхэмжлэхийн мөрүүд: бараа, тоо, үнэ, НӨАТ</li>
+        <li>Повторны нэхэмжлэх (Recurring)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">📒</div>
+      <h3>Ерөнхий журнал (GL)</h3>
+      <ul>
+        <li><b>Double-entry</b> — Дебит/Кредит бүртгэл</li>
+        <li><b>Posting Engine</b> — Нэхэмжлэх → автомат GL бичилт</li>
+        <li>Журналын бичилт хайх, шүүх</li>
+        <li>Дансны үлдэгдэл (Account Balance)</li>
+        <li>Chart of Accounts — Дансны төлөвлөгөө CRUD</li>
+        <li>Дансны ангилал: Asset, Liability, Equity, Income, Expense</li>
+        <li>Бичилт бүрт тайлбар, огноо</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">🏦</div>
+      <h3>Банк & Татвар</h3>
+      <ul>
+        <li><b>Банкны хуулга импорт</b> (CSV/Excel)</li>
+        <li><b>Тулгалт (Reconciliation)</b> — Хуулга ↔ GL</li>
+        <li><b>Татварын код тохиргоо</b> (Tax Codes)</li>
+        <li>НӨАТ 10% стандарт, 0% чөлөөлөгдсөн</li>
+        <li>Татварын тайлан: НӨАТ, Excel/CSV экспорт</li>
+        <li>QPay callback → автомат GL posting</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 11: Тайлангууд -->
+<!-- ============================================ -->
+<div class="slide" data-section="Санхүү">
+  <h2><span class="gradient">📊 Санхүүгийн тайлангууд</span></h2>
+  <p class="sub" style="margin-bottom:28px">Стандарт санхүүгийн тайлангууд, график, экспорт</p>
+  <div class="grid2">
+    <div class="card" style="border-top:3px solid var(--blue)">
+      <h3>📋 Туршилтын үлдэгдэл (Trial Balance)</h3>
+      <ul>
+        <li>Бүх дансны Debit vs Credit</li>
+        <li>Огноо сонгох (эхлэх-дуусах)</li>
+        <li>Баланс зөв/зөрсөн автомат шалгалт ✅❌</li>
+        <li>Дансны код, нэр, үлдэгдэл</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:3px solid var(--green)">
+      <h3>💼 Баланс (Balance Sheet)</h3>
+      <ul>
+        <li>Assets = Liabilities + Equity</li>
+        <li>3 багана: Хөрөнгө / Өр / Өмч</li>
+        <li>Тайлангийн огноо сонгох</li>
+        <li>Баланс зөв эсэх автомат шалгалт</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:3px solid var(--orange)">
+      <h3>📈 Ашиг/Алдагдал (P&L)</h3>
+      <ul>
+        <li>Орлого vs Зарлага</li>
+        <li>Цэвэр ашиг/алдагдал</li>
+        <li>Recharts — Орлого vs Зардал Bar Chart</li>
+        <li>Зардлын бүтэц Pie Chart</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:3px solid var(--purple)">
+      <h3>🧾 НӨАТ тайлан (VAT)</h3>
+      <ul>
+        <li>Борлуулалт & Худалдан авалтын НӨАТ</li>
+        <li>Татварын суурь, хувь, дүн</li>
+        <li>Буруутгалгүй НӨАТ (Net Payable / Refundable)</li>
+        <li><b>Excel/CSV экспорт</b></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 12: Үйл ажиллагаа — Агуулах, Бараа -->
+<!-- ============================================ -->
+<div class="slide" data-section="Үйл ажиллагаа">
+  <h2><span class="gradient">📦 Агуулах & Бараа (Inventory)</span></h2>
+  <p class="sub" style="margin-bottom:28px">Барааны бүртгэл, агуулахын нөөц, орлого/зарлага, хугацаа дуусах сэрэмжлүүлэг</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-icon" style="background:rgba(6,182,212,.15)">📦</div>
+      <h3>Барааны бүртгэл</h3>
+      <ul>
+        <li>SKU, нэр, тайлбар, баркод</li>
+        <li>Ангилал (Product Categories) — мод бүтэц</li>
+        <li>Төрөл: Бараа / Үйлчилгээ</li>
+        <li>Борлуулалтын үнэ / Өртөг үнэ</li>
+        <li>Нэгж: ширхэг, кг, литр</li>
+        <li>Нөөцийн хяналт: trackInventory / trackExpiry</li>
+        <li>Идэвхтэй/идэвхгүй статус</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(168,85,247,.15)">🏭</div>
+      <h3>Агуулах & Нөөц</h3>
+      <ul>
+        <li>Олон агуулах (Warehouses) CRUD</li>
+        <li>Агуулах бүрт салбар хуваарилах</li>
+        <li>Үндсэн агуулах тэмдэглэх</li>
+        <li><b>Stock Levels</b> — агуулах×бараа тоо хэмжээ</li>
+        <li><b>Reserved Quantity</b> — захиалсан тоо</li>
+        <li>Нөөц дуусах сэрэмжлүүлэг</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(34,197,94,.15)">🔄</div>
+      <h3>Орлого/Зарлага (Stock Movements)</h3>
+      <ul>
+        <li>4 төрөл: In / Out / Adjustment / Transfer</li>
+        <li>Reference — захиалга, нэхэмжлэхтэй холбох</li>
+        <li><b>Batch Number</b> — Баглааны дугаар</li>
+        <li><b>Expiry Date</b> — Дуусах хугацаа</li>
+        <li>Тэмдэглэл, хэн бүртгэсэн</li>
+        <li>Dashboard-д 30 хоногийн сэрэмжлүүлэг</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(249,115,22,.15)">📊</div>
+      <h3>Тайлан & Сэрэмжлүүлэг</h3>
+      <ul>
+        <li>Агуулахын нөөцийн нэгтгэл</li>
+        <li>Бараа бүрийн хөдөлгөөний түүх</li>
+        <li>Дуусах хугацааны сэрэмжлүүлэг (30 хоног)</li>
+        <li>Dashboard алданги widget</li>
+        <li>Low stock alert</li>
+        <li>Шүүлт: агуулах, ангилал, бараа</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 13: Борлуулалт & Худалдан авалт -->
+<!-- ============================================ -->
+<div class="slide" data-section="Үйл ажиллагаа">
+  <h2><span class="gradient">🛒 Борлуулалт & Худалдан авалт</span></h2>
+  <p class="sub" style="margin-bottom:28px">Sales Order → Invoice → Payment → GL — бүрэн цикл</p>
+  <div class="grid2">
+    <div class="card" style="border-top:3px solid var(--green)">
+      <h3>🛒 Борлуулалтын захиалга (Sales)</h3>
+      <ul>
+        <li>SO-2024-001 автомат дугаарлалт</li>
+        <li>Харилцагч (Customer) сонгох</li>
+        <li>Захиалгын мөрүүд: бараа, тоо, үнэ, хөнгөлөлт</li>
+        <li>Нийт дүн, НӨАТ тооцоолол</li>
+        <li>Статус: Draft → Confirmed → Delivered → Invoiced</li>
+        <li>Агуулахаас бараа хасалт автомат</li>
+        <li>Нэхэмжлэх автомат үүсгэх</li>
+        <li>Сарын борлуулалтын график (Dashboard)</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:3px solid var(--blue)">
+      <h3>📥 Худалдан авалт (Purchase)</h3>
+      <ul>
+        <li>PO-2024-001 автомат дугаарлалт</li>
+        <li>Бэлтгэн нийлүүлэгч (Supplier) сонгох</li>
+        <li>Захиалгын мөрүүд: бараа, тоо, өртөг</li>
+        <li>Статус: Draft → Ordered → Received → Invoiced</li>
+        <li>Агуулахад бараа нэмэлт автомат</li>
+        <li>Худалдан авалтын нэхэмжлэх (Purchase Invoice)</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:3px solid var(--orange);grid-column:span 2">
+      <h3>🤝 CRM — Харилцагчид (Contacts)</h3>
+      <ul style="columns:2;column-gap:32px">
+        <li>Төрөл: Customer / Supplier / Both</li>
+        <li>Хувь хүн / Байгууллага</li>
+        <li>РД (Регистрийн дугаар), ХХОАТ дугаар</li>
+        <li>Банкны нэр, данс</li>
+        <li>Зээлийн хязгаар (Credit Limit)</li>
+        <li>Төлбөрийн нөхцөл (Payment Terms)</li>
+        <li>Утас, имэйл, хаяг, дүүрэг</li>
+        <li>Идэвхтэй/идэвхгүй статус</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 14: Тээвэр -->
+<!-- ============================================ -->
+<div class="slide" data-section="Үйл ажиллагаа">
+  <h2><span class="gradient">🚌 Тээврийн удирдлага</span></h2>
+  <p class="sub" style="margin-bottom:28px">Тээврийн хэрэгсэл, маршрут, аялал, ажилтны автобус захиалга</p>
+  <div class="grid3">
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">🚐</div>
+      <h3>Тээврийн хэрэгсэл</h3>
+      <ul>
+        <li>Автобус/машины бүртгэл</li>
+        <li>Дугаар, загвар, хүчин чадал</li>
+        <li>Жолоочийн мэдээлэл</li>
+        <li>Идэвхтэй/идэвхгүй статус</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">🗺️</div>
+      <h3>Маршрут & Аялал</h3>
+      <ul>
+        <li>Маршрут CRUD (нэр, чиглэл)</li>
+        <li>Аялал (Trips) — огноо, цаг</li>
+        <li>Зогсоолын цэгүүд</li>
+        <li>Хуваарь (Schedule)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">🎫</div>
+      <h3>Ажилтны захиалга</h3>
+      <ul>
+        <li>Ажилтан автобус захиалах (Bus Booking)</li>
+        <li>Маршрут, аялал сонгох</li>
+        <li>Захиалгын статус хянах</li>
+        <li>Хуваарь харах (календарь)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 15: Цайны газар -->
+<!-- ============================================ -->
+<div class="slide" data-section="Үйл ажиллагаа">
+  <h2><span class="gradient">🍽️ Цайны газрын удирдлага (Canteen)</span></h2>
+  <p class="sub" style="margin-bottom:28px">Хоолны эрхийн данс, QR таних, хоол олгох, суутгал автомат</p>
+  <div class="grid3">
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">💳</div>
+      <h3>Wallet систем</h3>
+      <ul>
+        <li>Ажилтан бүрт хоолны эрхийн данс</li>
+        <li>Үлдэгдэл хянах</li>
+        <li>Зарцуулалтын түүх</li>
+        <li>Хэлтэс бүрт нэгтгэл</li>
+        <li>Сар бүр → Цалингаас суутгал</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">🔝</div>
+      <h3>Admin цэнэглэлт</h3>
+      <ul>
+        <li>Олноор цэнэглэх (Bulk Top-up)</li>
+        <li>Хэлтэсээр / ажилтнаар</li>
+        <li>Цэнэглэлтийн түүх</li>
+        <li>Дүнг тохируулах</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="font-size:28px;margin-bottom:10px">📱</div>
+      <h3>QR Serve Terminal</h3>
+      <ul>
+        <li>QR код уншуулж ажилтан таних</li>
+        <li>Хоол олгох → Wallet-ээс хасах</li>
+        <li>Scan Terminal (Registry модуль)</li>
+        <li>Ажилтны зураг, нэр харагдана</li>
+      </ul>
+    </div>
+  </div>
+  <div style="margin-top:20px;text-align:center">
+    <div class="workflow">
+      <div class="wf-step">Admin Top-up</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">Wallet ↑</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">📱 QR Scan</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">Хоол олгох</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">Wallet ↓</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step">💳 Payroll суутгал</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 16: Аюулгүй байдал (HSE) -->
+<!-- ============================================ -->
+<div class="slide" data-section="Үйл ажиллагаа">
+  <h2><span class="gradient">⚠️ HSE — Аюулгүй ажиллагаа (Safety)</span></h2>
+  <p class="sub" style="margin-bottom:28px">Зөрчлийн бүртгэл, нийтийн мэдээлэл, ажилтны мэдээлэх боломж</p>
+  <div class="grid2" style="max-width:900px">
+    <div class="card">
+      <h3>📋 Зөрчлийн бүртгэл</h3>
+      <ul>
+        <li>Аюулгүй ажиллагааны мэдээлэл</li>
+        <li>Зөрчлийн тайлан үүсгэх</li>
+        <li>Зураг хавсаргах</li>
+        <li>Зөрчлийн ангилал, хүндрэл</li>
+        <li>Хэн, хэзээ, хаана</li>
+        <li>Шийдвэрлэлтийн явц</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📰 Нийтийн мэдээлэл</h3>
+      <ul>
+        <li>Public Feed — бүх ажилтнууд харна</li>
+        <li>My Reports — ажилтны өөрийнх</li>
+        <li>Хэлтэс бүрт харагдана</li>
+        <li>Ажилтнууд шинэ мэдээлэл илгээх</li>
+        <li>Admin хянах, шийдвэрлэх</li>
+        <li>Статус: Шинэ → Хянаж байна → Шийдвэрлэсэн</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 17: Харилцаа — Чат & Мэдээ -->
+<!-- ============================================ -->
+<div class="slide" data-section="Харилцаа">
+  <h2><span class="gradient">💬 Дотоод харилцаа & Мэдээ</span></h2>
+  <p class="sub" style="margin-bottom:28px">Real-time чат, мэдээний самбар, мэдэгдэл, хүсэлтийн систем</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-icon" style="background:rgba(99,102,241,.15)">💬</div>
+      <h3>Дотоод чат (Real-time)</h3>
+      <ul>
+        <li><b>Socket.io WebSocket</b> — бодит цагийн мессеж</li>
+        <li>Зураг, файл хавсаргах</li>
+        <li><b>Lightbox</b> — зургийг томруулж харах</li>
+        <li>Хэлтэс доторх & хоорондын харилцаа</li>
+        <li>Онлайн/Оффлайн статус</li>
+        <li>Мессежийн түүх хадгалагдана</li>
+        <li>Мэдэгдэл — Action Center</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(34,197,94,.15)">📰</div>
+      <h3>Мэдээний самбар (News Feed)</h3>
+      <ul>
+        <li>Компанийн мэдээ, зарлал нийтлэх</li>
+        <li>Post төрлүүд: Announcement, Birthday, Achievement, Event</li>
+        <li><b>Like</b> — 6 төрлийн reaction (like, love, haha, wow, sad, angry)</li>
+        <li><b>Comment</b> — Сэтгэгдэл бичих</li>
+        <li>Зураг, файл хавсаргах</li>
+        <li><b>Pin</b> — Чухал мэдээг дээд талд бэхлэх</li>
+        <li>Severity: Info / Warning / Critical</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(249,115,22,.15)">📨</div>
+      <h3>Хүсэлтийн систем (Requests)</h3>
+      <ul>
+        <li>Ажилтан хүсэлт үүсгэх (New Request)</li>
+        <li>Хүсэлтийн төрлүүд: чөлөө, тоног төхөөрөмж, бусад</li>
+        <li>Менежер/HR батлах/татгалзах</li>
+        <li>Inbox — хүлээгдэж буй хүсэлтүүд</li>
+        <li>My Requests — өөрийн хүсэлтүүд</li>
+        <li>Дэлгэрэнгүй хянах, түүх</li>
+        <li>Сэтгэгдэл нэмэх</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-icon" style="background:rgba(6,182,212,.15)">📄</div>
+      <h3>Баримт бичиг (DMS)</h3>
+      <ul>
+        <li>Файл upload, хадгалах, хуваалцах</li>
+        <li><b>PDF Preview</b> — дэлгэцэнд харах</li>
+        <li>Document workflow: Draft → Pending → Processing → Completed</li>
+        <li>Гарын үсэг зурах (Digital Signature)</li>
+        <li>Document Number автомат (ПАДА дугаарлалт)</li>
+        <li>Priority: Normal / Urgent / Critical</li>
+        <li>SLA Deadline & Overdue tracking</li>
+        <li>Document History & Audit Trail</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 18: Аюулгүй байдал — RBAC, 2FA -->
+<!-- ============================================ -->
+<div class="slide" data-section="Аюулгүй байдал">
+  <h2><span class="gradient">🔒 Аюулгүй байдал & Хяналт</span></h2>
+  <p class="sub" style="margin-bottom:28px">Системийн аюулгүй байдлыг олон давхаргаар хамгаална</p>
+  <div class="grid3">
+    <div class="card" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:12px">🛡️</div>
+      <h3>RBAC</h3>
+      <p>Role-Based Access Control. Хэрэглэгч бүрт roles олгох. Roles → Permissions. Resource × Action тохиргоо.</p>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:12px">🔐</div>
+      <h3>2FA (Two-Factor)</h3>
+      <p>Speakeasy + TOTP. Google Authenticator-тэй нийцтэй. QR кодоор тохируулах. Нэмэлт хамгаалалт.</p>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:12px">📋</div>
+      <h3>Audit Log</h3>
+      <p>Бүх CRUD өөрчлөлтийг бүртгэнэ. Хэн, хэзээ, юу, хуучин/шинэ утга. IP, User Agent.</p>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:12px">🔑</div>
+      <h3>Session удирдлага</h3>
+      <p>Идэвхтэй session хянах. Тус тусад нь устгах (revoke). IP, User Agent мэдээлэл.</p>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:12px">🌐</div>
+      <h3>Google OAuth</h3>
+      <p>Passport.js + Google Strategy. Google-ээр нэвтрэх боломж. Tenant code-оор бүртгэл.</p>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:12px">🔒</div>
+      <h3>Helmet & Security</h3>
+      <p>HTTP хамгаалалтын header-ууд. Rate limiting (brute-force). Bcrypt password hash. Password policy.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 19: Хэрэглэгчийн ролууд -->
+<!-- ============================================ -->
+<div class="slide" data-section="Хэрэглэгчид">
+  <h2><span class="gradient">🧑‍💼 Хэрэглэгчийн ролууд & Эрхүүд</span></h2>
+  <p class="sub" style="margin-bottom:28px">Роль бүрт тохирсон интерфэйс, эрх автоматаар тохируулагдана</p>
+  <div class="grid4">
+    <div class="card" style="border-top:3px solid var(--primary);text-align:center">
+      <div style="font-size:32px;margin-bottom:10px">👑</div>
+      <h3>Admin</h3>
+      <p style="font-size:.78rem">Бүх модуль, тохиргоо, RBAC удирдлага, Audit Log, хэрэглэгч удирдах, системийн тохиргоо</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--accent);text-align:center">
+      <div style="font-size:32px;margin-bottom:10px">📋</div>
+      <h3>HR</h3>
+      <p style="font-size:.78rem">Ажилтан, хэлтэс, ирц, цалин, чөлөө, гүйцэтгэл удирдах, баримт бичиг</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--orange);text-align:center">
+      <div style="font-size:32px;margin-bottom:10px">📊</div>
+      <h3>Manager</h3>
+      <p style="font-size:.78rem">Багийн ирц, ээлж, хүсэлт батлах, гүйцэтгэл үнэлэх, чөлөө батлах</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--green);text-align:center">
+      <div style="font-size:32px;margin-bottom:10px">👤</div>
+      <h3>Employee</h3>
+      <p style="font-size:.78rem">Профайл, ирц, цалин, хүсэлт, чат, баримт, аюулгүй ажиллагаа, My Roster</p>
+    </div>
+  </div>
+  <div style="margin-top:24px;text-align:center;max-width:900px">
+    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap">
+      <span class="badge" style="background:rgba(99,102,241,.15);color:var(--primary)">Permission-based Sidebar</span>
+      <span class="badge" style="background:rgba(6,182,212,.15);color:var(--accent)">Dynamic navigation</span>
+      <span class="badge" style="background:rgba(34,197,94,.15);color:var(--green)">Favorites систем ⭐</span>
+      <span class="badge" style="background:rgba(249,115,22,.15);color:var(--orange)">Keyboard shortcuts ⌨️</span>
+      <span class="badge" style="background:rgba(168,85,247,.15);color:var(--purple)">Route-level protection</span>
+      <span class="badge" style="background:rgba(236,72,153,.15);color:var(--pink)">Must-change-password</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 20: Интеграцууд -->
+<!-- ============================================ -->
+<div class="slide" data-section="Интеграци">
+  <h2><span class="gradient">🔗 Гуравдагч системтэй интеграци</span></h2>
+  <p class="sub" style="margin-bottom:28px">MonERP нь Монголын бизнесийн орчинд хэрэглэгддэг бүх системтэй холбогдоно</p>
+  <div class="grid2" style="max-width:1000px">
+    <div class="card" style="border:1px solid rgba(99,102,241,.3)">
+      <h3>🇲🇳 И-Баримт (E-Barimt) — PosAPI 3.0</h3>
+      <ul>
+        <li>Нэхэмжлэх төлбөр хийгдэхэд → автоматаар И-Баримт илгээх</li>
+        <li>API Endpoint, API Key, API Secret тохиргоо</li>
+        <li>Sandbox / Production горим</li>
+        <li>Автомат илгээх (autoSend) ON/OFF</li>
+        <li>Dashboard-д И-Баримт статус: илгээсэн/амжилттай/алдаа</li>
+        <li>Тохиргоо: Settings → E-barimt tab</li>
+      </ul>
+    </div>
+    <div class="card" style="border:1px solid rgba(34,197,94,.3)">
+      <h3>💳 QPay — QR төлбөрийн систем</h3>
+      <ul>
+        <li>Нэхэмжлэх бүрт QPay QR код үүсгэх</li>
+        <li>Client ID, Client Secret, Invoice Code тохиргоо</li>
+        <li>Sandbox / Production горим</li>
+        <li>Callback Secret — Webhook хүлээн авах</li>
+        <li>Автомат Posting — Төлбөр ирэхэд GL бичилт үүсгэх</li>
+        <li>Webhook URL — QPay dashboard-д тохируулах</li>
+      </ul>
+    </div>
+    <div class="card" style="border:1px solid rgba(6,182,212,.3)">
+      <h3>🌤️ OpenWeatherMap API</h3>
+      <ul>
+        <li>Улаанбаатарын бодит цаг агаар</li>
+        <li>Температур, нөхцөл, "feels like"</li>
+        <li>Хүйтний сэрэмжлүүлэг (-25°C-ээс доош)</li>
+        <li>WFH (Work From Home) санал</li>
+        <li>30 мин тутамд шинэчлэл</li>
+        <li>Dashboard Weather Widget</li>
+      </ul>
+    </div>
+    <div class="card" style="border:1px solid rgba(249,115,22,.3)">
+      <h3>📧 Nodemailer — Имэйл мэдэгдэл</h3>
+      <ul>
+        <li>Хэрэглэгчийн бүртгэл баталгаажуулах</li>
+        <li>Нууц үг сэргээх</li>
+        <li>Системийн мэдэгдлүүд</li>
+        <li>SMTP тохиргоо (.env)</li>
+        <li>HTML template-тэй мэдэгдэл</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 21: Технологийн стек -->
+<!-- ============================================ -->
+<div class="slide" data-section="Технологи">
+  <h2><span class="gradient">🔧 Технологийн стек</span></h2>
+  <p class="sub" style="margin-bottom:28px">Орчин үеийн, найдвартай технологиуд</p>
+  <div class="arch">
+    <div style="font-weight:600;color:var(--accent);font-size:.85rem;letter-spacing:1px">⚛️ FRONTEND</div>
+    <div class="arch-row">
+      <div class="arch-box" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3)">React 18</div>
+      <div class="arch-box" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3)">TypeScript</div>
+      <div class="arch-box" style="background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.3)">TailwindCSS</div>
+      <div class="arch-box" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3)">Radix UI / shadcn</div>
+      <div class="arch-box" style="background:rgba(236,72,153,.15);border:1px solid rgba(236,72,153,.3)">Recharts</div>
+      <div class="arch-box" style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3)">Framer Motion</div>
+    </div>
+    <div class="arch-arrow">⬇️</div>
+    <div style="font-weight:600;color:var(--green);font-size:.85rem;letter-spacing:1px">🚀 BACKEND</div>
+    <div class="arch-row">
+      <div class="arch-box" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)">Express.js</div>
+      <div class="arch-box" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)">TypeScript</div>
+      <div class="arch-box" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)">Drizzle ORM</div>
+      <div class="arch-box" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)">Socket.io</div>
+      <div class="arch-box" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)">Passport.js</div>
+      <div class="arch-box" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)">Zod Validation</div>
+    </div>
+    <div class="arch-arrow">⬇️</div>
+    <div style="font-weight:600;color:var(--orange);font-size:.85rem;letter-spacing:1px">🗄️ DATABASE & INFRA</div>
+    <div class="arch-row">
+      <div class="arch-box" style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3)">PostgreSQL</div>
+      <div class="arch-box" style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3)">Proxmox VPS</div>
+      <div class="arch-box" style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3)">Drizzle Migrations</div>
+      <div class="arch-box" style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3)">Vite Dev Server</div>
+    </div>
+    <div class="arch-arrow">⬇️</div>
+    <div style="font-weight:600;color:var(--purple);font-size:.85rem;letter-spacing:1px">🔗 INTEGRATIONS & TOOLS</div>
+    <div class="arch-row">
+      <div class="arch-box" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3)">🇲🇳 И-Баримт</div>
+      <div class="arch-box" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3)">💳 QPay</div>
+      <div class="arch-box" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3)">🌤️ Weather API</div>
+      <div class="arch-box" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3)">📧 Nodemailer</div>
+      <div class="arch-box" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3)">📊 jsPDF / XLSX</div>
+      <div class="arch-box" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3)">🔐 Speakeasy</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 22: Multi-tenant архитектур -->
+<!-- ============================================ -->
+<div class="slide" data-section="Технологи">
+  <h2><span class="gradient">🏢 Multi-tenant архитектур</span></h2>
+  <p class="sub" style="margin-bottom:28px">Нэг системд олон байгууллага — тус тусдаа мэдээлэл, тохиргоо</p>
+  <div class="grid2" style="max-width:1000px">
+    <div class="card">
+      <h3>🔑 Tenant тусгаарлалт</h3>
+      <ul>
+        <li>Бүх хүснэгтэд <b>tenantId</b> — байгууллага тус тусдаа</li>
+        <li>Row-Level Security — нэг tenant нөгөөгийн мэдээлэл үзэх боломжгүй</li>
+        <li>Tenant бүрт: legalName, regNo, vatNo, address, city</li>
+        <li>Invite Code (MON-8899) — Шинэ хэрэглэгч бүртгүүлэх</li>
+        <li>Статус: active / suspended</li>
+        <li>Timezone: Asia/Ulaanbaatar</li>
+        <li>Currency: MNT</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🏗️ Салбарын удирдлага (Branches)</h3>
+      <ul>
+        <li>Олон салбар: Толгой оффис (HQ) + Салбарууд</li>
+        <li>Салбар бүрт: нэр, код, хаяг</li>
+        <li>GPS координат: latitude, longitude</li>
+        <li>Geofence радиус: 50-500 метр</li>
+        <li>Оффис WiFi SSID тохируулах</li>
+        <li>Ажилтан → Салбар хуваарилах</li>
+        <li>Payroll Run → Салбар бүрт тусдаа</li>
+      </ul>
+    </div>
+    <div class="card" style="grid-column:span 2">
+      <h3>⚙️ Компанийн тохиргоо (Company Settings)</h3>
+      <ul style="columns:2;column-gap:32px">
+        <li>Ажлын цаг: эхлэх/дуусах (09:00 - 18:00)</li>
+        <li>Хоцрох threshold (минут)</li>
+        <li>Баримтын хандалтын бодлого: strict / history</li>
+        <li>Компанийн лого upload</li>
+        <li>QPay тохиргоо (client, secret)</li>
+        <li>И-Баримт тохиргоо (API endpoint, key)</li>
+        <li>Цаг агаарын тохиргоо (threshold-ууд)</li>
+        <li>SMTP email тохиргоо</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 23: DB Schema тойм -->
+<!-- ============================================ -->
+<div class="slide" data-section="Технологи">
+  <h2><span class="gradient">🗄️ Мэдээллийн сангийн бүтэц</span></h2>
+  <p class="sub" style="margin-bottom:28px">PostgreSQL — 50+ хүснэгт, Drizzle ORM migration</p>
+  <div class="num-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="num-card"><div class="number gradient">50+</div><div class="desc">Хүснэгт (Tables)</div></div>
+    <div class="num-card"><div class="number gradient">15+</div><div class="desc">Модуль</div></div>
+    <div class="num-card"><div class="number gradient">22</div><div class="desc">API Route файл</div></div>
+    <div class="num-card"><div class="number gradient">34</div><div class="desc">Frontend Page</div></div>
+  </div>
+  <div style="margin-top:24px">
+    <table class="comp-table">
+      <tr><th>Модуль</th><th>Гол хүснэгтүүд</th><th>Онцлог</th></tr>
+      <tr><td>Auth</td><td>users, sessions, roles, permissions, userRoles</td><td>RBAC + 2FA + OAuth</td></tr>
+      <tr><td>HR</td><td>employees, departments, jobTitles, branches</td><td>Мод бүтэц, multi-branch</td></tr>
+      <tr><td>Attendance</td><td>attendanceDays, leaveRequests</td><td>Geofence, Selfie, 8 төлөв</td></tr>
+      <tr><td>Payroll</td><td>payrollRuns, payslips, earnings, deductions, allowances, advances</td><td>НДШ/ХХОАТ авто</td></tr>
+      <tr><td>Performance</td><td>performancePeriods, performanceGoals</td><td>Weight, Quality, Audit</td></tr>
+      <tr><td>Finance</td><td>accounts, journalEntries, invoices, taxCodes, bankStatements</td><td>Double-entry GL</td></tr>
+      <tr><td>Inventory</td><td>products, warehouses, stockLevels, stockMovements</td><td>Expiry, Batch tracking</td></tr>
+      <tr><td>Sales/Purchase</td><td>salesOrders, purchaseOrders, contacts</td><td>Full order cycle</td></tr>
+      <tr><td>Canteen</td><td>canteenWallets, canteenTransactions, canteenMenus</td><td>QR, Wallet, Staging</td></tr>
+      <tr><td>Transport</td><td>vehicles, routes, trips, busBookings</td><td>Маршрут, захиалга</td></tr>
+      <tr><td>Communication</td><td>chatMessages, documents, companyPosts, postLikes</td><td>WebSocket, DMS</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 24: Давуу талууд -->
+<!-- ============================================ -->
+<div class="slide" data-section="Дүгнэлт">
+  <h2><span class="gradient">✅ MonERP-ийн давуу талууд</span></h2>
+  <p class="sub" style="margin-bottom:28px">Яагаад MonERP сонгох вэ?</p>
+  <div class="grid2" style="max-width:1000px">
+    <div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(99,102,241,.15)">🏢</div><div><h4>Нэг цэгийн шийдэл</h4><p>HR, санхүү, агуулах, тээвэр, хоол — бүгд нэг системд</p></div></div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(6,182,212,.15)">🇲🇳</div><div><h4>100% Монгол хэл</h4><p>Бүх UI, мэдэгдэл, тайлан Монгол хэл дээр</p></div></div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(34,197,94,.15)">⚡</div><div><h4>Real-time</h4><p>WebSocket мэдэгдэл, чат, бодит цагийн updates</p></div></div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(249,115,22,.15)">📱</div><div><h4>Responsive дизайн</h4><p>Гар утас, таблет, компьютерээс хандах</p></div></div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(168,85,247,.15)">🔒</div><div><h4>Олон давхар аюулгүй байдал</h4><p>RBAC + 2FA + Audit Log + Session удирдлага</p></div></div>
+    </div>
+    <div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(236,72,153,.15)">🇲🇳</div><div><h4>МУ-ын стандартад нийцсэн</h4><p>И-Баримт, QPay, НДШ/ХХОАТ татварын нийцэл</p></div></div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(234,179,8,.15)">📊</div><div><h4>Тайлан & Дашбоард</h4><p>Trial Balance, Balance Sheet, P&L, VAT, PDF/Excel</p></div></div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(239,68,68,.15)">🌙</div><div><h4>Dark / Light Mode</h4><p>Хэрэглэгчийн сонголтоор гэрэл/харанхуй горим</p></div></div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(59,130,246,.15)">📍</div><div><h4>Geofencing & Selfie</h4><p>GPS + камер + WiFi SSID-ээр ирц бүртгэх</p></div></div>
+      <div class="feat"><div class="feat-icon" style="background:rgba(34,197,94,.15)">🧠</div><div><h4>AI зөвлөгөө</h4><p>Мөнгөн урсгалын таамаглал, автомат сэрэмжлүүлэг</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 25: Thank You -->
+<!-- ============================================ -->
+<div class="slide" data-section="Дүгнэлт">
+  <div style="text-align:center">
+    <div style="width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:36px;font-weight:900;color:#fff">M</div>
+    <h1><span class="gradient">Баярлалаа!</span></h1>
+    <p style="font-size:1.2rem;color:var(--accent);font-weight:500;margin-bottom:20px">MonERP — Enterprise Edition</p>
+    <p class="sub" style="margin-bottom:28px">Байгууллагын удирдлагын нэгдсэн систем</p>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:36px">
+      <div class="stat"><div class="num gradient">15+</div><div class="label">Модуль</div></div>
+      <div class="stat"><div class="num gradient">50+</div><div class="label">Хүснэгт</div></div>
+      <div class="stat"><div class="num gradient">34+</div><div class="label">Дэлгэц</div></div>
+      <div class="stat"><div class="num gradient">4</div><div class="label">Роль</div></div>
+      <div class="stat"><div class="num gradient">100%</div><div class="label">Монгол</div></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <span class="tag" style="background:rgba(99,102,241,.15);color:var(--primary)">React + Express + PostgreSQL</span>
+      <span class="tag" style="background:rgba(6,182,212,.15);color:var(--accent)">TypeScript Full Stack</span>
+      <span class="tag" style="background:rgba(34,197,94,.15);color:var(--green)">Proxmox VPS Deploy</span>
+      <span class="tag" style="background:rgba(168,85,247,.15);color:var(--purple)">Multi-tenant Ready</span>
+    </div>
+    <div style="margin-top:36px">
+      <p style="color:var(--muted);font-size:.85rem">Дотоод хөгжүүлэлтийн баг • 2024-2026</p>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- Navigation -->
+<div class="nav" id="nav"></div>
+<div class="counter" id="counter"></div>
+<button class="arrow arrow-l" onclick="go(-1)">‹</button>
+<button class="arrow arrow-r" onclick="go(1)">›</button>
+
+<script>
+const slides=document.querySelectorAll('.slide');
+const nav=document.getElementById('nav');
+const counter=document.getElementById('counter');
+const progressBar=document.getElementById('progressBar');
+const sectionLabel=document.getElementById('sectionLabel');
+let cur=0;
+const total=slides.length;
+
+// Build nav dots
+for(let i=0;i<total;i++){
+  const b=document.createElement('button');
+  b.onclick=()=>jumpTo(i);
+  b.title=`Slide ${i+1}`;
+  nav.appendChild(b);
+}
+
+function update(){
+  slides.forEach((s,i)=>{
+    s.classList.remove('active','prev');
+    if(i===cur)s.classList.add('active');
+    else if(i<cur)s.classList.add('prev');
+  });
+  nav.querySelectorAll('button').forEach((b,i)=>{
+    b.classList.toggle('active',i===cur);
+  });
+  counter.textContent=`${cur+1} / ${total}`;
+  // Progress bar
+  const pct=((cur+1)/total)*100;
+  progressBar.style.width=pct+'%';
+  // Section label
+  const section=slides[cur].getAttribute('data-section')||'';
+  sectionLabel.textContent=section;
+}
+
+function go(dir){
+  cur=Math.max(0,Math.min(total-1,cur+dir));
+  update();
+}
+
+function jumpTo(i){
+  cur=i;
+  update();
+}
+
+// Keyboard navigation
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' ')go(1);
+  if(e.key==='ArrowLeft')go(-1);
+  if(e.key==='Home'){cur=0;update();}
+  if(e.key==='End'){cur=total-1;update();}
+});
+
+// Touch support
+let touchX=0;
+document.addEventListener('touchstart',e=>{touchX=e.touches[0].clientX});
+document.addEventListener('touchend',e=>{
+  const diff=e.changedTouches[0].clientX-touchX;
+  if(Math.abs(diff)>50){
+    go(diff<0?1:-1);
+  }
+});
+
+update();
+</script>
+</body>
+</html>
