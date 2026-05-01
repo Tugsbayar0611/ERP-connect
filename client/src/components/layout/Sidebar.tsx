@@ -37,6 +37,7 @@ import {
   Shield,
   Utensils,
   Wallet,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -69,6 +70,7 @@ const originalNavGroups: NavGroup[] = [
       { href: "/me/canteen", label: "Хоолны эрх", icon: Wallet },
       { href: "/reports", label: "Тайлангууд", icon: BarChart3 },
       { href: "/news", label: "Мэдээлэл", icon: Bell },
+      { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
     ],
   },
   {
@@ -144,6 +146,7 @@ const employeeNavGroups: NavGroup[] = [
     items: [
       { href: "/settings", label: "Тохиргоо (Профайл)", icon: UserCircle },
       { href: "/", label: "Хянах самбар", icon: LayoutDashboard },
+      { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
       { href: "/action-center", label: "Мэдэгдэл", icon: Bell },
       { href: "/communication", label: "Чат", icon: MessageSquare },
       { href: "/me/sessions", label: "Сешнүүд", icon: Shield },

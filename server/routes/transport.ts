@@ -124,7 +124,14 @@ router.get("/trips/:id/seats", requireTenant, async (req: any, res) => {
     try {
         const reservations = await storage.getTripReservations(req.params.id);
         const activeReservations = reservations.filter((r: any) => r.status !== 'cancelled');
-        res.json(activeReservations);
+        
+        // Find current user's employee ID so frontend can know which seats belong to them
+        const employee = await storage.getEmployeeByUserId(req.user.id);
+        
+        res.json({
+            reservations: activeReservations,
+            currentEmployeeId: employee?.id || null
+        });
     } catch (e) {
         res.status(500).json({ message: "Failed to fetch seat availability" });
     }

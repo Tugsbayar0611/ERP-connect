@@ -56,6 +56,7 @@ import MyRequests from "@/pages/requests/MyRequests";
 import NewRequest from "@/pages/requests/NewRequest";
 import RequestInbox from "@/pages/requests/RequestInbox";
 import RequestDetails from "@/pages/requests/RequestDetails";
+import AIAssistant from "@/pages/AIAssistant";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
@@ -287,6 +288,11 @@ function Router() {
         {/* ✅ Action Center */}
         <Route path="/action-center">
           <ProtectedRoute component={ActionCenter} />
+        </Route>
+
+        {/* 🤖 AI Assistant */}
+        <Route path="/ai-assistant">
+          <ProtectedRoute component={AIAssistant} />
         </Route>
 
         <Route component={NotFound} />

@@ -46,10 +46,13 @@ export default function BusBooking() {
     });
 
     // Fetch seat availability when a trip is selected
-    const { data: reservations = [], isLoading: reservationsLoading } = useQuery<SeatReservation[]>({
+    const { data: seatData, isLoading: reservationsLoading } = useQuery<{reservations: SeatReservation[], currentEmployeeId: string | null}>({
         queryKey: ["/api/transport/trips", selectedTrip?.id, "seats"],
         enabled: !!selectedTrip,
     });
+    
+    const reservations = seatData?.reservations || [];
+    const currentEmployeeId = seatData?.currentEmployeeId || null;
 
     const bookMutation = useMutation({
         mutationFn: async () => {
@@ -77,6 +80,24 @@ export default function BusBooking() {
         },
     });
 
+    const cancelMutation = useMutation({
+        mutationFn: async (reservationId: string) => {
+            const res = await fetch(`/api/transport/reservations/${reservationId}/cancel`, {
+                method: "POST",
+            });
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/transport/trips", selectedTrip?.id, "seats"] });
+            toast({ title: "Амжилттай", description: "Суудлын захиалга цуцлагдлаа." });
+        },
+        onError: (err) => {
+            const msg = tryParseError(err.message);
+            toast({ title: "Алдаа", description: msg, variant: "destructive" });
+        },
+    });
+
     const tryParseError = (text: string) => {
         try {
             return JSON.parse(text).message;
@@ -91,9 +112,12 @@ export default function BusBooking() {
 
     const getSeatStatus = (seatNum: string) => {
         const res = reservations.find(r => r.seatNumber === seatNum);
-        if (res) return "taken";
-        if (seatNum === selectedSeat) return "selected";
-        return "available";
+        if (res) {
+            if (res.passengerId === currentEmployeeId) return { status: "mine", reservation: res };
+            return { status: "taken", reservation: res };
+        }
+        if (seatNum === selectedSeat) return { status: "selected", reservation: null };
+        return { status: "available", reservation: null };
     };
 
     const renderSeatMap = (vehicle: Vehicle) => {
@@ -168,23 +192,36 @@ export default function BusBooking() {
             // Helper to render a single seat button
             const SeatBtn = ({ num }: { num: number }) => {
                 const sNum = num.toString();
-                const status = getSeatStatus(sNum);
+                const { status, reservation } = getSeatStatus(sNum);
                 const isSelected = status === "selected";
                 const isTaken = status === "taken";
+                const isMine = status === "mine";
+
+                const handleClick = () => {
+                    if (isMine && reservation) {
+                        if (confirm("Та энэ суудлын захиалгаа цуцлахдаа итгэлтэй байна уу?")) {
+                            cancelMutation.mutate(reservation.id);
+                        }
+                    } else if (!isTaken) {
+                        setSelectedSeat(isSelected ? null : sNum);
+                    }
+                };
 
                 return (
                     <button
                         key={num}
-                        disabled={isTaken}
-                        onClick={() => setSelectedSeat(isSelected ? null : sNum)}
+                        disabled={isTaken || cancelMutation.isPending}
+                        onClick={handleClick}
                         className={cn(
                             "w-8 h-8 flex items-center justify-center rounded border text-xs font-medium transition-all",
+                            isMine ? "bg-green-100 border-green-500 text-green-700 hover:bg-red-100 hover:border-red-500 hover:text-red-700 hover:line-through" :
                             isTaken ? "bg-muted text-muted-foreground cursor-not-allowed" :
-                                isSelected ? "bg-yellow-400 border-yellow-500 text-black font-bold shadow-sm scale-105" :
-                                    "bg-white hover:border-yellow-400 hover:text-yellow-600 border-slate-300"
+                            isSelected ? "bg-yellow-400 border-yellow-500 text-black font-bold shadow-sm scale-105" :
+                            "bg-white hover:border-yellow-400 hover:text-yellow-600 border-slate-300"
                         )}
+                        title={isMine ? "Цуцлах бол дарна уу" : isTaken ? "Хүнтэй" : "Сонгох"}
                     >
-                        {status === "taken" ? "✕" : isSelected ? "✓" : num}
+                        {isTaken ? "✕" : isMine ? "Та" : isSelected ? "✓" : num}
                     </button>
                 );
             };
@@ -370,6 +407,9 @@ export default function BusBooking() {
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <div className="w-5 h-5 rounded border bg-muted flex items-center justify-center">✕</div> Захиалсан
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-green-700 font-medium">
+                                    <div className="w-5 h-5 rounded border border-green-500 bg-green-100 flex items-center justify-center text-[10px]">Та</div> Таны суудал
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <div className="w-5 h-5 rounded border border-yellow-500 bg-white flex items-center justify-center"></div> Тусгай

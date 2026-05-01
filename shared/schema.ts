@@ -2379,8 +2379,8 @@ export const seatReservations = pgTable("seat_reservations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   cancelledAt: timestamp("cancelled_at"),
 }, (t) => ({
-  unqSeat: uniqueIndex("seat_trip_seat_idx").on(t.tripId, t.seatNumber),
-  unqPassenger: uniqueIndex("seat_trip_passenger_idx").on(t.tripId, t.passengerId),
+  unqSeat: uniqueIndex("seat_trip_seat_idx").on(t.tripId, t.seatNumber).where(sql`status = 'confirmed'`),
+  unqPassenger: uniqueIndex("seat_trip_passenger_idx").on(t.tripId, t.passengerId).where(sql`status = 'confirmed'`),
   idxTrip: index("seat_trip_idx").on(t.tenantId, t.tripId),
 }));
 

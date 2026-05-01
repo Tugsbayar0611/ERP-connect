@@ -10,6 +10,7 @@ import { createServer } from "http";
 import { pool } from "./db"; // DB холболт тест хийхэд ашиглая
 import { initializeSocket } from "./socket";
 import { rateLimitStore } from "./security";
+import aiRoutes from "./routes/ai";
 const app = express();
 const httpServer = createServer(app);
 
@@ -79,6 +80,7 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+app.use("/api/ai", aiRoutes);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
