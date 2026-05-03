@@ -10,7 +10,6 @@ import { createServer } from "http";
 import { pool } from "./db"; // DB холболт тест хийхэд ашиглая
 import { initializeSocket } from "./socket";
 import { rateLimitStore } from "./security";
-import aiRoutes from "./routes/ai";
 const app = express();
 const httpServer = createServer(app);
 
@@ -80,7 +79,6 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
-app.use("/api/ai", aiRoutes);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -142,6 +140,10 @@ app.use((req, res, next) => {
 (async () => {
   // энд registerRoutes дотор чинь db-г ашигладаг бол бүгд local Postgres руу явна
   await registerRoutes(httpServer, app);
+
+  // AI routes нь Passport/session-аас хамааралтай тул registerRoutes дараа mount хийнэ
+  const { default: aiRoutes } = await import("./routes/ai");
+  app.use("/api/ai", aiRoutes);
 
   // Error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

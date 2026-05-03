@@ -1,10 +1,10 @@
 
 // shared/permissions.ts
 
-export const ROLES = ['admin', 'manager', 'hr', 'finance', 'employee', 'registry'] as const;
+export const ROLES = ['admin', 'manager', 'hr', 'finance', 'employee', 'registry', 'warehouse'] as const;
 export type Role = (typeof ROLES)[number];
 
-export const RESOURCES = ['roster', 'leave', 'assets', 'finance', 'settings', 'requests', 'meal', 'transport', 'worklogs'] as const;
+export const RESOURCES = ['roster', 'leave', 'assets', 'finance', 'settings', 'requests', 'meal', 'transport', 'worklogs', 'workwear'] as const;
 export type Resource = (typeof RESOURCES)[number];
 
 export const ACTIONS = ['read', 'write', 'delete', 'approve', 'export'] as const;
@@ -23,6 +23,7 @@ export const ROLE_PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>>
         meal: ['read', 'write', 'export'],
         transport: ['read', 'write', 'export'],
         worklogs: ['read', 'write', 'approve', 'export'],
+        workwear: ['read', 'write', 'delete', 'approve', 'export'], // Full access
     },
     hr: {
         roster: ['read', 'write', 'export'],
@@ -30,6 +31,7 @@ export const ROLE_PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>>
         assets: ['read', 'write', 'export'],
         requests: ['read', 'write', 'approve', 'export'],
         meal: ['read', 'write', 'export'],
+        workwear: ['read', 'write', 'approve', 'export'], // Grant entitlements, templates, reports
     },
     manager: {
         roster: ['read', 'write'],      // scope: team
@@ -50,11 +52,16 @@ export const ROLE_PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>>
         meal: ['read'],          // scope: my
         transport: ['read', 'write'], // scope: my
         worklogs: ['read', 'write'],  // scope: my
+        workwear: ['read'],      // scope: my only
     },
     registry: {
         // e.g. canteen / gate / receptionist type users
         meal: ['write', 'read'],
         transport: ['read'],
+    },
+    warehouse: {
+        workwear: ['write', 'read'], // Collect items, view granted list
+        // write = can mark as collected; read = can view employee grants
     },
 };
 

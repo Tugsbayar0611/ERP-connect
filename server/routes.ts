@@ -31,6 +31,9 @@ import assetRoutes from "./routes/assets";
 import templatesRoutes from "./routes/templates";
 import securityRoutes from "./routes/security";
 import digitalIdRoutes from "./routes/digital-id";
+import biometricRoutes from "./routes/biometric";
+import uniformsRoutes from "./routes/uniforms";
+import { registerWorkwearRoutes } from "./routes/workwear";
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   setupAuth(app);
@@ -75,6 +78,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Phase 6: Security & Digital ID
   app.use("/api/security", securityRoutes);
   app.use("/api/digital-id", digitalIdRoutes);
+  app.use("/api/biometric", biometricRoutes);
+  app.use("/api/uniforms", uniformsRoutes);
+  registerWorkwearRoutes(app);
 
   return httpServer;
 }

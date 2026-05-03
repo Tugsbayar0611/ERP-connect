@@ -44,6 +44,10 @@ import RosterTemplateBuilder from "@/pages/admin/RosterTemplateBuilder";
 import ShiftsPage from "@/pages/admin/Shifts";
 import AdminTransport from "@/pages/admin/transport";
 import BusBooking from "@/pages/transport/BusBooking";
+import WorkwearManagement from "@/pages/admin/WorkwearManagement";
+import WorkwearReports from "@/pages/admin/WorkwearReports";
+import MyWorkwear from "@/pages/employee/MyWorkwear";
+import WarehouseWorkwear from "@/pages/warehouse/WorkwearFulfillment";
 import RosterCalendar from "@/pages/manager/RosterCalendar";
 import MyRoster from "@/pages/transport/MyRoster";
 import ServeTerminal from "@/pages/canteen/ServeTerminal";
@@ -57,6 +61,10 @@ import NewRequest from "@/pages/requests/NewRequest";
 import RequestInbox from "@/pages/requests/RequestInbox";
 import RequestDetails from "@/pages/requests/RequestDetails";
 import AIAssistant from "@/pages/AIAssistant";
+import BiometricAdmin from "@/pages/admin/BiometricAdmin";
+import UniformAdmin from "@/pages/admin/UniformAdmin";
+import MyUniforms from "@/pages/assets/MyUniforms";
+import AIKnowledgeBaseAdmin from "@/pages/admin/AIKnowledgeBase";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
@@ -203,6 +211,13 @@ function Router() {
           <ProtectedRoute component={MyAssets} />
         </Route>
 
+        <Route path="/admin/workwear">
+          <ProtectedRoute component={WorkwearManagement} />
+        </Route>
+        <Route path="/me/workwear">
+          <ProtectedRoute component={MyWorkwear} />
+        </Route>
+
         {/* Requests (Phase 5) */}
         <Route path="/me/requests/new">
           <ProtectedRoute component={NewRequest} />
@@ -239,6 +254,15 @@ function Router() {
 
         <Route path="/transport/booking">
           <ProtectedRoute component={BusBooking} />
+        </Route>
+
+        {/* Нормын хувцас */}
+        <Route path="/admin/workwear/reports">
+          <ProtectedRoute component={WorkwearReports} />
+        </Route>
+
+        <Route path="/warehouse/workwear">
+          <ProtectedRoute component={WarehouseWorkwear} />
         </Route>
 
         <Route path="/me/roster">
@@ -280,12 +304,16 @@ function Router() {
           <ProtectedRoute component={Communication} />
         </Route>
 
-        {/* ✅ Activity Log */}
         <Route path="/activity">
           <ProtectedRoute component={Activity} />
         </Route>
 
-        {/* ✅ Action Center */}
+        {/* 👕 Uniforms */}
+        <Route path="/me/uniforms">
+          <ProtectedRoute component={MyUniforms} />
+        </Route>
+
+        {/* 🚌 Transport System */}
         <Route path="/action-center">
           <ProtectedRoute component={ActionCenter} />
         </Route>
@@ -293,6 +321,21 @@ function Router() {
         {/* 🤖 AI Assistant */}
         <Route path="/ai-assistant">
           <ProtectedRoute component={AIAssistant} />
+        </Route>
+
+        {/* 📷 Biometric Devices */}
+        <Route path="/admin/biometric">
+          <ProtectedRoute component={BiometricAdmin} />
+        </Route>
+
+        {/* 👕 Uniform Issuances */}
+        <Route path="/admin/uniforms">
+          <ProtectedRoute component={UniformAdmin} />
+        </Route>
+
+        {/* 🧠 AI Knowledge Base */}
+        <Route path="/admin/ai-kb">
+          <ProtectedRoute component={AIKnowledgeBaseAdmin} />
         </Route>
 
         <Route component={NotFound} />

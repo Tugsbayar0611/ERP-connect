@@ -28,6 +28,7 @@ import type { Employee } from "@shared/schema";
 import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardContent } from "@/components/ui/GlassCard";
 import { EnhancedSalaryCardsSection } from "@/components/dashboard/EnhancedSalaryCards";
 import { SalesRevenueChart, AttendanceChart, SalaryChart } from "@/components/dashboard/DashboardCharts";
+import WorkwearWidget from "@/components/workwear/WorkwearWidget";
 import {
   WIDGET_REGISTRY,
   WIDGET_SPANS,
@@ -422,75 +423,79 @@ export default function Dashboard() {
         </div>
       )}
       {/* Header with Quick Actions & Zen Mode & Global Date Range */}
-      <div className="animate-slide-up flex items-center justify-between flex-wrap gap-4 mb-6">
-        <div className="flex-1">
-          <h2 className="text-3xl font-bold tracking-tight font-display bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            {greeting}, {user?.fullName || user?.email} 👋
-          </h2>
-          <p className="text-muted-foreground mt-2">
-            {zenMode ? (
-              activeStats?.todayAttendance?.rate === 100 && activeStats?.pendingRequests === 0 && activeStats?.ebarimtStatus?.unsentCount === 0 ? (
-                <span className="text-green-600 dark:text-green-400">🟢 Бүх зүйл ХЭВИЙН</span>
+      <div className="animate-slide-up flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+        <div className="flex-1 flex flex-col sm:flex-row sm:items-start lg:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight font-display bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              {greeting}, {user?.fullName || user?.email} 👋
+            </h2>
+            <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">
+              {zenMode ? (
+                activeStats?.todayAttendance?.rate === 100 && activeStats?.pendingRequests === 0 && activeStats?.ebarimtStatus?.unsentCount === 0 ? (
+                  <span className="text-green-600 dark:text-green-400">🟢 Бүх зүйл ХЭВИЙН</span>
+                ) : (
+                  <span className="text-orange-600 dark:text-orange-400">🔴 АНХААРАХ ЗҮЙЛ БАЙНА</span>
+                )
               ) : (
-                <span className="text-orange-600 dark:text-orange-400">🔴 АНХААРАХ ЗҮЙЛ БАЙНА</span>
-              )
-            ) : (
-              "Харахад таатай байна. Өнөөдрийн ажлын явцыг доорх хэсгээс харна уу."
-            )}
-          </p>
+                "Харахад таатай байна. Өнөөдрийн ажлын явцыг доорх хэсгээс харна уу."
+              )}
+            </p>
+          </div>
+
+          {/* Global Date Range Selector */}
+          {!zenMode && (
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Хугацаа:</span>
+              <Select value={globalDateRange} onValueChange={(v: any) => setGlobalDateRange(v)}>
+                <SelectTrigger className="w-[120px] h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Өнөөдөр</SelectItem>
+                  <SelectItem value="7days">7 хоног</SelectItem>
+                  <SelectItem value="30days">30 хоног</SelectItem>
+                  <SelectItem value="6months">6 сар</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
-        {/* Global Date Range Selector */}
-        {!zenMode && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Хугацаа:</span>
-            <Select value={globalDateRange} onValueChange={(v: any) => setGlobalDateRange(v)}>
-              <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Өнөөдөр</SelectItem>
-                <SelectItem value="7days">7 хоног</SelectItem>
-                <SelectItem value="30days">30 хоног</SelectItem>
-                <SelectItem value="6months">6 сар</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        <div className="flex gap-2 flex-wrap items-center">
+        <div className="flex gap-2 items-center overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:pb-0 md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] shrink-0">
           {/* Quick Actions */}
           {!zenMode && (
             <>
-              <div className="flex items-center space-x-2 mr-4 bg-muted/50 p-1.5 rounded-lg border border-border/50">
+              <div className="flex items-center space-x-2 bg-muted/50 p-1.5 rounded-lg border border-border/50 shrink-0">
                 <Switch
                   id="demo-mode"
                   checked={isDemoMode}
                   onCheckedChange={setIsDemoMode}
                 />
-                <Label htmlFor="demo-mode" className="cursor-pointer text-sm font-medium">Demo Mode</Label>
+                <Label htmlFor="demo-mode" className="cursor-pointer text-sm font-medium whitespace-nowrap">Demo Mode</Label>
               </div>
 
               <Button
                 onClick={() => setLocation("/invoices?action=create")}
-                className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5"
+                className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 shrink-0"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Нэхэмжлэх үүсгэх
+                <Plus className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Нэхэмжлэх үүсгэх</span>
+                <span className="md:hidden ml-2">Нэхэмжлэх</span>
               </Button>
               <Button
                 onClick={() => setLocation("/employees?action=create")}
                 variant="outline"
-                className="hover:bg-muted/50"
+                className="hover:bg-muted/50 shrink-0"
               >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Ажилтан нэмэх
+                <UserPlus className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Ажилтан нэмэх</span>
+                <span className="md:hidden ml-2">Ажилтан</span>
               </Button>
               {/* Smart Leave Request Button */}
               {(userRole === "admin" || userRole === "manager" || userRole === "hr") ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="hover:bg-muted/50">
+                    <Button variant="outline" className="hover:bg-muted/50 shrink-0">
                       <Calendar className="w-4 h-4 mr-2" />
                       Чөлөө & Амралт
                     </Button>
@@ -517,7 +522,7 @@ export default function Dashboard() {
                 <Button
                   onClick={() => setLocation("/leave")}
                   variant="outline"
-                  className="hover:bg-muted/50"
+                  className="hover:bg-muted/50 shrink-0"
                 >
                   <Calendar className="w-4 h-4 mr-2" />
                   Чөлөө хүсэх
@@ -531,26 +536,26 @@ export default function Dashboard() {
             onClick={() => setZenMode(!zenMode)}
             variant={zenMode ? "default" : "outline"}
             size="sm"
-            className="ml-2"
+            className="shrink-0 h-10"
           >
             {zenMode ? (
               <>
-                <EyeOff className="w-4 h-4 mr-2" />
-                Zen Mode
+                <EyeOff className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Zen Mode</span>
               </>
             ) : (
               <>
-                <Eye className="w-4 h-4 mr-2" />
-                Zen
+                <Eye className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Zen</span>
               </>
             )}
           </Button>
         </div>
       </div>
 
-      {/* Quick Stats Cards - 4 Main Cards with Soft Gradients (hidden in Zen Mode) - Standardized & Sticky */}
+      {/* Quick Stats Cards - 2x2 on mobile, 4 columns on desktop */}
       {!zenMode && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
           {visibleWidgets.map(key => {
             const WidgetComponent = WIDGET_REGISTRY[key];
             if (!WidgetComponent) return null;
@@ -914,16 +919,16 @@ export default function Dashboard() {
           {/* Real-time Salary Section - Role-based visibility */}
           {
             !zenMode && (userRole === "Admin" || userRole === "HR" || userRole === "Manager") && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Энэ сарын орлого (Ажилтнууд)</h3>
+              <div className="space-y-4 md:space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <h3 className="text-base md:text-lg font-semibold shrink-0">Энэ сарын орлого (Ажилтнууд)</h3>
                   {/* Quick Actions for HR */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setLocation("/employees?action=create")}
-                      className="text-xs h-8 border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                      className="text-xs h-8 border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 whitespace-nowrap shrink-0"
                     >
                       <UserPlus className="w-3 h-3 mr-1" />
                       Ажилтан нэмэх
@@ -932,7 +937,7 @@ export default function Dashboard() {
                       variant="outline"
                       size="sm"
                       onClick={() => setLocation("/attendance?action=create")}
-                      className="text-xs h-8 border-green-300 dark:border-green-700 hover:bg-green-50 dark:hover:bg-green-950/40"
+                      className="text-xs h-8 border-green-300 dark:border-green-700 hover:bg-green-50 dark:hover:bg-green-950/40 whitespace-nowrap shrink-0"
                     >
                       <Calendar className="w-3 h-3 mr-1" />
                       Ирц бүртгэх
@@ -941,7 +946,7 @@ export default function Dashboard() {
                       variant="outline"
                       size="sm"
                       onClick={() => setLocation("/payroll?action=create")}
-                      className="text-xs h-8 border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+                      className="text-xs h-8 border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/40 whitespace-nowrap shrink-0"
                     >
                       <Calculator className="w-3 h-3 mr-1" />
                       Цалин бодох
@@ -953,8 +958,8 @@ export default function Dashboard() {
             )
           }
 
-          {/* Main Content Row - Charts + HR Reminders - Standardized Grid (2/3 + 1/3) */}
-          <div className="grid gap-6 lg:grid-cols-12">
+          {/* Main Content Row - Charts + HR Reminders - full width on mobile, 2/3+1/3 on desktop */}
+          <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-12">
             {/* Left Side - Charts (8 columns = 2/3 width) - Role-based visibility */}
             <div className="lg:col-span-8 space-y-6">
               {/* Sales Revenue Chart - Visible to Sales, Admin, Manager */}
@@ -1239,6 +1244,12 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Нормын хувцасны widget - зөвхөн ажилтнуудад харагдана */}
+              {isEmployeeUser && (
+                <WorkwearWidget />
+              )}
+
             </div>
           </div>
 

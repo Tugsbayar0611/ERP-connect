@@ -1,6 +1,6 @@
 import { pgTable, text, serial, integer, boolean, timestamp, uuid, date, numeric, uniqueIndex, index, jsonb, check, AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { validateMongolianNationalId, validateMongolianVATNo, validateMongolianPhone } from "./mongolian-validators";
 
@@ -2727,3 +2727,276 @@ export type NotificationRead = typeof notificationReads.$inferSelect;
 
 export const insertNotificationSettingSchema = createInsertSchema(notificationSettings);
 export type NotificationSetting = typeof notificationSettings.$inferSelect;
+
+// ==========================================
+// AI KNOWLEDGE BASE (AI Сургалтын бааз)
+// ==========================================
+
+export const aiKnowledgeBase = pgTable("ai_knowledge_base", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  title: text("title").notNull(),                   // "Автобус яаж захиалах вэ?", "Борлуулалт хэрхэн хийх вэ?"
+  category: text("category").notNull().default("general"), // hr, operation, transport, general
+  content: text("content").notNull(),               // Дэлгэрэнгүй заавар
+  keywords: text("keywords"),                       // "автобус, унаа, захиалга"
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+}, (t) => ({
+  idxTenantCat: index("ai_kb_tenant_cat_idx").on(t.tenantId, t.category),
+}));
+
+export const insertAiKnowledgeBaseSchema = createInsertSchema(aiKnowledgeBase).omit({ id: true, createdAt: true, updatedAt: true });
+export type AiKnowledgeBase = typeof aiKnowledgeBase.$inferSelect;
+export type InsertAiKnowledgeBase = z.infer<typeof insertAiKnowledgeBaseSchema>;
+
+// ==========================================
+// BIOMETRIC / FACE RECOGNITION INTEGRATION
+// ==========================================
+
+/** Царай унших төхөөрөмжийн бүртгэл */
+export const biometricDevices = pgTable("biometric_devices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),                  // "Gate-1 FaceID", "Bus-A FaceID"
+  location: text("location").notNull(),           // "ҮГД гарц", "Автобус-А", "Кэмп гарц"
+  deviceType: text("device_type").notNull().default("gate"), // gate | bus | camp
+  // Bus checkpoint devices link to a vehicle
+  vehicleId: uuid("vehicle_id").references(() => vehicles.id, { onDelete: "set null" }),
+  apiToken: text("api_token").notNull(),          // Секрет токен (девайс энийг явуулна)
+  isActive: boolean("is_active").notNull().default(true),
+  lastSeenAt: timestamp("last_seen_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxTenant: index("biometric_device_tenant_idx").on(t.tenantId),
+  unqToken: uniqueIndex("biometric_device_token_idx").on(t.apiToken),
+}));
+
+/** Царай уншигчаас ирсэн бүх событие */
+export const biometricEvents = pgTable("biometric_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  deviceId: uuid("device_id").references(() => biometricDevices.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "set null" }),
+  // Хэрэв ERP ажилтан таних боломжгүй бол external_id-г хадгална
+  externalId: text("external_id"),               // Гадаад системийн ажилтны ID
+  eventType: text("event_type").notNull(),        // check_in | check_out | bus_board | camp_arrive | bus_depart
+  scannedAt: timestamp("scanned_at").notNull(),   // Яг уншуулсан цаг
+  photoUrl: text("photo_url"),                    // Snapshot (optional)
+  rawPayload: jsonb("raw_payload"),               // Бүхэл payload хадгална
+  processedAt: timestamp("processed_at"),         // Ирц/Хоолны данс рүү шилжсэн цаг
+  processResult: text("process_result"),          // success | error | unknown_employee
+  processError: text("process_error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxDevice: index("biometric_event_device_idx").on(t.deviceId, t.scannedAt),
+  idxEmployee: index("biometric_event_emp_idx").on(t.tenantId, t.employeeId, t.scannedAt),
+  idxProcess: index("biometric_event_process_idx").on(t.tenantId, t.processedAt),
+}));
+
+/** Автобусны суух/буух бүртгэл - seat_reservations-тай уялддаг */
+export const busBoardingLogs = pgTable("bus_boarding_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  tripId: uuid("trip_id").references(() => trips.id, { onDelete: "cascade" }).notNull(),
+  reservationId: uuid("reservation_id").references(() => seatReservations.id, { onDelete: "set null" }),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  biometricEventId: uuid("biometric_event_id").references(() => biometricEvents.id, { onDelete: "set null" }),
+
+  checkpointType: text("checkpoint_type").notNull(), // boarded | arrived_camp | departed_camp | returned_city
+  scannedAt: timestamp("scanned_at").notNull(),
+  deviceId: uuid("device_id").references(() => biometricDevices.id, { onDelete: "set null" }),
+
+  // Хоолны данс автоматаар нэмсэн эсэх
+  mealTopUpAmount: numeric("meal_top_up_amount", { precision: 14, scale: 2 }),
+  mealTopUpAt: timestamp("meal_top_up_at"),
+  mealTopUpTxId: uuid("meal_top_up_tx_id"),      // WalletTransaction.id
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxTrip: index("boarding_trip_idx").on(t.tenantId, t.tripId),
+  idxEmployee: index("boarding_emp_idx").on(t.tenantId, t.employeeId, t.scannedAt),
+  // Нэг аялал дахь нэг ажилтны нэг checkpoint нь давхардахгүй
+  unqCheckpoint: uniqueIndex("boarding_unq_idx").on(t.tripId, t.employeeId, t.checkpointType),
+}));
+
+export const insertBiometricDeviceSchema = createInsertSchema(biometricDevices).omit({ id: true, createdAt: true });
+export type BiometricDevice = typeof biometricDevices.$inferSelect;
+export type InsertBiometricDevice = z.infer<typeof insertBiometricDeviceSchema>;
+
+export const insertBiometricEventSchema = createInsertSchema(biometricEvents).omit({ id: true, createdAt: true });
+export type BiometricEvent = typeof biometricEvents.$inferSelect;
+export type InsertBiometricEvent = z.infer<typeof insertBiometricEventSchema>;
+
+export const insertBusBoardingLogSchema = createInsertSchema(busBoardingLogs).omit({ id: true, createdAt: true });
+export type BusBoardingLog = typeof busBoardingLogs.$inferSelect;
+export type InsertBusBoardingLog = z.infer<typeof insertBusBoardingLogSchema>;
+
+// ==========================================
+// UNIFORM / WORKWEAR ISSUANCE (Нормын хувцас)
+// ==========================================
+
+/** Нормын хувцасны тохиргоо - хэдэн жил тутам солигдох вэ */
+export const uniformPolicies = pgTable("uniform_policies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),                   // "Ерөнхий ажилчны норм", "Уурхайчин"
+  jobTitleId: uuid("job_title_id").references(() => jobTitles.id, { onDelete: "set null" }),
+  departmentId: uuid("department_id").references(() => departments.id, { onDelete: "set null" }),
+  issuanceIntervalMonths: integer("issuance_interval_months").notNull().default(12), // Хэдэн сар тутам
+  notifyBeforeDays: integer("notify_before_days").notNull().default(30),  // Хэдэн хоногийн өмнө сануулах
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  idxTenant: index("uniform_policy_tenant_idx").on(t.tenantId),
+}));
+
+/** Нормын хувцасны олголт - хэдэн жил тутам ажилтан бүрт */
+export const uniformIssuances = pgTable("uniform_issuances", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  policyId: uuid("policy_id").references(() => uniformPolicies.id, { onDelete: "set null" }),
+
+  // Олгосон зүйлс (нэг олголтод хэд хэдэн барааны зүйл)
+  items: jsonb("items").notNull().default([]),    // [{productId, name, qty, size}]
+
+  issuedAt: timestamp("issued_at").notNull(),
+  issuedBy: uuid("issued_by").references(() => users.id, { onDelete: "set null" }),
+
+  /** Дараагийн олголтын огноо - сануулгад ашиглана */
+  nextIssueDue: date("next_issue_due"),
+
+  status: text("status").notNull().default("issued"), // issued | returned | lost | expired
+  note: text("note"),
+
+  // Буцаалт
+  returnedAt: timestamp("returned_at"),
+  returnedBy: uuid("returned_by").references(() => users.id, { onDelete: "set null" }),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxEmployee: index("uniform_emp_idx").on(t.tenantId, t.employeeId),
+  idxDue: index("uniform_due_idx").on(t.tenantId, t.nextIssueDue),
+}));
+
+export const insertUniformPolicySchema = createInsertSchema(uniformPolicies).omit({ id: true, createdAt: true, updatedAt: true });
+export type UniformPolicy = typeof uniformPolicies.$inferSelect;
+export type InsertUniformPolicy = z.infer<typeof insertUniformPolicySchema>;
+
+export const insertUniformIssuanceSchema = createInsertSchema(uniformIssuances).omit({ id: true, createdAt: true });
+export type UniformIssuance = typeof uniformIssuances.$inferSelect;
+export type InsertUniformIssuance = z.infer<typeof insertUniformIssuanceSchema>;
+
+// ==========================================
+// AI CHAT HISTORY & SESSIONS
+// ==========================================
+
+export const aiChatSessions = pgTable("ai_chat_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  title: text("title").notNull().default("New Chat"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  idxUserSessions: index("ai_chat_session_user_idx").on(t.tenantId, t.userId),
+}));
+
+export const aiChatHistory = pgTable("ai_chat_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").references(() => aiChatSessions.id, { onDelete: "cascade" }).notNull(),
+  role: text("role").notNull(), // 'user' эсвэл 'assistant'
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxSessionHistory: index("ai_chat_history_session_idx").on(t.sessionId, t.createdAt),
+}));
+
+
+// ---------------------------------------------------------------------------
+// Workwear Entitlement Management System
+// ---------------------------------------------------------------------------
+
+export const workwearItems = pgTable("workwear_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // clothing, footwear, headwear, gloves, eyewear, other
+  description: text("description"),
+  allowancePerYear: integer("allowance_per_year").notNull().default(1),
+  unitPrice: numeric("unit_price", { precision: 12, scale: 2 }), // Нэгжийн жишиг үнэ — захиалахд ашиглана
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxWorkwearItemsTenant: index("workwear_items_tenant_idx").on(t.tenantId),
+}));
+
+export const insertWorkwearItemSchema = createInsertSchema(workwearItems);
+export const selectWorkwearItemSchema = createSelectSchema(workwearItems);
+export type WorkwearItem = typeof workwearItems.$inferSelect;
+export type InsertWorkwearItem = z.infer<typeof insertWorkwearItemSchema>;
+
+export const workwearIssuances = pgTable("workwear_issuances", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "cascade" }).notNull(),
+  workwearItemId: uuid("workwear_item_id").references(() => workwearItems.id, { onDelete: "cascade" }).notNull(),
+  issuedByUserId: uuid("issued_by_user_id").references(() => users.id).notNull(),
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  size: text("size"),
+  notes: text("notes"),
+  year: integer("year").notNull(), // Хэдэн оны нормоор олгосон
+  status: text("status").notNull().default("granted"), // "granted", "collected", "expired"
+  priceAtTime: numeric("price_at_time", { precision: 12, scale: 2 }), // Олгох үедийн хүлээсэн үнэ
+  expiresAt: timestamp("expires_at"),                     // Эрх дуусах огноо
+  collectedByUserId: uuid("collected_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  collectedAt: timestamp("collected_at"),
+}, (t) => ({
+  idxWorkwearIssuancesEmployee: index("workwear_issuances_emp_idx").on(t.tenantId, t.employeeId, t.year),
+}));
+
+export const insertWorkwearIssuanceSchema = createInsertSchema(workwearIssuances);
+export const selectWorkwearIssuanceSchema = createSelectSchema(workwearIssuances);
+export type WorkwearIssuance = typeof workwearIssuances.$inferSelect;
+export type InsertWorkwearIssuance = z.infer<typeof insertWorkwearIssuanceSchema>;
+
+// ---------------------------------------------------------------------------
+// Workwear Position Templates
+// ---------------------------------------------------------------------------
+
+export const workwearTemplates = pgTable("workwear_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),                        // Жишээ: "Уурхайн малтагч"
+  description: text("description"),
+  jobTitleId: uuid("job_title_id"),                    // Хэрэв тодорхой ажлын байртай бол холбоно
+  isActive: boolean("is_active").default(true).notNull(),
+  createdByUserId: uuid("created_by_user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  idxWorkwearTemplatesTenant: index("workwear_templates_tenant_idx").on(t.tenantId),
+}));
+
+export const workwearTemplateItems = pgTable("workwear_template_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  templateId: uuid("template_id").references(() => workwearTemplates.id, { onDelete: "cascade" }).notNull(),
+  workwearItemId: uuid("workwear_item_id").references(() => workwearItems.id, { onDelete: "cascade" }).notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  allowancePerYear: integer("allowance_per_year").notNull().default(1), // Override item default
+}, (t) => ({
+  idxWorkwearTemplateItemsTemplate: index("workwear_template_items_tpl_idx").on(t.templateId),
+}));
+
+export const insertWorkwearTemplateSchema = createInsertSchema(workwearTemplates);
+export const selectWorkwearTemplateSchema = createSelectSchema(workwearTemplates);
+export type WorkwearTemplate = typeof workwearTemplates.$inferSelect;
+export type InsertWorkwearTemplate = z.infer<typeof insertWorkwearTemplateSchema>;
+
+export const insertWorkwearTemplateItemSchema = createInsertSchema(workwearTemplateItems);
+export type WorkwearTemplateItem = typeof workwearTemplateItems.$inferSelect;

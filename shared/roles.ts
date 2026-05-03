@@ -26,6 +26,16 @@ export function isPrivileged(role?: string | null): boolean {
     return r === "admin" || r === "hr";
 }
 
+export function isWarehouse(role?: string | null): boolean {
+    return normalizeRole(role) === "warehouse";
+}
+
+// Check if user has warehouse access (via userRoles array or primary role)
+export function hasWarehouseAccess(primaryRole?: string | null, userRoles?: { name: string }[]): boolean {
+    if (isWarehouse(primaryRole) || isPrivileged(primaryRole)) return true;
+    return userRoles?.some(r => normalizeRole(r.name) === "warehouse") ?? false;
+}
+
 // Team-level access: Manager + Admin/HR
 export function canViewTeamPerformance(role?: string | null): boolean {
     return isManager(role) || isPrivileged(role);

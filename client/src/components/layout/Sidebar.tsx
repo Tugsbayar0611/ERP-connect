@@ -1,44 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Users,
-  Building2,
-  CalendarCheck,
-  CalendarOff,
-  CreditCard,
-  FileText,
-  LayoutDashboard,
-  LogOut,
-  Settings as SettingsIcon,
-  Moon,
-  Sun,
-  Package,
-  UserCircle,
-  ShoppingCart,
-  ShoppingBag,
-  Warehouse,
-  Receipt,
-  BookOpen,
-  FileSpreadsheet,
-  BookMarked,
-  BarChart3,
-  FileCheck,
-  Banknote,
-  History,
-  Bell,
-  TrendingUp,
-  AlertTriangle,
-  MessageSquare,
-  CalendarDays,
-  Clock,
-  Bus,
-  Inbox,
-  Shield,
-  Utensils,
-  Wallet,
-  Bot,
-} from "lucide-react";
+import { Moon, Sun, LogOut, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/components/theme-provider";
@@ -46,141 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { isEmployee, isPrivileged, isManager, canViewTeamPerformance } from "@shared/roles";
-import { hasPermission, type Resource, type Action } from "@shared/permissions";
-
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ElementType;
-  requiredPermission?: { resource: Resource; action: Action };
-};
-
-type NavGroup = {
-  title: string;
-  items: NavItem[];
-};
-
+import { hasWarehouseAccess } from "@shared/roles";
+import { hasPermission } from "@shared/permissions";
+import { originalNavGroups, employeeNavGroups, warehouseNavGroups } from "@/config/navigation";
 import { GlobalSearch } from "./GlobalSearch";
-
-const originalNavGroups: NavGroup[] = [
-  {
-    title: "Overview",
-    items: [
-      { href: "/", label: "Хянах самбар", icon: LayoutDashboard },
-      { href: "/me/canteen", label: "Хоолны эрх", icon: Wallet },
-      { href: "/reports", label: "Тайлангууд", icon: BarChart3 },
-      { href: "/news", label: "Мэдээлэл", icon: Bell },
-      { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
-    ],
-  },
-  {
-    title: "Workforce",
-    items: [
-      {
-        href: "/manager/rosters/calendar",
-        label: "Ээлжийн хуваарь",
-        icon: CalendarDays,
-        // Explicitly allowing Admin/HR even if permission check alone is used, 
-        // but since Admin HAS permission, maybe it's the `isManager` check somewhere?
-        // User specifically asked for: roles.includes('manager') || roles.includes('admin') || roles.includes('hr')
-        // I will add a custom check function if the Sidebar supports it, or just assume the permission system works.
-        // Actually, if I look at `Sidebar.tsx` implementation (which I will do next), I can see.
-        requiredPermission: { resource: 'roster', action: 'read' }
-      },
-      { href: "/admin/rosters", label: "Ээлж төлөвлөлт", icon: SettingsIcon, requiredPermission: { resource: 'roster', action: 'write' } },
-      { href: "/admin/shifts", label: "Ээлжийн төрөл", icon: Clock, requiredPermission: { resource: 'roster', action: 'write' } },
-    ]
-  },
-  {
-    title: "HR & Organization",
-    items: [
-      { href: "/employees", label: "Ажилтнууд", icon: Users },
-      { href: "/departments", label: "Хэлтсүүд", icon: Building2 },
-      { href: "/attendance", label: "Ирц бүртгэл", icon: CalendarCheck },
-      { href: "/requests", label: "Хүсэлтүүд", icon: Inbox },
-      { href: "/payroll", label: "Цалин", icon: CreditCard },
-      { href: "/performance", label: "Гүйцэтгэл", icon: TrendingUp },
-      { href: "/safety", label: "Аюулгүй ажиллагаа", icon: AlertTriangle },
-      { href: "/communication", label: "Дотоод харилцаа", icon: MessageSquare },
-      { href: "/canteen/admin", label: "Цайны газар", icon: Utensils },
-    ],
-  },
-  {
-    title: "Operation",
-    items: [
-      { href: "/products", label: "Бараа", icon: Package },
-      { href: "/inventory", label: "Агуулах", icon: Warehouse },
-      { href: "/sales", label: "Борлуулалт", icon: ShoppingCart },
-      { href: "/purchase", label: "Худалдан авалт", icon: ShoppingBag },
-      { href: "/contacts", label: "Харилцагчид", icon: UserCircle },
-      { href: "/admin/transport", label: "Тээвэр", icon: Bus },
-    ],
-  },
-  // {
-  //   title: "Finance",
-  //   items: [
-  //     { href: "/invoices", label: "Нэхэмжлэх", icon: Receipt },
-  //     { href: "/journals", label: "Ерөнхий журнал (GL)", icon: BookMarked },
-  //     { href: "/accounts", label: "Дансны төлөвлөгөө", icon: FileSpreadsheet },
-  //     { href: "/tax-codes", label: "Татварын тохиргоо", icon: FileCheck },
-  //     { href: "/bank-statements", label: "Банкны хуулга", icon: Banknote },
-  //   ],
-  // },
-  {
-    title: "System",
-    items: [
-      { href: "/documents", label: "Баримтууд", icon: FileText },
-      { href: "/audit-logs", label: "Хяналтын бүртгэл", icon: History },
-      { href: "/settings", label: "Тохиргоо", icon: SettingsIcon },
-    ],
-  },
-  {
-    title: "MY WORKSPAACE",
-    items: []
-  }
-];
-
-const employeeNavGroups: NavGroup[] = [
-  {
-    title: "MY WORKSPACE",
-    items: [
-      { href: "/settings", label: "Тохиргоо (Профайл)", icon: UserCircle },
-      { href: "/", label: "Хянах самбар", icon: LayoutDashboard },
-      { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
-      { href: "/action-center", label: "Мэдэгдэл", icon: Bell },
-      { href: "/communication", label: "Чат", icon: MessageSquare },
-      { href: "/me/sessions", label: "Сешнүүд", icon: Shield },
-    ],
-  },
-  {
-    title: "HR",
-    items: [
-      { href: "/me/canteen", label: "Хоолны эрх", icon: Wallet },
-      { href: "/me/roster", label: "Миний ээлж", icon: CalendarDays },
-      { href: "/attendance", label: "Миний ирц", icon: CalendarCheck },
-      { href: "/transport/booking", label: "Автобус захиалга", icon: Bus },
-      { href: "/me/requests", label: "Миний хүсэлтүүд", icon: FileText },
-      { href: "/payroll", label: "Цалингийн хуудас", icon: CreditCard },
-      { href: "/documents", label: "Баримтууд", icon: FileText },
-    ],
-  },
-  {
-    title: "HSE",
-    items: [
-      { href: "/safety", label: "Аюулгүй ажиллагаа", icon: AlertTriangle },
-    ],
-  },
-  {
-    title: "PERSONAL",
-    items: [
-      { href: "/performance", label: "Миний зорилго", icon: TrendingUp },
-    ],
-  },
-];
 
 import { useFavorites } from "@/hooks/use-favorites";
 import { useNotifications } from "@/hooks/use-notifications";
-import { Star } from "lucide-react";
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -203,11 +38,18 @@ export function Sidebar() {
     if (!user) return [];
 
     const role = (user.role || "").toLowerCase() as any;
-    // Check if role is strictly employee (not manager/admin/hr)
-    // Note: isEmployee/isManager etc in shared/roles handle normalization internally, but here we need it for hasPermission key lookup
     const isRegularEmployee = isEmployee(role) && !isManager(role) && !isPrivileged(role);
+    // Warehouse role: nярав — dedicated nav (can coexist with employee role)
+    const isWarehouseUser = hasWarehouseAccess(role, (user as any).userRoles);
 
-    const groups = isRegularEmployee ? employeeNavGroups : originalNavGroups;
+    let groups;
+    if (isRegularEmployee && !isWarehouseUser) {
+      groups = employeeNavGroups;
+    } else if (isWarehouseUser && !isPrivileged(role)) {
+      groups = warehouseNavGroups;
+    } else {
+      groups = originalNavGroups;
+    }
 
     // Filter by Permission
     return groups.map(group => ({
