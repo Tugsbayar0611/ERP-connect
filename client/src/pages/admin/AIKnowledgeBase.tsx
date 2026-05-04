@@ -33,7 +33,7 @@ export default function AIKnowledgeBaseAdmin() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [search, setSearch] = useState("");
-    
+
     // Modal state
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -139,8 +139,8 @@ export default function AIKnowledgeBaseAdmin() {
         }
     });
 
-    const filteredKbs = kbs.filter(kb => 
-        kb.title.toLowerCase().includes(search.toLowerCase()) || 
+    const filteredKbs = kbs.filter(kb =>
+        kb.title.toLowerCase().includes(search.toLowerCase()) ||
         kb.content.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -150,7 +150,7 @@ export default function AIKnowledgeBaseAdmin() {
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
                         <Brain className="h-8 w-8 text-primary" />
-                        AI Сургалтын Бааз
+                        AI Сургалт
                     </h2>
                     <p className="text-muted-foreground mt-1">
                         AI туслах энэхүү мэдлэгийн санг уншиж ажилчдын асуултад хариулах болно.
@@ -207,7 +207,7 @@ export default function AIKnowledgeBaseAdmin() {
                                 <p className="text-sm text-muted-foreground line-clamp-4 whitespace-pre-wrap">
                                     {kb.content}
                                 </p>
-                                
+
                                 <div className="mt-4 pt-4 border-t flex justify-between items-center">
                                     <div className="text-xs text-muted-foreground truncate w-2/3" title={kb.keywords || ""}>
                                         {kb.keywords ? `Түлхүүр: ${kb.keywords}` : "Түлхүүр үггүй"}
@@ -216,9 +216,9 @@ export default function AIKnowledgeBaseAdmin() {
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openForm(kb)}>
                                             <Pencil className="w-3.5 h-3.5" />
                                         </Button>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
                                             className="h-7 w-7 text-destructive hover:text-destructive"
                                             onClick={() => {
                                                 if (confirm("Устгах уу?")) deleteMutation.mutate(kb.id);
@@ -243,8 +243,8 @@ export default function AIKnowledgeBaseAdmin() {
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <Label>Гарчиг (Асуулт хэлбэрээр байвал зүгээр)</Label>
-                            <Input 
-                                placeholder="Ж/нь: Автобус хэрхэн захиалах вэ?" 
+                            <Input
+                                placeholder="Ж/нь: Автобус хэрхэн захиалах вэ?"
                                 value={formData.title}
                                 onChange={e => setFormData(p => ({ ...p, title: e.target.value }))}
                             />
@@ -265,8 +265,8 @@ export default function AIKnowledgeBaseAdmin() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Түлхүүр үгс (Таслалаар тусгаарлах)</Label>
-                                <Input 
-                                    placeholder="Ж/нь: автобус, унаа, аялал" 
+                                <Input
+                                    placeholder="Ж/нь: автобус, унаа, аялал"
                                     value={formData.keywords}
                                     onChange={e => setFormData(p => ({ ...p, keywords: e.target.value }))}
                                 />
@@ -274,7 +274,7 @@ export default function AIKnowledgeBaseAdmin() {
                         </div>
                         <div className="space-y-2">
                             <Label>Дэлгэрэнгүй зааварчилгаа (Алхам алхмаар бичвэл сайн)</Label>
-                            <Textarea 
+                            <Textarea
                                 className="min-h-[200px]"
                                 placeholder="1. Эхлээд ... руу орно.&#10;2. Дараа нь ... товчийг дарна."
                                 value={formData.content}

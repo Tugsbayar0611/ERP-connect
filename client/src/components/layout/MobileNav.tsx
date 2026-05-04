@@ -11,8 +11,9 @@ import { GlobalSearch } from "./GlobalSearch";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useNotifications } from "@/hooks/use-notifications";
 import { isEmployee, isPrivileged, isManager } from "@shared/roles";
+import { hasWarehouseAccess } from "@shared/roles";
 import { hasPermission } from "@shared/permissions";
-import { originalNavGroups, employeeNavGroups } from "@/config/navigation";
+import { originalNavGroups, employeeNavGroups, warehouseNavGroups } from "@/config/navigation";
 import { Separator } from "@/components/ui/separator";
 
 export function MobileNav() {
@@ -35,7 +36,12 @@ export function MobileNav() {
 
     const role = (user.role || "").toLowerCase() as any;
     const isRegularEmployee = isEmployee(role) && !isManager(role) && !isPrivileged(role);
-    const groups = isRegularEmployee ? employeeNavGroups : originalNavGroups;
+    const isWarehouseUser = hasWarehouseAccess(role, (user as any).userRoles);
+
+    let groups;
+    if (isRegularEmployee && !isWarehouseUser) groups = employeeNavGroups;
+    else if (isWarehouseUser && !isPrivileged(role)) groups = warehouseNavGroups;
+    else groups = originalNavGroups;
 
     return groups.map(group => ({
       ...group,
@@ -75,7 +81,7 @@ export function MobileNav() {
               </div>
             </div>
             <div className="mt-4">
-              <GlobalSearch onSelect={() => setOpen(false)} />
+              <GlobalSearch />
             </div>
           </div>
 

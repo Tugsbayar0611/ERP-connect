@@ -551,9 +551,9 @@ export default function Employees(): JSX.Element {
           <h2 className="text-3xl font-bold tracking-tight font-display">
             Ажилтнууд
           </h2>
-          <p className="text-muted-foreground mt-1">
+          {/* <p className="text-muted-foreground mt-1">
             Байгууллагын ажилтнуудыг удирдах.
-          </p>
+          </p> */}
         </div>
 
         {isManager && (

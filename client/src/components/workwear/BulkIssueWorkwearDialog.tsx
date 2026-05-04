@@ -155,9 +155,9 @@ export default function BulkIssueWorkwearDialog({ open, onOpenChange, items }: B
             <Users className="w-5 h-5 text-primary" />
             Бөөнөөр хувцас олгох
           </DialogTitle>
-          <DialogDescription>
+          {/* <DialogDescription>
             Олон ажилтанд нэгэн зэрэг хувцас олгож бүртгэнэ. Систем нормын хязгаарыг автоматаар шалгана.
-          </DialogDescription>
+          </DialogDescription> */}
         </DialogHeader>
 
         {/* Step indicator */}
@@ -169,7 +169,7 @@ export default function BulkIssueWorkwearDialog({ open, onOpenChange, items }: B
           <div className="h-px flex-1 bg-border" />
           <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full transition-colors ${step === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
             <span>2</span>
-            <span>Хувцас тохируулах</span>
+            <span>Хувцас сонгох</span>
           </div>
         </div>
 
@@ -202,19 +202,25 @@ export default function BulkIssueWorkwearDialog({ open, onOpenChange, items }: B
 
             {/* Quick department select buttons */}
             {departments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {departments.map((d: any) => {
-                  const count = employees.filter((e: any) => e.departmentId === d.id).length;
-                  return (
-                    <button
-                      key={d.id}
-                      onClick={() => selectByDept(d.id)}
-                      className="text-xs px-2 py-1 rounded-md bg-muted hover:bg-primary/20 transition-colors border border-border"
-                    >
-                      {d.name} ({count}ш) нэмэх
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Салбараар нэмэх:</span>
+                <Select value="" onValueChange={(val) => {
+                  if (val) selectByDept(val);
+                }}>
+                  <SelectTrigger className="h-8 flex-1 text-xs bg-muted/30">
+                    <SelectValue placeholder="Сонгох..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((d: any) => {
+                      const count = employees.filter((e: any) => e.departmentId === d.id).length;
+                      return (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name} ({count} хүн)
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -255,11 +261,10 @@ export default function BulkIssueWorkwearDialog({ open, onOpenChange, items }: B
                       <div
                         key={emp.id}
                         onClick={() => toggleEmployee(emp.id)}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
-                          selected
-                            ? "bg-primary/10 border border-primary/30"
-                            : "hover:bg-muted/60 border border-transparent"
-                        }`}
+                        className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${selected
+                          ? "bg-primary/10 border border-primary/30"
+                          : "hover:bg-muted/60 border border-transparent"
+                          }`}
                       >
                         <Checkbox
                           checked={selected}
