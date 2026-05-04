@@ -7,32 +7,27 @@ import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { createServer as createHttpsServer } from "https";
+import fs from "fs";
 import { pool } from "./db"; // DB холболт тест хийхэд ашиглая
 import { initializeSocket } from "./socket";
 import { rateLimitStore } from "./security";
 const app = express();
 const httpServer = createServer(app);
+// HTTPS server
+const httpsServer = createHttpsServer({
+  key: fs.readFileSync("/opt/ERP-connect/10.0.7.151-key.pem"),
+  cert: fs.readFileSync("/opt/ERP-connect/10.0.7.151.pem"),
+}, app);
 
 // Initialize Socket.io
 const io = initializeSocket(httpServer);
 
-// Security Headers (Helmet)
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // Tailwind needs inline styles, Google Fonts for stylesheets
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite dev mode needs eval
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https:", "ws:", "wss:"],
-      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://fonts.googleapis.com"], // Google Fonts
-      frameSrc: ["'self'", "blob:"], // Allow blob URLs in iframes for PDF preview
-      objectSrc: ["'self'", "blob:"], // Allow blob URLs in object tags for PDF preview
-    },
-  },
-  crossOriginEmbedderPolicy: false, // Vite HMR needs this
-}));
+// Security Headers (Helmet) - disabled for HTTP
+// app.use(helmet(...));
 
+// Remove HSTS header
+app.use((req, res, next) => { res.removeHeader("Strict-Transport-Security"); res.removeHeader("Content-Security-Policy"); res.setHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: ws: wss:"); next(); });
 // CORS Configuration
 const corsOptions = {
   origin: process.env.CORS_ORIGIN
@@ -183,4 +178,10 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
+  httpsServer.listen(5443, "0.0.0.0", () => {
+    log(`serving HTTPS on port 5443`);
+  });
+  httpsServer.listen(5443, "0.0.0.0", () => {
+    log(`serving HTTPS on port 5443`);
+  });
 })();
