@@ -28,9 +28,11 @@ app.use(helmet({
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://fonts.googleapis.com"], // Google Fonts
       frameSrc: ["'self'", "blob:"], // Allow blob URLs in iframes for PDF preview
       objectSrc: ["'self'", "blob:"], // Allow blob URLs in object tags for PDF preview
+      upgradeInsecureRequests: null, // Disable — allows plain HTTP on internal network
     },
   },
   crossOriginEmbedderPolicy: false, // Vite HMR needs this
+  hsts: false, // Disable HSTS — allows plain HTTP on internal network (10.x.x.x)
 }));
 
 // CORS Configuration
