@@ -46,16 +46,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// HTTPS enforcement (production only) - early in middleware chain
-if (process.env.NODE_ENV === "production") {
-  app.use((req: any, res: any, next: any) => {
-    const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
-    if (!isSecure) {
-      return res.redirect(301, `https://${req.headers.host}${req.url}`);
-    }
-    next();
-  });
-}
+
 
 // Serve uploads
 import path from "path";
@@ -164,14 +155,18 @@ app.use((req, res, next) => {
   });
 
   // Vite / static
-  if (process.env.NODE_ENV === "production" && process.env.FORCE_HTTPS === "true") {
-    app.use((req: any, res: any, next: any) => {
-      const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
-      if (!isSecure) {
-        return res.redirect(301, `https://${req.headers.host}${req.url}`);
-      }
-      next();
-    });
+  if (process.env.NODE_ENV === "production") {
+    if (process.env.FORCE_HTTPS === "true") {
+      app.use((req: any, res: any, next: any) => {
+        const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
+        if (!isSecure) {
+          return res.redirect(301, `https://${req.headers.host}${req.url}`);
+        }
+        next();
+      });
+    }
+    const { serveStatic } = await import("./static");
+    serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
