@@ -47,9 +47,11 @@ async function seed() {
     const [created] = await db.insert(users).values({
       tenantId: tenant!.id,
       email: "admin@gmail.com",
+      username: "admin",
       fullName: "System Admin",
       passwordHash,
       role: "Admin",
+      status: "active",
       isActive: true,
     }).returning();
 

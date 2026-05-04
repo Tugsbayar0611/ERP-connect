@@ -112,7 +112,7 @@ export function setupAuth(app: Express) {
     saveUninitialized: false,
     cookie: {
       maxAge: 30 * 60 * 1000, // 30 minutes (session timeout)
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production" && process.env.FORCE_HTTPS === "true",
       httpOnly: true,
       sameSite: "lax",
     },
