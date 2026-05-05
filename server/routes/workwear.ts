@@ -415,6 +415,15 @@ export function registerWorkwearRoutes(app: Express) {
       const userId = req.user?.id;
       if (!tenantId || !userId) return res.status(401).json({ error: "Unauthorized" });
 
+      // Only warehouse, admin, or hr can physically hand out items
+      const userRole = (req.user?.role || "").toLowerCase();
+      const userRoles: string[] = (req.user?.userRoles || []).map((r: any) => r.name.toLowerCase());
+      const allRoles = [userRole, ...userRoles];
+      const canFulfill = allRoles.some((r: string) => ["warehouse", "admin", "hr"].includes(r));
+      if (!canFulfill) {
+        return res.status(403).json({ error: "Зөвхөн нярав (warehouse), HR эсвэл админ хувцас олгох боломжтой" });
+      }
+
       const { issuanceId, size } = req.body;
 
       const [issuance] = await db.select().from(workwearIssuances)

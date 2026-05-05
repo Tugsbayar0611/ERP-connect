@@ -98,13 +98,13 @@ function renderContent(text: string) {
       .split(/(`[^`]+`)/g)
       .map((s, i) =>
         s.startsWith("`") && s.endsWith("`") ? (
-          <code key={i} className="px-1.5 py-0.5 rounded bg-white/10 text-violet-300 font-mono text-[0.85em]">
+          <code key={i} className="px-1.5 py-0.5 rounded bg-muted text-violet-600 dark:text-violet-300 font-mono text-[0.85em]">
             {s.slice(1, -1)}
           </code>
         ) : (
           s.split(/(\*\*[^*]+\*\*)/g).map((b, j) =>
             b.startsWith("**") && b.endsWith("**") ? (
-              <strong key={j} className="font-semibold text-white">{b.slice(2, -2)}</strong>
+              <strong key={j} className="font-semibold text-foreground">{b.slice(2, -2)}</strong>
             ) : (
               <span key={j}>{b}</span>
             )
@@ -126,7 +126,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={copy}
-      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-white transition-colors"
+      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
     >
       {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
       {copied ? "Хуулагдлаа" : "Хуулах"}
@@ -145,10 +145,10 @@ function MessageBubble({ msg }: { msg: Message }) {
           "w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1",
           isUser
             ? "bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25"
-            : "bg-gradient-to-br from-slate-700 to-slate-800 border border-white/10"
+            : "bg-secondary border border-border"
         )}
       >
-        {isUser ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-violet-400" />}
+        {isUser ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-foreground/80" />}
       </div>
 
       {/* Content */}
@@ -158,7 +158,7 @@ function MessageBubble({ msg }: { msg: Message }) {
             "px-4 py-3 rounded-2xl text-sm leading-relaxed",
             isUser
               ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-tr-sm shadow-lg shadow-violet-500/20"
-              : "bg-white/5 border border-white/10 text-slate-200 rounded-tl-sm"
+              : "bg-muted/40 border border-border text-foreground rounded-tl-sm shadow-sm"
           )}
         >
           {isUser ? (

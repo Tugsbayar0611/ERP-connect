@@ -297,7 +297,7 @@ export default function BulkIssueWorkwearDialog({ open, onOpenChange, items }: B
               >
                 Үргэлжлүүлэх →
                 {selectedEmployeeIds.size > 0 && (
-                  <Badge className="ml-2 bg-white/20 text-white border-0 text-xs">
+                  <Badge className="ml-2 bg-primary-foreground/20 text-primary-foreground border-0 text-xs">
                     {selectedEmployeeIds.size}
                   </Badge>
                 )}
