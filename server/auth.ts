@@ -174,24 +174,50 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        console.log("[AUTH DEBUG] Login attempt:", { username, passwordLength: password?.length });
+
         const user = await storage.getUserByUsername(username);
-        if (!user || !user.passwordHash || !(await comparePasswords(password, user.passwordHash))) {
-          return done(null, false, { message: "Нэвтрэх нэр эсвэл  нууц үг буруу байна" });
+        console.log("[AUTH DEBUG] User found by username:", user
+          ? { id: user.id, username: user.username, email: user.email, hasPasswordHash: !!user.passwordHash, passwordHashPrefix: user.passwordHash?.substring(0, 20) + "...", status: (user as any).status }
+          : null
+        );
+
+        if (!user) {
+          console.log("[AUTH DEBUG] FAIL: User not found for username:", username);
+          return done(null, false, { message: "Нэвтрэх нэр эсвэл нууц үг буруу байна" });
+        }
+
+        if (!user.passwordHash) {
+          console.log("[AUTH DEBUG] FAIL: User has no passwordHash (Google OAuth user?)");
+          return done(null, false, { message: "Нэвтрэх нэр эсвэл нууц үг буруу байна" });
+        }
+
+        const passwordMatch = await comparePasswords(password, user.passwordHash);
+        console.log("[AUTH DEBUG] Password match result:", passwordMatch);
+
+        if (!passwordMatch) {
+          console.log("[AUTH DEBUG] FAIL: Password mismatch for user:", username);
+          return done(null, false, { message: "Нэвтрэх нэр эсвэл нууц үг буруу байна" });
         }
 
         // Check user status for admin approval workflow
         if ((user as any).status === "pending") {
+          console.log("[AUTH DEBUG] FAIL: User status is pending");
           return done(null, false, { message: "Таны бүртгэлийг админ баталгаажуулаагүй байна. Түр хүлээнэ үү." });
         }
         if ((user as any).status === "rejected") {
+          console.log("[AUTH DEBUG] FAIL: User status is rejected");
           return done(null, false, { message: "Таны хүсэлт татгалзагдсан байна. Админтай холбогдоно уу." });
         }
         if ((user as any).status === "invited") {
+          console.log("[AUTH DEBUG] FAIL: User status is invited");
           return done(null, false, { message: "Та имэйлээр ирсэн урилгын линкээр нууц үгээ тохируулна уу." });
         }
 
+        console.log("[AUTH DEBUG] SUCCESS: Login OK for user:", { id: user.id, username: user.username, email: user.email });
         return done(null, user);
       } catch (err) {
+        console.error("[AUTH DEBUG] ERROR in LocalStrategy:", err);
         return done(err);
       }
     }),
@@ -610,10 +636,15 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/auth/login", createRateLimiter(15 * 60 * 1000, 5), async (req, res, next) => {
+    console.log("[AUTH DEBUG] POST /api/auth/login - body:", { username: req.body?.username, email: req.body?.email, passwordLength: req.body?.password?.length });
     passport.authenticate("local", async (err: any, user: any, info: any) => {
-      if (err) return next(err);
+      if (err) {
+        console.error("[AUTH DEBUG] passport.authenticate error:", err);
+        return next(err);
+      }
       if (!user) {
-        return res.status(401).json({ message: "Invalid username or password" });
+        console.log("[AUTH DEBUG] passport.authenticate returned no user, info:", info);
+        return res.status(401).json({ message: info?.message || "Invalid username or password" });
       }
 
       // Check if 2FA is enabled
