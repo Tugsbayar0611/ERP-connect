@@ -54,3 +54,5 @@ server/public/
 
 # If you store static source assets that must be deployed, DO NOT ignore server/public/
 # (then remove the line above)
+*.pem
+*.key
