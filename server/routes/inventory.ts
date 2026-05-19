@@ -31,7 +31,7 @@ const router = Router();
     res.json(product);
   });
 
-  router.post("/api/products", requireTenant, async (req: any, res) => {
+  router.post("/api/products", requireTenantAndPermission, async (req: any, res) => {
     try {
       const input = { ...insertProductSchema.parse(req.body), tenantId: req.tenantId } as DbInsertProduct;
       const product = await storage.createProduct(input);
@@ -46,7 +46,7 @@ const router = Router();
     }
   });
 
-  router.put("/api/products/:id", requireTenant, async (req: any, res) => {
+  router.put("/api/products/:id", requireTenantAndPermission, async (req: any, res) => {
     try {
       const existing = await storage.getProduct(req.params.id);
       if (!existing || existing.tenantId !== req.tenantId) {
@@ -80,7 +80,7 @@ const router = Router();
     res.json(categories);
   });
 
-  router.post("/api/product-categories", requireTenant, async (req: any, res) => {
+  router.post("/api/product-categories", requireTenantAndPermission, async (req: any, res) => {
     try {
       const input = { ...insertProductCategorySchema.parse(req.body), tenantId: req.tenantId } as any;
       const category = await storage.createProductCategory(input);
@@ -102,7 +102,7 @@ const router = Router();
     res.json(warehouses);
   });
 
-  router.post("/api/warehouses", requireTenant, async (req: any, res) => {
+  router.post("/api/warehouses", requireTenantAndPermission, async (req: any, res) => {
     try {
       const input = { ...insertWarehouseSchema.parse(req.body), tenantId: req.tenantId } as DbInsertWarehouse;
       const warehouse = await storage.createWarehouse(input);
@@ -241,7 +241,7 @@ const router = Router();
     }
   });
 
-  router.post("/api/inventory/bulk-actions", requireTenant, async (req: any, res) => {
+  router.post("/api/inventory/bulk-actions", requireTenantAndPermission, async (req: any, res) => {
     try {
       const { action, ids } = req.body;
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -294,7 +294,7 @@ const router = Router();
     }))
   });
 
-  router.post("/api/sales-orders", requireTenant, async (req: any, res) => {
+  router.post("/api/sales-orders", requireTenantAndPermission, async (req: any, res) => {
     try {
       const data = salesOrderSchema.parse(req.body);
 
@@ -430,7 +430,7 @@ const router = Router();
   });
 
   // Bulk cancel orders
-  router.post("/api/sales-orders/bulk-cancel", requireTenant, async (req: any, res) => {
+  router.post("/api/sales-orders/bulk-cancel", requireTenantAndPermission, async (req: any, res) => {
     try {
       const { ids } = req.body;
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -450,7 +450,7 @@ const router = Router();
   });
 
   // Bulk delete draft orders
-  router.post("/api/sales-orders/bulk-delete", requireTenant, async (req: any, res) => {
+  router.post("/api/sales-orders/bulk-delete", requireTenantAndPermission, async (req: any, res) => {
     try {
       const { ids } = req.body;
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -553,7 +553,7 @@ const router = Router();
     }))
   });
 
-  router.post("/api/purchase-orders", requireTenant, async (req: any, res) => {
+  router.post("/api/purchase-orders", requireTenantAndPermission, async (req: any, res) => {
     try {
       const data = purchaseOrderSchema.parse(req.body);
 
@@ -619,7 +619,7 @@ const router = Router();
     }
   });
 
-  router.post("/api/purchase-orders/bulk-delete", requireTenant, async (req: any, res) => {
+  router.post("/api/purchase-orders/bulk-delete", requireTenantAndPermission, async (req: any, res) => {
     try {
       const { ids } = req.body;
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -642,7 +642,7 @@ const router = Router();
   });
 
   // Odoo-style workflow endpoints
-  router.put("/api/sales-orders/:id/confirm", requireTenant, async (req: any, res) => {
+  router.put("/api/sales-orders/:id/confirm", requireTenantAndPermission, async (req: any, res) => {
     try {
       await storage.updateSalesOrderStatus(req.params.id, "confirmed");
       res.json({ message: "Sales order confirmed" });
@@ -652,7 +652,7 @@ const router = Router();
     }
   });
 
-  router.put("/api/sales-orders/:id/send", requireTenant, async (req: any, res) => {
+  router.put("/api/sales-orders/:id/send", requireTenantAndPermission, async (req: any, res) => {
     try {
       await storage.updateSalesOrderStatus(req.params.id, "sent");
       res.json({ message: "Sales order sent" });
@@ -662,7 +662,7 @@ const router = Router();
     }
   });
 
-  router.post("/api/sales-orders/:id/create-invoice", requireTenant, async (req: any, res) => {
+  router.post("/api/sales-orders/:id/create-invoice", requireTenantAndPermission, async (req: any, res) => {
     try {
       const invoice = await storage.createInvoiceFromSalesOrder(req.params.id);
       res.status(201).json(invoice);
@@ -672,7 +672,7 @@ const router = Router();
     }
   });
 
-  router.put("/api/purchase-orders/:id/confirm", requireTenant, async (req: any, res) => {
+  router.put("/api/purchase-orders/:id/confirm", requireTenantAndPermission, async (req: any, res) => {
     try {
       await storage.updatePurchaseOrderStatus(req.params.id, "confirmed");
       res.json({ message: "Purchase order confirmed" });
@@ -682,7 +682,7 @@ const router = Router();
     }
   });
 
-  router.put("/api/purchase-orders/:id/receive", requireTenant, async (req: any, res) => {
+  router.put("/api/purchase-orders/:id/receive", requireTenantAndPermission, async (req: any, res) => {
     try {
       await storage.updatePurchaseOrderStatus(req.params.id, "received");
       res.json({ message: "Purchase order received, stock updated" });

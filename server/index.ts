@@ -5,7 +5,7 @@ import express, { type Request, type Response, type NextFunction } from "express
 import helmet from "helmet";
 import cors from "cors";
 import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
+import { serveStatic, serveUploads } from "./static";
 import { createServer } from "http";
 import { createServer as createHttpsServer } from "https";
 import fs from "fs";
@@ -14,20 +14,54 @@ import { initializeSocket } from "./socket";
 import { rateLimitStore } from "./security";
 const app = express();
 const httpServer = createServer(app);
-// HTTPS server
-const httpsServer = createHttpsServer({
-  key: fs.readFileSync("/opt/ERP-connect/10.0.7.151-key.pem"),
-  cert: fs.readFileSync("/opt/ERP-connect/10.0.7.151.pem"),
-}, app);
+// HTTPS server (only in production with SSL certs)
+const sslKeyPath = process.env.SSL_KEY_PATH || "/opt/ERP-connect/10.0.7.151-key.pem";
+const sslCertPath = process.env.SSL_CERT_PATH || "/opt/ERP-connect/10.0.7.151.pem";
+const httpsServer = fs.existsSync(sslKeyPath) && fs.existsSync(sslCertPath)
+  ? createHttpsServer({
+      key: fs.readFileSync(sslKeyPath),
+      cert: fs.readFileSync(sslCertPath),
+    }, app)
+  : null;
 
 // Initialize Socket.io
 const io = initializeSocket(httpServer);
 
-// Security Headers (Helmet) - disabled for HTTP
-// app.use(helmet(...));
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
-// Remove HSTS header
-app.use((req, res, next) => { res.removeHeader("Strict-Transport-Security"); res.removeHeader("Content-Security-Policy"); res.setHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: ws: wss:"); next(); });
+if (process.env.NODE_ENV === "production" && process.env.FORCE_HTTPS === "true") {
+  app.use((req: any, res, next) => {
+    const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
+    if (!isSecure) {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
+}
+
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === "production"
+    ? {
+        useDefaults: true,
+        directives: {
+          "default-src": ["'self'"],
+          "base-uri": ["'self'"],
+          "object-src": ["'none'"],
+          "frame-ancestors": ["'self'"],
+          "img-src": ["'self'", "data:", "blob:"],
+          "font-src": ["'self'", "data:"],
+          "style-src": ["'self'", "'unsafe-inline'"],
+          "script-src": ["'self'", "'unsafe-inline'"],
+          "connect-src": ["'self'", "ws:", "wss:"],
+          "worker-src": ["'self'", "blob:"],
+        },
+      }
+    : false,
+  crossOriginEmbedderPolicy: false,
+}));
+
 // CORS Configuration
 const corsOptions = {
   origin: process.env.CORS_ORIGIN
@@ -41,11 +75,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-
-
-// Serve uploads
-import path from "path";
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+serveUploads(app);
 
 declare module "http" {
   interface IncomingMessage {
@@ -87,10 +117,21 @@ app.get("/api/db-test", async (_req, res, next) => {
   }
 });
 
-app.get("/api/reset-rate-limit", (req, res, next) => {
+app.post("/api/reset-rate-limit", (req, res, next) => {
   try {
+    if (process.env.NODE_ENV === "production") {
+      const configuredToken = process.env.RATE_LIMIT_RESET_TOKEN;
+      const authHeader = req.get("authorization") || "";
+      const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+      const suppliedToken = req.get("x-admin-token") || bearerToken;
+
+      if (!configuredToken || suppliedToken !== configuredToken) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+    }
+
     rateLimitStore.clear();
-    res.send("Rate limit reset хийлээ");
+    res.json({ message: "Rate limit reset" });
   } catch (err) {
     next(err);
   }
@@ -131,36 +172,31 @@ app.use((req, res, next) => {
   const { default: aiRoutes } = await import("./routes/ai");
   app.use("/api/ai", aiRoutes);
 
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ message: "Not Found" });
+  });
+
   // Error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
 
     // Don't leak error details in production
-    const message = process.env.NODE_ENV === "production" && status === 500
-      ? "Internal Server Error"
+    const message = process.env.NODE_ENV === "production"
+      ? (status === 404 ? "Not Found" : status >= 500 ? "Internal Server Error" : err.message || "Error")
       : err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
 
     // Log error for debugging (but don't expose to client)
     if (process.env.NODE_ENV !== "production") {
       console.error("Error:", err);
-      throw err;
     }
   });
 
   // Vite / static
   if (process.env.NODE_ENV === "production") {
-    if (process.env.FORCE_HTTPS === "true") {
-      app.use((req: any, res: any, next: any) => {
-        const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
-        if (!isSecure) {
-          return res.redirect(301, `https://${req.headers.host}${req.url}`);
-        }
-        next();
-      });
-    }
-    const { serveStatic } = await import("./static");
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");
@@ -178,10 +214,7 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
-  httpsServer.listen(5443, "0.0.0.0", () => {
-    log(`serving HTTPS on port 5443`);
-  });
-  httpsServer.listen(5443, "0.0.0.0", () => {
+  httpsServer?.listen(5443, "0.0.0.0", () => {
     log(`serving HTTPS on port 5443`);
   });
 })();

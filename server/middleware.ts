@@ -1,6 +1,7 @@
 import { storage } from "./storage";
 import { getRoutePermission } from "./route-permissions";
 import { requirePermission } from "./permissions";
+import { isAdmin as isAdminRole } from "../shared/roles";
 // export { requirePermission } from "./permissions"; // Removed to avoid circular dep
 
 // Helper to ensure tenant context
@@ -19,7 +20,7 @@ export const getCurrentUserContext = async (req: any) => {
 
     // Get user roles
     const userRoles = userId ? await storage.getUserRoles(userId) : [];
-    const isAdmin = userRoles.some((r: any) => r.name.toLowerCase() === "admin" || r.isSystem);
+    const isAdmin = userRoles.some((r: any) => isAdminRole(r.name)) || isAdminRole(req.user?.role);
 
     // Get current user's employee record
     let currentEmployee = null;

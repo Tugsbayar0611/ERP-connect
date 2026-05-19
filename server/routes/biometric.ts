@@ -19,7 +19,7 @@ import {
 } from "@shared/schema";
 import { eq, and, desc, gte, sql } from "drizzle-orm";
 import { storage } from "../storage";
-import { requireTenant } from "../middleware";
+import { requireTenant, requireTenantAndPermission } from "../middleware";
 import { z } from "zod";
 import crypto from "crypto";
 
@@ -419,7 +419,7 @@ router.get("/devices", requireTenant, async (req: any, res) => {
     res.json(devices);
 });
 
-router.post("/devices", requireTenant, async (req: any, res) => {
+router.post("/devices", requireTenantAndPermission, async (req: any, res) => {
     const { name, location, deviceType, vehicleId } = req.body;
     if (!name || !location || !deviceType) {
         return res.status(400).json({ message: "name, location, deviceType шаардлагатай" });
@@ -440,7 +440,7 @@ router.post("/devices", requireTenant, async (req: any, res) => {
     res.status(201).json(device);
 });
 
-router.patch("/devices/:id", requireTenant, async (req: any, res) => {
+router.patch("/devices/:id", requireTenantAndPermission, async (req: any, res) => {
     const { name, location, deviceType, vehicleId, isActive } = req.body;
     const [updated] = await db.update(biometricDevices)
         .set({
@@ -460,7 +460,7 @@ router.patch("/devices/:id", requireTenant, async (req: any, res) => {
     res.json(updated);
 });
 
-router.delete("/devices/:id", requireTenant, async (req: any, res) => {
+router.delete("/devices/:id", requireTenantAndPermission, async (req: any, res) => {
     await db.delete(biometricDevices).where(and(
         eq(biometricDevices.id, req.params.id),
         eq(biometricDevices.tenantId, req.tenantId)
@@ -469,7 +469,7 @@ router.delete("/devices/:id", requireTenant, async (req: any, res) => {
 });
 
 // Token regenerate
-router.post("/devices/:id/rotate-token", requireTenant, async (req: any, res) => {
+router.post("/devices/:id/rotate-token", requireTenantAndPermission, async (req: any, res) => {
     const newToken = crypto.randomBytes(32).toString("hex");
     const [updated] = await db.update(biometricDevices)
         .set({ apiToken: newToken })

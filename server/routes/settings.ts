@@ -688,7 +688,7 @@ router.get("/users", requireTenant, async (req: any, res) => {
 
 router.post("/users", requireTenantAndPermission, async (req: any, res) => {
     try {
-        const { email, password, fullName } = req.body;
+        const { email, password, fullName, role } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ message: "Email and password are required" });
@@ -719,6 +719,16 @@ router.post("/users", requireTenantAndPermission, async (req: any, res) => {
             fullName: fullName || email,
             isActive: true,
         });
+
+        // Шинэ RBAC систем рүү (user_roles) эрхийг нь холбож өгөх
+        if (role) {
+            const roles = await storage.getRoles(req.tenantId);
+            // Frontend-ээс ирсэн Admin, User, Manager гэх мэт нэрээр нь хайж олно
+            const matchedRole = roles.find(r => r.name.toLowerCase() === role.toLowerCase());
+            if (matchedRole) {
+                await storage.assignRoleToUser(user.id, matchedRole.id);
+            }
+        }
 
         res.status(201).json(user);
     } catch (err: any) {
@@ -771,6 +781,10 @@ router.post("/users/:id/roles", requireTenantAndPermission, async (req: any, res
             return res.status(404).json({ message: "Role not found" });
         }
         await storage.assignRoleToUser(req.params.id, roleId);
+
+        // Хэрэглэгчийн хуучин role (string) талбарыг шинэчилж хуучин auth шалгалтуудыг хэвийн ажиллуулах
+        await storage.updateUser(req.params.id, { role: role.name });
+
         res.status(201).json({ message: "Role assigned" });
     } catch (err: any) {
         if (err instanceof z.ZodError) {
@@ -789,6 +803,18 @@ router.delete("/users/:id/roles/:roleId", requireTenantAndPermission, async (req
             return res.status(404).json({ message: "User not found" });
         }
         await storage.removeRoleFromUser(req.params.id, req.params.roleId);
+
+        // Үлдсэн role байгаа эсэхийг шалгаж users.role талбарыг шинэчлэх
+        const remainingRoles = await storage.getUserRoles(req.params.id);
+        if (remainingRoles && remainingRoles.length > 0) {
+            const nextRole = await storage.getRole(req.tenantId, remainingRoles[0].id);
+            if (nextRole) {
+                await storage.updateUser(req.params.id, { role: nextRole.name });
+            }
+        } else {
+            await storage.updateUser(req.params.id, { role: "User" });
+        }
+
         res.status(204).send();
     } catch (err: any) {
         console.error(err);

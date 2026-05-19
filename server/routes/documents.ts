@@ -30,13 +30,39 @@ const storageConfig = multer.diskStorage({
         cb(null, uniqueSuffix + '-' + safeName);
     }
 });
-const upload = multer({ storage: storageConfig });
+const allowedDocumentMimeTypes = new Set([
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "text/csv",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+
+const upload = multer({
+    storage: storageConfig,
+    limits: {
+        fileSize: 10 * 1024 * 1024,
+        files: 1,
+    },
+    fileFilter: (_req, file, cb) => {
+        const unsafeName = /(^|[._-])(env|secret|credential|token|private-key)([._-]|$)|\.(?:env|pem|key|pfx|p12|crt|cer|jks|kdb)$/i;
+        if (unsafeName.test(file.originalname)) {
+            return cb(new Error("Unsafe file name"));
+        }
+        if (!allowedDocumentMimeTypes.has(file.mimetype)) {
+            return cb(new Error("Unsupported file type"));
+        }
+        cb(null, true);
+    },
+});
 
 // --- Documents ---
 function serializeDocumentForUser(doc: any, user: any) {
     if (!doc) return doc;
-    const role = (user?.role || "").toLowerCase();
-    const isAdminOrHR = role === 'admin' || role === 'hr';
+    const isAdminOrHR = user?.isAdmin || user?.isHR;
     if (isAdminOrHR) return doc;
 
     // For employees, redact internal fields if they are not the owner
@@ -211,7 +237,7 @@ router.patch("/documents/:id/archive", requireTenantAndPermission, async (req: a
     }
 });
 
-router.post("/documents/upload", requireTenant, upload.single('file'), async (req: any, res) => {
+router.post("/documents/upload", requireTenantAndPermission, upload.single('file'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
@@ -242,7 +268,7 @@ router.post("/documents/upload", requireTenant, upload.single('file'), async (re
 // Actually, I'll keep it as is but be aware it might not be reached if order is same.
 // In a router file, order matters.
 // I will place it AFTER the upload one.
-router.post("/documents-v2", requireTenant, async (req: any, res) => {
+router.post("/documents-v2", requireTenantAndPermission, async (req: any, res) => {
     try {
         const { uploadedBy, ...body } = req.body;
 
@@ -301,7 +327,7 @@ router.post("/documents-v2", requireTenant, async (req: any, res) => {
 
 // DMS: Forward Document
 // DMS: Forward Document
-router.post("/documents/:id/forward", requireTenant, async (req: any, res) => {
+router.post("/documents/:id/forward", requireTenantAndPermission, async (req: any, res) => {
     try {
         const hasAccess = await storage.canUserAccessDocument(req.tenantId, req.params.id, req.user.id);
         if (!hasAccess) {
@@ -356,19 +382,7 @@ router.post("/documents/:id/forward", requireTenant, async (req: any, res) => {
 
 // Helper function for logic reuse
 async function getForwardRecipientsForUser(tenantId: string, user: any) {
-    let isUserPrivileged = isPrivileged(user.role);
-
-    // Robust RBAC Check
-    if (!isUserPrivileged && user.id) {
-        try {
-            const userRoles = await storage.getUserRoles(user.id);
-            if (userRoles.some((r: any) => isPrivileged(r.name))) {
-                isUserPrivileged = true;
-            }
-        } catch (err) {
-            console.error("Error checking RBAC roles:", err);
-        }
-    }
+    let isUserPrivileged = user.isAdmin || user.isHR;
 
     const allUsers = await storage.getUsers(tenantId);
     console.log(`DEBUG: getForwardRecipientsForUser tenant=${tenantId} user=${user.email} role=${user.role} isPrivileged=${isUserPrivileged} totalUsers=${allUsers.length}`);
@@ -459,7 +473,7 @@ async function getForwardRecipientsForUser(tenantId: string, user: any) {
 
 
 // DMS: Update Status
-router.patch("/documents/:id/status", requireTenant, async (req: any, res) => {
+router.patch("/documents/:id/status", requireTenantAndPermission, async (req: any, res) => {
     try {
         const hasAccess = await storage.canUserAccessDocument(req.tenantId, req.params.id, req.user.id);
         if (!hasAccess) {
@@ -503,7 +517,7 @@ router.get("/documents/:id/logs", requireTenant, async (req: any, res) => {
 });
 
 // Bulk Delete Documents
-router.post("/documents/bulk-delete", requireTenant, async (req: any, res) => {
+router.post("/documents/bulk-delete", requireTenantAndPermission, async (req: any, res) => {
     try {
         const { ids } = req.body;
         if (!Array.isArray(ids)) {
@@ -518,7 +532,7 @@ router.post("/documents/bulk-delete", requireTenant, async (req: any, res) => {
 });
 
 // Rename Document
-router.patch("/documents/:id", requireTenant, async (req: any, res) => {
+router.patch("/documents/:id", requireTenantAndPermission, async (req: any, res) => {
     try {
         const hasAccess = await storage.canUserAccessDocument(req.tenantId, req.params.id, req.user.id);
         if (!hasAccess) {
@@ -597,11 +611,11 @@ router.patch("/admin/users/:id/permissions", async (req: any, res) => {
     }
 });
 
-router.delete("/documents/:id", requireTenant, async (req: any, res) => {
+router.delete("/documents/:id", requireTenantAndPermission, async (req: any, res) => {
     try {
         const hasAccess = await storage.canUserAccessDocument(req.tenantId, req.params.id, req.user.id);
         const user = req.user;
-        const isAdmin = user.role === 'Admin' || user.role === 'HR';
+        const isAdmin = user.isAdmin || user.isHR;
 
         if (!hasAccess && !isAdmin) {
             return res.status(403).json({ message: "Танд устгах эрх байхгүй байна." });
@@ -615,7 +629,7 @@ router.delete("/documents/:id", requireTenant, async (req: any, res) => {
     }
 });
 
-router.post("/documents/:id/sign", requireTenant, async (req: any, res) => {
+router.post("/documents/:id/sign", requireTenantAndPermission, async (req: any, res) => {
     try {
         const hasAccess = await storage.canUserAccessDocument(req.tenantId, req.params.id, req.user.id);
         if (!hasAccess) {

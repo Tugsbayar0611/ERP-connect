@@ -4,7 +4,7 @@ import { storage } from "../storage";
 import { requireTenant } from "../middleware/tenant";
 import { z } from "zod";
 import { insertCanteenMenuSchema } from "@shared/schema";
-import { isEmployee, isAdmin, isHR } from "@shared/roles";
+import { isAdmin, isHR } from "../../shared/roles";
 
 const router = Router();
 
@@ -112,7 +112,7 @@ router.post("/me/orders/:id/cancel", requireTenant, async (req: any, res) => {
 
 router.post("/wallet/adjust-bulk", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const schema = z.object({
             walletIds: z.array(z.string().uuid()),
@@ -149,7 +149,7 @@ const topUpSchema = z.object({
 router.post("/wallet/topup", requireTenant, async (req: any, res) => {
     try {
         // Permission check: Admin or HR
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) {
+        if (!req.user.isAdmin && !req.user.isHR) {
             return res.status(403).json({ message: "Forbidden" });
         }
 
@@ -179,7 +179,7 @@ router.post("/wallet/topup", requireTenant, async (req: any, res) => {
 
 router.get("/employees/search", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const query = (req.query.q as string || "").toLowerCase();
         if (!query || query.length < 2) return res.json([]);
@@ -237,7 +237,7 @@ router.get("/menu", requireTenant, async (req: any, res) => {
 
 router.post("/menu", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const data = insertCanteenMenuSchema.parse({
             ...req.body,
@@ -266,7 +266,7 @@ router.post("/serve", requireTenant, async (req: any, res) => {
     try {
         // Permission: Admin, HR, or Kitchen (if we had it). For now Admin/HR.
         // Or any employee? NO.
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) {
+        if (!req.user.isAdmin && !req.user.isHR) {
             // Check if specifically authorized user?
             // For MVP, Admin/HR is fine.
             return res.status(403).json({ message: "Forbidden" });
@@ -342,7 +342,7 @@ router.get("/admin/pending-stats", requireTenant, async (req: any, res) => {
 router.get("/admin/employees", requireTenant, async (req: any, res) => {
     try {
         // Allow operator to see simplified list
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) { // Add operator check if role exists
+        if (!req.user.isAdmin && !req.user.isHR) { // Add operator check if role exists
             // For now assume restricted to Admin/HR as per auth middleware, 
             // but user requested Operator too. 
             // If manual role check needed:
@@ -434,7 +434,7 @@ router.post("/serve", requireTenant, async (req: any, res) => {
     try {
         // This endpoint might be used by Terminal (Token auth) OR Admin Manual (Session auth)
         // If session auth (req.user exists), check permissions
-        if (req.user && !isAdmin(req.user.role) && !isHR(req.user.role)) {
+        if (req.user && !req.user.isAdmin && !req.user.isHR) {
             // Check for specific 'canteen_operator' role if exists, otherwise restricted
             // For now standard admin/hr check
             return res.status(403).json({ message: "Forbidden" });
@@ -477,7 +477,7 @@ router.post("/serve", requireTenant, async (req: any, res) => {
 
 router.get("/admin/servings", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const { from, to, employeeId, voided } = req.query;
         const servings = await storage.getAdminMealServings(req.tenantId, {
@@ -495,7 +495,7 @@ router.get("/admin/servings", requireTenant, async (req: any, res) => {
 
 router.post("/admin/void-serving", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const { servingId, reason } = req.body;
         if (!servingId || !reason) return res.status(400).json({ message: "Missing servingId or reason" });
@@ -513,7 +513,7 @@ router.post("/admin/void-serving", requireTenant, async (req: any, res) => {
 
 router.post("/admin/generate-payroll", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const { period } = req.body; // YYYY-MM
         if (!period || !/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ message: "Invalid period format YYYY-MM" });
@@ -583,7 +583,7 @@ router.post("/admin/generate-payroll", requireTenant, async (req: any, res) => {
 router.post("/admin/payroll/approve", requireTenant, async (req: any, res) => {
     try {
         // Permission: HR or Admin usually approves
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const { period } = req.body;
         if (!period) return res.status(400).json({ message: "Missing period" });
@@ -599,7 +599,7 @@ router.post("/admin/payroll/approve", requireTenant, async (req: any, res) => {
 
 router.get("/admin/wallets", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
         const { query } = req.query;
         const wallets = await storage.getAdminWallets(req.tenantId, query as string);
         res.json(wallets);
@@ -611,7 +611,7 @@ router.get("/admin/wallets", requireTenant, async (req: any, res) => {
 
 router.post("/admin/wallet/adjust", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
         const { walletId, amount, note } = req.body;
         if (!walletId || !amount || !note) return res.status(400).json({ message: "Missing required fields" });
 
@@ -625,7 +625,7 @@ router.post("/admin/wallet/adjust", requireTenant, async (req: any, res) => {
 
 router.get("/admin/payroll-staging", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const { period } = req.query;
         if (!period) return res.status(400).json({ message: "Period required" });

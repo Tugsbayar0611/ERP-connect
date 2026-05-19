@@ -8,7 +8,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
-import { isEmployee } from "../shared/roles";
+import { isAdmin as isAdminRole, isEmployee } from "../shared/roles";
 
 /**
  * Check if user has permission for a resource and action
@@ -57,7 +57,7 @@ export function requirePermission(resource: string, action: string) {
     // Admin users bypass permission checks (for now)
     const userRoles = await storage.getUserRoles(userId);
     const userLegacyRole = req.user?.role?.toLowerCase() || '';
-    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem) || userLegacyRole === 'admin';
+    const isAdmin = userRoles.some((r) => isAdminRole(r.name)) || isAdminRole(userLegacyRole);
 
     if (isAdmin) {
       return next();
@@ -117,7 +117,7 @@ export function requireAnyPermission(...permissions: Array<{ resource: string; a
 
     const userRoles = await storage.getUserRoles(userId);
     const userLegacyRole = req.user?.role?.toLowerCase() || '';
-    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem) || userLegacyRole === 'admin';
+    const isAdmin = userRoles.some((r) => isAdminRole(r.name)) || isAdminRole(userLegacyRole);
 
     if (isAdmin) {
       return next();
@@ -153,7 +153,7 @@ export function requireAllPermissions(...permissions: Array<{ resource: string; 
 
     const userRoles = await storage.getUserRoles(userId);
     const userLegacyRole = req.user?.role?.toLowerCase() || '';
-    const isAdmin = userRoles.some((r) => r.name.toLowerCase() === "admin" || r.isSystem) || userLegacyRole === 'admin';
+    const isAdmin = userRoles.some((r) => isAdminRole(r.name)) || isAdminRole(userLegacyRole);
 
     if (isAdmin) {
       return next();
