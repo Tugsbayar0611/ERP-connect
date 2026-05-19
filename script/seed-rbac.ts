@@ -25,6 +25,14 @@ const DEFAULT_PERMISSIONS = [
   { resource: "payroll", action: "view", description: "View payroll" },
   { resource: "payroll", action: "create", description: "Create payroll" },
   { resource: "payroll", action: "approve", description: "Approve payroll" },
+  { resource: "leave_request", action: "view", description: "View leave requests" },
+  { resource: "leave_request", action: "create", description: "Create leave requests" },
+  { resource: "leave_request", action: "approve", description: "Approve leave requests" },
+  { resource: "leave_request", action: "delete", description: "Delete leave requests" },
+  { resource: "performance", action: "view", description: "View performance records" },
+  { resource: "performance", action: "create", description: "Create performance records" },
+  { resource: "performance", action: "update", description: "Update performance records" },
+  { resource: "performance", action: "delete", description: "Delete performance records" },
 
   // Products & Inventory
   { resource: "product", action: "view", description: "View products" },
@@ -71,14 +79,38 @@ const DEFAULT_PERMISSIONS = [
   { resource: "journal_entry", action: "create", description: "Create journal entry" },
   { resource: "journal_entry", action: "post", description: "Post journal entry" },
   { resource: "journal_entry", action: "reverse", description: "Reverse journal entry" },
+  { resource: "tax_code", action: "view", description: "View tax codes" },
+  { resource: "tax_code", action: "create", description: "Create tax codes" },
+  { resource: "tax_code", action: "update", description: "Update tax codes" },
+  { resource: "tax_code", action: "delete", description: "Delete tax codes" },
 
   // Reports
   { resource: "report", action: "view", description: "View reports" },
   { resource: "report", action: "export", description: "Export reports" },
 
+  // Documents
+  { resource: "document", action: "view", description: "View documents" },
+  { resource: "document", action: "create", description: "Create documents" },
+  { resource: "document", action: "forward", description: "Forward or sign documents" },
+  { resource: "document", action: "update", description: "Update documents" },
+  { resource: "document", action: "delete", description: "Delete documents" },
+
+  // CRM
+  { resource: "contact", action: "view", description: "View contacts" },
+  { resource: "contact", action: "create", description: "Create contacts" },
+  { resource: "contact", action: "update", description: "Update contacts" },
+  { resource: "contact", action: "delete", description: "Delete contacts" },
+
+  // Safety
+  { resource: "safety", action: "view", description: "View safety records" },
+  { resource: "safety", action: "create", description: "Create safety records" },
+  { resource: "safety", action: "update", description: "Update safety records" },
+  { resource: "safety", action: "delete", description: "Delete safety records" },
+
   // Settings
   { resource: "settings", action: "view", description: "View settings" },
   { resource: "settings", action: "update", description: "Update settings" },
+  { resource: "profile", action: "update", description: "Update own profile" },
 
   // RBAC
   { resource: "role", action: "view", description: "View roles" },
@@ -116,6 +148,7 @@ const DEFAULT_ROLES = [
       "account.*",
       "journal.*",
       "journal_entry.*",
+      "tax_code.*",
       "report.*",
       "settings.view",
     ],
@@ -129,6 +162,9 @@ const DEFAULT_ROLES = [
       "employee.*",
       "attendance.*",
       "payroll.*",
+      "leave_request.*",
+      "performance.*",
+      "safety.*",
     ],
   },
   {
@@ -144,7 +180,7 @@ const DEFAULT_ROLES = [
       "payment.create",
       "product.view",
       "inventory.view",
-      "contact.view",
+      "contact.*",
     ],
   },
   {

@@ -10,12 +10,20 @@ interface AuthenticatedSocket extends Socket {
 let io: Server | null = null;
 
 export function initializeSocket(httpServer: HttpServer) {
+    const allowedOrigins = process.env.CORS_ORIGIN
+        ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
+        : process.env.NODE_ENV === "production"
+            ? false
+            : ["http://localhost:5000", "http://localhost:5173"];
+
     io = new Server(httpServer, {
         cors: {
-            origin: "*",
-            methods: ["GET", "POST"]
+            origin: allowedOrigins,
+            methods: ["GET", "POST"],
+            credentials: true,
         },
-        path: "/socket.io"
+        path: "/socket.io",
+        maxHttpBufferSize: 1 * 1024 * 1024,
     });
 
     // Authentication middleware
@@ -26,6 +34,11 @@ export function initializeSocket(httpServer: HttpServer) {
 
             if (!userId || !tenantId) {
                 return next(new Error("Authentication required"));
+            }
+
+            const user = await storage.getUser(userId);
+            if (!user || user.tenantId !== tenantId) {
+                return next(new Error("Authentication failed"));
             }
 
             socket.userId = userId;

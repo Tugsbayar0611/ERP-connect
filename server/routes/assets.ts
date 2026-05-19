@@ -4,7 +4,6 @@ import { storage } from "../storage";
 import { requireTenant } from "../middleware/tenant";
 import { z } from "zod";
 import { insertAssetIssuanceSchema } from "@shared/schema";
-import { isEmployee, isAdmin, isHR } from "@shared/roles";
 import { createAuditLog } from "../audit-log";
 
 const router = Router();
@@ -23,7 +22,7 @@ const issueSchema = z.object({
 // 1. Issue Asset (Admin/HR)
 router.post("/issue", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const data = issueSchema.parse(req.body);
 
@@ -60,7 +59,7 @@ router.post("/issue", requireTenant, async (req: any, res) => {
 // 2. Return Asset (Admin/HR)
 router.post("/:id/return", requireTenant, async (req: any, res) => {
     try {
-        if (!isAdmin(req.user.role) && !isHR(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
 
         const asset = await storage.getAsset(req.params.id);
         if (!asset) return res.status(404).json({ message: "Asset not found" });
@@ -91,7 +90,7 @@ router.get("/employee/:id", requireTenant, async (req: any, res) => {
         const targetId = req.params.id;
 
         if (targetId !== req.user.id) {
-            if (!isAdmin(req.user.role) && !isHR(req.user.role)) {
+            if (!req.user.isAdmin && !req.user.isHR) {
                 return res.status(403).json({ message: "Forbidden" });
             }
         }

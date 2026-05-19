@@ -192,12 +192,11 @@ router.get("/performance/goals", requireTenant, async (req: any, res) => {
         const periodId = req.query.periodId as string | undefined;
         let employeeId = req.query.employeeId as string | undefined;
 
-        const role = req.user.role;
-        const isAdmin = isPrivileged(role);
+        const isAdmin = req.user.isAdmin || req.user.isHR;
         const scope = req.query.scope as string | undefined; // "my" | "team"
 
         // RBAC: Employee (User) can only see own goals
-        if (isEmployee(role) && !isAdmin) {
+        if (!req.user.isManager && !isAdmin) {
             if (scope === "team") {
                 return res.status(403).json({ message: "Та багийн зорилтыг харах эрхгүй." });
             }
@@ -208,7 +207,7 @@ router.get("/performance/goals", requireTenant, async (req: any, res) => {
             employeeId = emp.id;
         } else if (scope === "team") {
             // Manager/Admin/HR team-level access
-            if (!canViewTeamPerformance(role)) {
+            if (!canViewTeamPerformance(req.user.role)) {
                 return res.status(403).json({ message: "Та багийн зорилтыг харах эрхгүй." });
             }
             // If team scope, we use a different storage method or handle it inside getPerformanceGoals (if updated)
@@ -228,8 +227,7 @@ router.get("/performance/goals", requireTenant, async (req: any, res) => {
 // Get team goals (for managers)
 router.get("/performance/team", requireTenant, async (req: any, res) => {
     try {
-        const role = req.user.role;
-        if (!canViewTeamPerformance(role)) {
+        if (!req.user.isManager && !req.user.isAdmin && !req.user.isHR) {
             return res.status(403).json({ message: "Та багийн зорилтыг харах эрхгүй." });
         }
 
@@ -325,14 +323,14 @@ router.patch("/performance/goals/:id", requireTenantAndPermission, async (req: a
             return res.status(404).json({ message: "Performance goal not found" });
         }
 
-        const isAdmin = isPrivileged(req.user.role);
+        const isAdmin = req.user.isAdmin || req.user.isHR;
 
         // Prevent editing if locked (even for admin, unless explicit requirement?)
         if (goal.status === "locked" && !isAdmin) {
             return res.status(403).json({ message: "Cannot edit locked goal" });
         }
 
-        if (goal.status === "evaluated" && isEmployee(req.user.role) && !isAdmin) {
+        if (goal.status === "evaluated" && !req.user.isManager && !isAdmin) {
             return res.status(403).json({ message: "Cannot edit evaluated goal once finalized" });
         }
 
@@ -464,11 +462,11 @@ router.post("/performance/goals/:id/evaluate", requireTenantAndPermission, async
         if (!["approved", "evaluated"].includes(goal.status)) {
             return res.status(400).json({ message: "Only approved or evaluated goals can be evaluated" });
         }
-        const isAdmin = isPrivileged(req.user.role);
+        const isAdmin = req.user.isAdmin || req.user.isHR;
 
         // Final Workflow Security: Prevent employees from evaluating themselves
         // Only Admin or Manager (or specifically assigned manager) can evaluate
-        const isManagerOrAdmin = !isEmployee(req.user.role) || isAdmin;
+        const isManagerOrAdmin = req.user.isManager || isAdmin;
         if (!isManagerOrAdmin) {
             return res.status(403).json({ message: "Only managers can evaluate goals" });
         }
@@ -512,12 +510,12 @@ router.post("/performance/goals/:id/evidence", requireTenant, async (req: any, r
             return res.status(404).json({ message: "Goal not found" });
         }
 
-        const isAdmin = isPrivileged(req.user.role);
+        const isAdmin = req.user.isAdmin || req.user.isHR;
 
         // RBAC Check:
         // 1. Managers/Admins can always add evidence
         // 2. Employees can ONLY add evidence to their OWN goals
-        if (isEmployee(req.user.role) && !isAdmin) {
+        if (!req.user.isManager && !isAdmin) {
             const emp = await storage.getEmployeeByUserId(req.user.id);
             if (!emp || emp.id !== goal.employeeId) {
                 return res.status(403).json({ message: "You can only add evidence to your own goals." });
@@ -533,7 +531,7 @@ router.post("/performance/goals/:id/evidence", requireTenant, async (req: any, r
             return res.status(403).json({ message: "Goal is locked. Cannot add evidence." });
         }
 
-        if (goal.status === "evaluated" && isEmployee(req.user.role) && !isAdmin) {
+        if (goal.status === "evaluated" && !req.user.isManager && !isAdmin) {
             return res.status(403).json({ message: "Cannot add evidence to an evaluated goal." });
         }
 
@@ -587,9 +585,9 @@ router.get("/performance/summary", requireTenant, async (req: any, res) => {
         }
 
         // RBAC: Strict scoping for employees
-        const isAdmin = isPrivileged(req.user.role);
+        const isAdmin = req.user.isAdmin || req.user.isHR;
 
-        if (isEmployee(req.user.role) && !isAdmin) {
+        if (!req.user.isManager && !isAdmin) {
             const emp = await storage.getEmployeeByUserId(req.user.id);
             if (!emp) {
                 return res.json({ totalScore: 0, totalWeight: 0, goalsCount: 0, completedCount: 0 });
@@ -802,13 +800,12 @@ router.get("/performance/reports/team-summary.xlsx", requireTenant, async (req: 
 // Get inbox
 router.get("/performance/inbox", requireTenant, async (req: any, res) => {
     try {
-        const role = req.user.role;
         // Allow Admins, HRs, Managers. Block Employees.
-        if (isEmployee(role) && !isPrivileged(role) && !isManager(role)) {
+        if (!req.user.isAdmin && !req.user.isHR && !req.user.isManager) {
             return res.status(403).json({ message: "Access denied." });
         }
 
-        const inbox = await storage.getPerformanceInbox(req.tenantId, req.user.id, role);
+        const inbox = await storage.getPerformanceInbox(req.tenantId, req.user.id, req.user.role);
         res.json(inbox);
     } catch (err: any) {
         console.error(err);

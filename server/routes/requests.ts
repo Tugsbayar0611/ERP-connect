@@ -387,7 +387,7 @@ router.get("/requests/:id", requireTenant, async (req: any, res) => {
 
         // RBAC: Owner, Approver, or Admin/HR
         const isOwner = request.createdBy === req.user.id;
-        if (!isOwner && !isAdmin(req.user.role) && !isHR(req.user.role)) {
+        if (!isOwner && !req.user.isAdmin && !req.user.isHR) {
             const isApprover = approvals.some(a => a.approverId === req.user.id);
             if (!isApprover) return res.status(403).json({ message: "Forbidden" });
         }

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="mn">
+<head>
+  <meta charset="utf-8">
+  <title>MonERP төсөл бүрэн нэвтрүүлэх ажлын төлөвлөгөө</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { font-family: Arial, sans-serif; color: #1e293b; line-height: 1.5; }
+    h1 { color: #0f172a; font-size: 30px; margin-bottom: 6px; }
+    h2 { color: #0f172a; border-bottom: 2px solid #2563eb; padding-bottom: 6px; margin-top: 28px; }
+    h3 { color: #1e40af; margin-top: 20px; }
+    .cover { background: #0f172a; color: white; padding: 44px; border-radius: 18px; margin-bottom: 26px; }
+    .cover p { color: #cbd5e1; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0; }
+    .card { border: 1px solid #dbe4ee; border-left: 7px solid #2563eb; border-radius: 12px; padding: 14px; background: #fff; }
+    .card.green { border-left-color: #059669; }
+    .card.purple { border-left-color: #7c3aed; }
+    .progress { height: 10px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin: 5px 0 12px; }
+    .progress span { display: block; height: 100%; background: #2563eb; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 22px; font-size: 13px; }
+    th, td { border: 1px solid #dbe4ee; padding: 9px; vertical-align: top; }
+    th { background: #e2e8f0; text-align: left; }
+    .gantt { font-family: Consolas, monospace; letter-spacing: 2px; white-space: nowrap; }
+    .phase { border-left: 6px solid var(--phase); padding: 12px 14px; background: #f8fafc; margin: 12px 0; border-radius: 10px; }
+    .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 14px 0; }
+    .flow div { background: #2563eb; color: white; padding: 10px; border-radius: 10px; text-align: center; font-weight: 700; }
+    .caption { color: #64748b; font-style: italic; font-size: 12px; margin-top: 8px; }
+    ul { margin-top: 6px; }
+    small { color: #64748b; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <h1>MonERP төсөл бүрэн нэвтрүүлэх ажлын төлөвлөгөө</h1>
+    <p>Үлдсэн ажил, хугацааны тооцоо, тест ба production нэвтрүүлэлтийн төлөв</p>
+    <p><strong>Огноо:</strong> 2026 оны 5-р сарын 5<br><strong>Хүлээн авагч:</strong> Захиалагч байгууллага<br><strong>Төсөл:</strong> MonERP</p>
+  </section>
+
+  <h2>1. Гүйцэтгэлийн товч зураглал</h2>
+  <p>Төслийн үндсэн хөгжүүлэлт хийгдсэн бөгөөд бүрэн нэвтрүүлэхийн өмнө mobile responsive, UI polish, ажиллагааны тест, алдаа засвар, production deployment ажлуудыг үе шаттайгаар хаах шаардлагатай.</p>
+  <div class="cards">
+    <div class="card"><strong>Үлдсэн хугацаа</strong><br>20 ажлын өдөр</div>
+    <div class="card green"><strong>Go-live зорилт</strong><br>2026-06-02</div>
+    <div class="card purple"><strong>Үндсэн focus</strong><br>Responsive / UI / QA / Deploy</div>
+  </div>
+  <p class="caption">Зураглал 1. Одоогийн явцын үнэлгээ</p>
+  <strong>Үндсэн системийн хөгжүүлэлт - 85%</strong><div class="progress"><span style="width:85%"></span></div><p>Dashboard, HR, санхүү, борлуулалт, агуулах, хүсэлт, тайлан, тохиргооны үндсэн урсгалууд бүрдсэн.</p><strong>Mobile responsive бэлтгэл - 35%</strong><div class="progress"><span style="width:35%"></span></div><p>Гол дэлгэцүүдийг жижиг дэлгэцийн хэмжээнд шалгаж, layout засварлана.</p><strong>UI сайжруулалт - 45%</strong><div class="progress"><span style="width:45%"></span></div><p>Нэг төрлийн зай, өнгө, товч, хүснэгт, dialog-ийн polish хийх шаардлагатай.</p><strong>QA/UAT бэлтгэл - 25%</strong><div class="progress"><span style="width:25%"></span></div><p>Тест кейс, regression жагсаалт, алдааны бүртгэл эцэслэнэ.</p><strong>Production readiness - 20%</strong><div class="progress"><span style="width:20%"></span></div><p>Build, environment, migration, backup, rollback, monitoring checklist үлдсэн.</p>
+  <h3>Хамрах үндсэн модулиуд</h3>
+  <div class="cards">
+    <div class="card green">Dashboard ба тайлан</div><div class="card green">HR: ажилтан, хэлтэс, ирц, цалин</div><div class="card green">Хүсэлт, зөвшөөрөл, workflow</div><div class="card green">Санхүү: данс, журнал, татвар, баримт</div><div class="card green">Борлуулалт, худалдан авалт, агуулах</div><div class="card green">RBAC, audit log, тохиргоо</div><div class="card green">Цайны газар, тээвэр, нормын хувцас</div><div class="card green">eBarimt/QPay болон PDF/экспорт</div>
+  </div>
+
+  <h2>2. Хугацааны тооцоо ба үе шат</h2>
+  <p>Доорх төлөвлөгөө нь 2026-05-06-нд эхлэх хувилбараар тооцсон. Нийт хугацаа 20 ажлын өдөр бөгөөд тест болон production deployment-ийн эрсдэлийн buffer багтсан.</p>
+  <p class="caption">Зураглал 2. 20 ажлын өдрийн Gantt төлөвлөгөө</p>
+  <table>
+    <thead><tr><th>Үе шат</th><th>Огноо</th><th>Зураглал</th><th>Гарах үр дүн</th></tr></thead>
+    <tbody><tr>
+      <td><strong>01. Mobile responsive тохиргоо</strong><br><small>5 ажлын өдөр</small></td>
+      <td>2026-05-06 - 2026-05-12</td>
+      <td class="gantt" style="color:#2563EB">■■■■■&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+      <td>Гол хуудсууд 360px, 768px, 1366px+ дэлгэц дээр эвдрэлгүй харагдана.</td>
+    </tr><tr>
+      <td><strong>02. UI сайжруулалт ба нэг төрлийн болгох</strong><br><small>3 ажлын өдөр</small></td>
+      <td>2026-05-13 - 2026-05-15</td>
+      <td class="gantt" style="color:#7C3AED">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;■■■&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+      <td>Захиалагчид харагдах үндсэн дэлгэцүүдийн polish, текст, empty/loading/error state цэгцэрнэ.</td>
+    </tr><tr>
+      <td><strong>03. Ажиллагааны тест ба regression</strong><br><small>5 ажлын өдөр</small></td>
+      <td>2026-05-18 - 2026-05-22</td>
+      <td class="gantt" style="color:#059669">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;■■■■■&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+      <td>Модуль бүрийн тестийн нотолгоо, issue log, UAT-д шилжүүлэх жагсаалт гарна.</td>
+    </tr><tr>
+      <td><strong>04. Алдаа засвар ба дахин баталгаажуулалт</strong><br><small>4 ажлын өдөр</small></td>
+      <td>2026-05-25 - 2026-05-28</td>
+      <td class="gantt" style="color:#EA580C">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;■■■■&nbsp;&nbsp;&nbsp;</td>
+      <td>Critical болон major алдаанууд хаагдаж, production-д шилжих go/no-go шийдвэр гарна.</td>
+    </tr><tr>
+      <td><strong>05. Production орчинд байршуулах</strong><br><small>3 ажлын өдөр</small></td>
+      <td>2026-05-29 - 2026-06-02</td>
+      <td class="gantt" style="color:#DC2626">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;■■■</td>
+      <td>Production build, migration, SSL/domain, backup, rollback plan, handover checklist баталгаажна.</td>
+    </tr></tbody>
+  </table>
+  <div class="phase" style="--phase:#2563EB"><h3>01. Mobile responsive тохиргоо</h3><small>5 ажлын өдөр | 2026-05-06 - 2026-05-12</small><p><strong>Гарах үр дүн:</strong> Гол хуудсууд 360px, 768px, 1366px+ дэлгэц дээр эвдрэлгүй харагдана.</p><ul><li>Dashboard, sidebar, topbar, table, form, dialog, mobile navigation шалгах</li><li>Хэт өргөн хүснэгт, overflow, sticky action, input/button spacing засах</li><li>iOS/Android browser дээр touch target ба scroll behavior шалгах</li></ul></div><div class="phase" style="--phase:#7C3AED"><h3>02. UI сайжруулалт ба нэг төрлийн болгох</h3><small>3 ажлын өдөр | 2026-05-13 - 2026-05-15</small><p><strong>Гарах үр дүн:</strong> Захиалагчид харагдах үндсэн дэлгэцүүдийн polish, текст, empty/loading/error state цэгцэрнэ.</p><ul><li>Card/table/form/button загварын ялгааг багасгах</li><li>Монгол label, validation, хоосон төлөв, алдааны мэдэгдлийг ойлгомжтой болгох</li><li>Critical workflow дээр action hierarchy, tooltip, badge, status өнгийг цэгцлэх</li></ul></div><div class="phase" style="--phase:#059669"><h3>03. Ажиллагааны тест ба regression</h3><small>5 ажлын өдөр | 2026-05-18 - 2026-05-22</small><p><strong>Гарах үр дүн:</strong> Модуль бүрийн тестийн нотолгоо, issue log, UAT-д шилжүүлэх жагсаалт гарна.</p><ul><li>Нэвтрэх, эрхийн түвшин, ажилтан, ирц, цалин, хүсэлт, агуулах, борлуулалт, тайлангийн урсгал шалгах</li><li>API, RBAC, database migration, импорт/экспорт, PDF/баримт хэвлэх урсгал шалгах</li><li>Critical/major/minor ангиллаар алдааг бүртгэж давтан шалгах</li></ul></div><div class="phase" style="--phase:#EA580C"><h3>04. Алдаа засвар ба дахин баталгаажуулалт</h3><small>4 ажлын өдөр | 2026-05-25 - 2026-05-28</small><p><strong>Гарах үр дүн:</strong> Critical болон major алдаанууд хаагдаж, production-д шилжих go/no-go шийдвэр гарна.</p><ul><li>Тестээс илэрсэн алдааг нөлөөллөөр нь эрэмбэлж засах</li><li>Засвар бүр дээр smoke/regression retest хийх</li><li>Нээлттэй үлдэх low priority item-уудыг post-launch backlog болгон тохирох</li></ul></div><div class="phase" style="--phase:#DC2626"><h3>05. Production орчинд байршуулах</h3><small>3 ажлын өдөр | 2026-05-29 - 2026-06-02</small><p><strong>Гарах үр дүн:</strong> Production build, migration, SSL/domain, backup, rollback plan, handover checklist баталгаажна.</p><ul><li>Production env, database, storage, email, external service key тохируулах</li><li>Build/deploy, smoke test, admin эрх, seed/initial data баталгаажуулах</li><li>Backup/rollback, monitoring, handover, богино хэрэглэгчийн заавар өгөх</li></ul></div>
+
+  <h2>3. Тест ба чанарын баталгаажуулалт</h2>
+  <table>
+    <thead><tr><th>Тестийн хэсэг</th><th>Шалгах зүйл</th></tr></thead>
+    <tbody><tr><td><strong>Нэвтрэлт ба эрх</strong></td><td>Role-based access, session, password, 2FA, permission boundary</td></tr><tr><td><strong>Үндсэн workflow</strong></td><td>Create/read/update/delete, approval, status transition, notification</td></tr><tr><td><strong>Санхүү ба баримт</strong></td><td>Journal, invoice, tax, eBarimt, QPay, PDF/print/export</td></tr><tr><td><strong>Мэдээллийн бүрэн бүтэн байдал</strong></td><td>Tenant isolation, validation, duplicate, audit log, migration</td></tr><tr><td><strong>Responsive ба UX</strong></td><td>Mobile/tablet/desktop layout, table overflow, dialog, keyboard/touch</td></tr><tr><td><strong>Production smoke</strong></td><td>Login, dashboard, critical forms, API health, backup, rollback readiness</td></tr></tbody>
+  </table>
+  <p class="caption">Зураглал 3. Test → Fix → Retest → UAT sign-off урсгал</p>
+  <div class="flow"><div>Тест кейс</div><div>Issue log</div><div>Bug fix</div><div>Retest</div><div>UAT sign-off</div></div>
+
+  <h2>4. Production deployment ба хүлээлгэн өгөх</h2>
+  <table>
+    <tbody>
+      <tr><th>Build</th><td>Production build үүсгэх, release artifact баталгаажуулах</td></tr>
+      <tr><th>Config</th><td>ENV, database, storage, email, eBarimt/QPay service key тохируулах</td></tr>
+      <tr><th>Migrate</th><td>Database migration, seed, backup, rollback rehearsal хийх</td></tr>
+      <tr><th>Deploy</th><td>Server/domain/SSL тохиргоо хийж production-д байршуулах</td></tr>
+      <tr><th>Smoke</th><td>Login, dashboard, critical forms, API health, PDF/export урсгалыг шалгах</td></tr>
+      <tr><th>Handover</th><td>Админ эрх, богино хэрэглэгчийн заавар, post-launch hypercare checklist өгөх</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5. Эрсдэл ба захиалагчаас шаардах зүйлс</h2>
+  <table>
+    <thead><tr><th>Эрсдэл</th><th>Нөлөө</th><th>Сэргийлэх арга</th></tr></thead>
+    <tbody><tr><td>Production орчны эрх/нууц түлхүүр хоцрох</td><td>Deployment хугацаа сунана</td><td>Эхний долоо хоногт checklist-ээр баталгаажуулах</td></tr><tr><td>UAT үед нэмэлт scope гарах</td><td>Хугацаа ба өртөг нэмэгдэнэ</td><td>Change request байдлаар тусад нь үнэлэх</td></tr><tr><td>Гаднын үйлчилгээний sandbox/production ялгаа</td><td>eBarimt/QPay тест удааширна</td><td>Sandbox болон production credential-ийг эрт шалгах</td></tr><tr><td>Өгөгдөл migration/seed алдаа</td><td>Go-live эрсдэлтэй</td><td>Backup, rollback, rehearsal migration хийх</td></tr></tbody>
+  </table>
+  <h3>Захиалагчаас шаардлагатай шийдвэрүүд</h3>
+  <ul>
+    <li>Go-live огноо болон UAT sign-off хийх хариуцагчийг баталгаажуулах</li>
+    <li>Production server/domain/SSL/database нэвтрэх эрхийг төслийн багт өгөх</li>
+    <li>eBarimt, QPay, email/SMS зэрэг гаднын үйлчилгээний production credential өгөх</li>
+    <li>Нээлттэй үлдэх low priority ажлыг post-launch backlog болгон батлах</li>
+  </ul>
+</body>
+</html>

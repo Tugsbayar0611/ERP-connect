@@ -10,15 +10,26 @@ import { pool, db } from "./db";
 import { storage } from "./storage";
 import { type User, userSessions } from "@shared/schema";
 import { validatePasswordStrength, updateSessionActivity, createRateLimiter } from "./security";
+import { isAdmin as isAdminRole, isHR as isHRRole, isManager as isManagerRole } from "../shared/roles";
 import { eq, and, isNull } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 const PgSession = connectPg(session);
+const authDebugEnabled = process.env.AUTH_DEBUG === "true" && process.env.NODE_ENV !== "production";
+
+function authDebug(...args: unknown[]) {
+  if (authDebugEnabled) {
+    console.log(...args);
+  }
+}
 
 // Session tracking helpers
 function hashSessionToken(token: string): string {
-  const secret = process.env.SESSION_HASH_SECRET || "erp_session_secret_dev";
-  return createHmac("sha256", secret).update(token).digest("hex");
+  const secret = process.env.SESSION_HASH_SECRET || process.env.SESSION_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_HASH_SECRET or SESSION_SECRET must be set in production");
+  }
+  return createHmac("sha256", secret || "erp_session_secret_dev").update(token).digest("hex");
 }
 
 function getClientInfo(req: any) {
@@ -102,12 +113,17 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  const sessionSecret = process.env.SESSION_SECRET;
+  if (app.get("env") === "production" && (!sessionSecret || sessionSecret.length < 32)) {
+    throw new Error("FATAL ERROR: SESSION_SECRET must be at least 32 characters in production");
+  }
+
   const sessionSettings: session.SessionOptions = {
     store: new PgSession({
       pool,
       createTableIfMissing: true,
     }),
-    secret: process.env.SESSION_SECRET || "erp_secure_session_secret_placeholder",
+    secret: sessionSecret || "erp_secure_session_secret_dev",
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -174,50 +190,36 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        console.log("[AUTH DEBUG] Login attempt:", { username, passwordLength: password?.length });
-
         const user = await storage.getUserByUsername(username);
-        console.log("[AUTH DEBUG] User found by username:", user
-          ? { id: user.id, username: user.username, email: user.email, hasPasswordHash: !!user.passwordHash, passwordHashPrefix: user.passwordHash?.substring(0, 20) + "...", status: (user as any).status }
-          : null
-        );
 
         if (!user) {
-          console.log("[AUTH DEBUG] FAIL: User not found for username:", username);
           return done(null, false, { message: "Нэвтрэх нэр эсвэл нууц үг буруу байна" });
         }
 
         if (!user.passwordHash) {
-          console.log("[AUTH DEBUG] FAIL: User has no passwordHash (Google OAuth user?)");
           return done(null, false, { message: "Нэвтрэх нэр эсвэл нууц үг буруу байна" });
         }
 
         const passwordMatch = await comparePasswords(password, user.passwordHash);
-        console.log("[AUTH DEBUG] Password match result:", passwordMatch);
 
         if (!passwordMatch) {
-          console.log("[AUTH DEBUG] FAIL: Password mismatch for user:", username);
           return done(null, false, { message: "Нэвтрэх нэр эсвэл нууц үг буруу байна" });
         }
 
         // Check user status for admin approval workflow
         if ((user as any).status === "pending") {
-          console.log("[AUTH DEBUG] FAIL: User status is pending");
           return done(null, false, { message: "Таны бүртгэлийг админ баталгаажуулаагүй байна. Түр хүлээнэ үү." });
         }
         if ((user as any).status === "rejected") {
-          console.log("[AUTH DEBUG] FAIL: User status is rejected");
           return done(null, false, { message: "Таны хүсэлт татгалзагдсан байна. Админтай холбогдоно уу." });
         }
         if ((user as any).status === "invited") {
-          console.log("[AUTH DEBUG] FAIL: User status is invited");
           return done(null, false, { message: "Та имэйлээр ирсэн урилгын линкээр нууц үгээ тохируулна уу." });
         }
 
-        console.log("[AUTH DEBUG] SUCCESS: Login OK for user:", { id: user.id, username: user.username, email: user.email });
         return done(null, user);
       } catch (err) {
-        console.error("[AUTH DEBUG] ERROR in LocalStrategy:", err);
+        console.error("ERROR in LocalStrategy:", err);
         return done(err);
       }
     }),
@@ -329,9 +331,9 @@ export function setupAuth(app: Express) {
         const userPermissions = await storage.getUserPermissions(user.id);
         (user as any).userRoles = userRoles;
         (user as any).permissions = userPermissions.map((p: any) => `${p.resource}.${p.action}`);
-        (user as any).isAdmin = userRoles.some((r: any) => r.name.toLowerCase() === "admin" || r.isSystem) || user.role === 'Admin';
-        (user as any).isHR = userRoles.some((r: any) => r.name.toLowerCase() === "hr") || user.role === 'HR' || (user as any).isAdmin;
-        (user as any).isManager = userRoles.some((r: any) => r.name.toLowerCase() === "manager") || user.role === 'Manager';
+        (user as any).isAdmin = userRoles.some((r: any) => isAdminRole(r.name)) || isAdminRole(user.role);
+        (user as any).isHR = userRoles.some((r: any) => isHRRole(r.name)) || isHRRole(user.role) || (user as any).isAdmin;
+        (user as any).isManager = userRoles.some((r: any) => isManagerRole(r.name)) || isManagerRole(user.role);
       }
       done(null, user);
     } catch (err) {
@@ -636,14 +638,11 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/auth/login", createRateLimiter(15 * 60 * 1000, 5), async (req, res, next) => {
-    console.log("[AUTH DEBUG] POST /api/auth/login - body:", { username: req.body?.username, email: req.body?.email, passwordLength: req.body?.password?.length });
     passport.authenticate("local", async (err: any, user: any, info: any) => {
       if (err) {
-        console.error("[AUTH DEBUG] passport.authenticate error:", err);
         return next(err);
       }
       if (!user) {
-        console.log("[AUTH DEBUG] passport.authenticate returned no user, info:", info);
         return res.status(401).json({ message: info?.message || "Invalid username or password" });
       }
 

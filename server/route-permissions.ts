@@ -82,16 +82,20 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { method: "PUT", path: /^\/api\/products\/[^/]+$/, permission: { resource: "product", action: "update" } },
   { method: "POST", path: "/api/product-categories", permission: { resource: "product", action: "create" } },
   { method: "POST", path: "/api/warehouses", permission: { resource: "inventory", action: "adjust" } },
+  { method: "POST", path: "/api/inventory/bulk-actions", permission: { resource: "inventory", action: "adjust" } },
 
   // === Sales / Purchase ===
   { method: "POST", path: "/api/sales-orders", permission: { resource: "sales_order", action: "create" } },
   { method: "PUT", path: /^\/api\/sales-orders\/[^/]+\/confirm$/, permission: { resource: "sales_order", action: "confirm" } },
   { method: "PUT", path: /^\/api\/sales-orders\/[^/]+\/send$/, permission: { resource: "sales_order", action: "update" } },
   { method: "POST", path: /^\/api\/sales-orders\/[^/]+\/create-invoice$/, permission: { resource: "invoice", action: "create" } },
+  { method: "POST", path: "/api/sales-orders/bulk-cancel", permission: { resource: "sales_order", action: "cancel" } },
+  { method: "POST", path: "/api/sales-orders/bulk-delete", permission: { resource: "sales_order", action: "cancel" } },
 
   { method: "POST", path: "/api/purchase-orders", permission: { resource: "purchase_order", action: "create" } },
   { method: "PUT", path: /^\/api\/purchase-orders\/[^/]+\/confirm$/, permission: { resource: "purchase_order", action: "confirm" } },
   { method: "PUT", path: /^\/api\/purchase-orders\/[^/]+\/receive$/, permission: { resource: "purchase_order", action: "confirm" } },
+  { method: "POST", path: "/api/purchase-orders/bulk-delete", permission: { resource: "purchase_order", action: "cancel" } },
 
   // === Documents ===
   { method: "GET", path: "/api/documents", permission: { resource: "document", action: "view" } },
@@ -115,7 +119,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
 
   // === E-barimt ===
   { method: "PUT", path: "/api/ebarimt/settings", permission: { resource: "settings", action: "update" } },
-  { method: "POST", path: /^\/api\/invoices\/[^/]+\/ebarimt$/, permission: { resource: "invoice", action: "update" } },
 
   // === Missing Settings Permissions ===
   { method: "PUT", path: "/api/company", permission: { resource: "settings", action: "update" } },
@@ -124,6 +127,15 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { method: "PATCH", path: "/api/users/me/signature", permission: { resource: "profile", action: "update" } },
   { method: "POST", path: "/api/branches", permission: { resource: "settings", action: "update" } },
   { method: "PUT", path: /^\/api\/branches\/[^/]+$/, permission: { resource: "settings", action: "update" } },
+  { method: "POST", path: "/api/bank-accounts", permission: { resource: "account", action: "create" } },
+  { method: "POST", path: "/api/upload", permission: { resource: "document", action: "create" } },
+  { method: "POST", path: "/api/biometric/devices", permission: { resource: "settings", action: "update" } },
+  { method: "PATCH", path: /^\/api\/biometric\/devices\/[^/]+$/, permission: { resource: "settings", action: "update" } },
+  { method: "DELETE", path: /^\/api\/biometric\/devices\/[^/]+$/, permission: { resource: "settings", action: "update" } },
+  { method: "POST", path: /^\/api\/biometric\/devices\/[^/]+\/rotate-token$/, permission: { resource: "settings", action: "update" } },
+  { method: "POST", path: "/api/ai/kb", permission: { resource: "settings", action: "update" } },
+  { method: "PATCH", path: /^\/api\/ai\/kb\/[^/]+$/, permission: { resource: "settings", action: "update" } },
+  { method: "DELETE", path: /^\/api\/ai\/kb\/[^/]+$/, permission: { resource: "settings", action: "update" } },
 
   // === Performance Module ===
   { method: "POST", path: "/api/performance/periods", permission: { resource: "performance", action: "create" } },
@@ -160,6 +172,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { method: "PUT", path: /^\/api\/contacts\/[^/]+$/, permission: { resource: "contact", action: "update" } },
   { method: "DELETE", path: /^\/api\/contacts\/[^/]+$/, permission: { resource: "contact", action: "delete" } },
   { method: "POST", path: /^\/api\/contacts\/[^/]+\/interactions$/, permission: { resource: "contact", action: "update" } },
+
 ];
 
 /**

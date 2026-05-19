@@ -19,7 +19,8 @@ async function checkAdmin() {
       process.exit(0);
     }
     
-    let hasAdmin = false;
+    let anyAdminFound = false;
+    let allTenantsHaveAdmin = true;
     
     for (const tenant of allTenants) {
       // Find Admin role for this tenant
@@ -32,6 +33,7 @@ async function checkAdmin() {
       
       if (!adminRole) {
         console.log(`⚠️  Tenant "${tenant.name}" has no Admin role. Run 'npm run seed:rbac'`);
+        allTenantsHaveAdmin = false;
         continue;
       }
       
@@ -52,7 +54,7 @@ async function checkAdmin() {
       );
       
       if (adminUsers.length > 0) {
-        hasAdmin = true;
+        anyAdminFound = true;
         console.log(`✅ Tenant "${tenant.name}" has ${adminUsers.length} admin user(s):`);
         adminUsers.forEach((ur) => {
           if (ur.user) {
@@ -62,15 +64,15 @@ async function checkAdmin() {
       } else {
         console.log(`❌ Tenant "${tenant.name}" has NO admin users!`);
         console.log(`   Run: npm run assign-admin-role`);
-        process.exit(1);
+        allTenantsHaveAdmin = false;
       }
     }
     
-    if (hasAdmin) {
+    if (allTenantsHaveAdmin && anyAdminFound) {
       console.log("\n✅ At least one admin user exists in all tenants");
       process.exit(0);
     } else {
-      console.log("\n❌ No admin users found in any tenant");
+      console.log("\n❌ Admin check failed (some tenants lack admin or no admin users found)");
       process.exit(1);
     }
   } catch (error: any) {

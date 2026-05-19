@@ -22,15 +22,26 @@ const REQUEST_TYPES = [
     { id: 'transport_request', label: 'Унаа захиалах', icon: Bus, desc: 'Ажлын хэрэгцээгээр унаа захиалах' },
 ];
 
+interface RequestFormData {
+    leaveType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    reason?: string;
+    recipient?: string;
+    language?: string;
+    purpose?: string;
+    description?: string;
+}
+
 export default function NewRequest() {
     const [location, setLocation] = useLocation();
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [selectedType, setSelectedType] = useState<string | null>(null);
-    const [formData, setFormData] = useState<any>({});
+    const [formData, setFormData] = useState<RequestFormData>({});
 
     const createMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: { type: string; title: string; payload: RequestFormData }) => {
             const res = await fetch("/api/requests", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -64,8 +75,8 @@ export default function NewRequest() {
         });
     };
 
-    const updateField = (key: string, value: any) => {
-        setFormData((prev: any) => ({ ...prev, [key]: value }));
+    const updateField = (key: keyof RequestFormData, value: any) => {
+        setFormData((prev) => ({ ...prev, [key]: value }));
     };
 
     if (!selectedType) {

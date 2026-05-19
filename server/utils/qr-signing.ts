@@ -5,7 +5,16 @@
 
 import crypto from 'crypto';
 
-const QR_SECRET = process.env.QR_SECRET || 'erp_qr_secret_change_in_production';
+const QR_SECRET = process.env.QR_SECRET || process.env.SESSION_SECRET || (() => {
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('FATAL: QR_SECRET or SESSION_SECRET is missing in production environment');
+    }
+    return 'erp_qr_secret_change_in_development';
+})();
+
+if (process.env.NODE_ENV === 'production' && QR_SECRET.length < 32) {
+    throw new Error('FATAL: QR_SECRET or SESSION_SECRET must be at least 32 characters in production');
+}
 
 export interface QRPayload {
     v: number;           // Version

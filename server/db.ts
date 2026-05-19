@@ -13,6 +13,8 @@ if (!process.env.DATABASE_URL) {
 // Local Postgres-д зориулсан Pool
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: process.env.DB_POOL_MAX ? parseInt(process.env.DB_POOL_MAX) : 50, // Зэрэг хандах DB холболтын тоог нэмэх
+  idleTimeoutMillis: 30000,
 });
 
 // Drizzle client local Postgres-д

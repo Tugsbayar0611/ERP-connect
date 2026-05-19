@@ -332,6 +332,16 @@ router.post("/employees", requireTenantAndPermission, async (req: any, res) => {
             });
             userId = newUser.id;
 
+            // Шинэ RBAC систем рүү (user_roles) эрхийг нь давхар холбох
+            if (role) {
+                const roles = await storage.getRoles(req.tenantId);
+                // Admin, Manager, Staff гэх мэт нэрээр хайх
+                const matchedRole = roles.find(r => r.name.toLowerCase() === role.toLowerCase());
+                if (matchedRole) {
+                    await storage.assignRoleToUser(newUser.id, matchedRole.id);
+                }
+            }
+
             // Send invite email asynchronously
             sendInvitationEmail(otherData.email, rawToken, otherData.firstName).catch(console.error);
         }
@@ -376,12 +386,23 @@ router.put("/employees/:id", requireTenantAndPermission, async (req: any, res) =
 
         const { role, ...employeeFields } = req.body;
         const input = insertEmployeeSchema.partial().parse(employeeFields); // Allow partial updates
-        
+
         // Update user role if user exists and role is submitted
         let userRoleUpdated = false;
         if (existing.userId && role) {
             await storage.updateUser(existing.userId, { role });
             userRoleUpdated = true;
+
+            // Шинэ RBAC систем рүү мөн адил синхрон хийх
+            const roles = await storage.getRoles(req.tenantId);
+            const matchedRole = roles.find((r: any) => r.name.toLowerCase() === role.toLowerCase());
+            if (matchedRole) {
+                try {
+                    await storage.assignRoleToUser(existing.userId, matchedRole.id);
+                } catch (e) {
+                    // Аль хэдийн холбогдсон байвал алгасах
+                }
+            }
         }
 
         const employeeBefore = existing;

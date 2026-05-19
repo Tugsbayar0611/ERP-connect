@@ -5,9 +5,8 @@ import type { Express } from "express";
 import { type Server } from "http";
 import { setupAuth } from "./auth";
 import { apiRateLimiter } from "./security";
-import path from "path";
-import fs from "fs";
-import express from "express";
+import { requireTenantAndPermission } from "./middleware";
+import { getRoutePermission } from "./route-permissions";
 
 // Modular route imports
 import announcementsRoutes from "./routes/announcements";
@@ -41,12 +40,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // General API rate limiting (applied to all API routes)
   app.use("/api", apiRateLimiter);
 
-  // Serve uploads directory
-  const uploadDir = path.join(process.cwd(), "uploads");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
-  }
-  app.use('/uploads', express.static(uploadDir));
+  app.use("/api", (req, res, next) => {
+    if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+      return next();
+    }
+
+    const pathOnly = req.originalUrl.split("?")[0];
+    if (!getRoutePermission(req.method, pathOnly)) {
+      return next();
+    }
+
+    return requireTenantAndPermission(req, res, next);
+  });
 
   // Mount modular routes
   app.use("/api/announcements", announcementsRoutes);
