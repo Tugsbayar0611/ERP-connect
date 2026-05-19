@@ -1,4 +1,5 @@
 import { useStats } from "@/hooks/use-stats";
+import EmployeeDashboard from "@/pages/EmployeeDashboard";
 import { useExpiryAlerts } from "@/hooks/use-stock-movements";
 import { useEmployees } from "@/hooks/use-employees";
 import { useAuth } from "@/hooks/use-auth";
@@ -155,7 +156,12 @@ export default function Dashboard() {
   const isEmployeeUser = isEmployee(user?.role);
   const userRole = user?.role || "";
 
-  // Determine effective role for presets
+  // ── Employee-role users get their own dedicated dashboard ──
+  if (isEmployeeUser) {
+    return <EmployeeDashboard />;
+  }
+
+  // Determine effective role for presets (manager/admin view below)
   const canManageAll = !isEmployeeUser;
   const presetRole = canManageAll ? "manager" : "employee";
   const visibleWidgets = DASHBOARD_PRESETS[presetRole].map(key => resolveWidgetForRole(key, presetRole));
