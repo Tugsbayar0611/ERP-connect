@@ -17,6 +17,23 @@ const scryptAsync = promisify(scrypt);
 const PgSession = connectPg(session);
 const authDebugEnabled = process.env.AUTH_DEBUG === "true" && process.env.NODE_ENV !== "production";
 
+function getAllowedEmailDomains() {
+  return (process.env.ALLOWED_EMAIL_DOMAINS || "mtcone.net")
+    .split(",")
+    .map((domain) => domain.trim().toLowerCase().replace(/^@/, ""))
+    .filter(Boolean);
+}
+
+function isAllowedEmailDomain(email: string | undefined | null) {
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail) return false;
+
+  const allowedDomains = getAllowedEmailDomains();
+  if (allowedDomains.includes("*")) return true;
+
+  return allowedDomains.some((domain) => normalizedEmail.endsWith(`@${domain}`));
+}
+
 function authDebug(...args: unknown[]) {
   if (authDebugEnabled) {
     console.log(...args);
@@ -247,7 +264,7 @@ export function setupAuth(app: Express) {
             if (isEmailVerified === false) {
               return done(new Error("google_email_not_verified"), undefined);
             }
-            if (!googleEmail.toLowerCase().endsWith("@mtcone.net")) {
+            if (!isAllowedEmailDomain(googleEmail)) {
               return done(new Error("unauthorized_domain"), undefined);
             }
 
@@ -255,7 +272,7 @@ export function setupAuth(app: Express) {
             let user = await storage.getUserByEmail(googleEmail);
 
             if (!user) {
-              // Find the existing company tenant (we have one company: mtcone.net)
+              // Find the existing company tenant.
               // Look up the first active tenant instead of relying on DEFAULT_TENANT_ID env
               const { db } = await import("./db");
               const { tenants } = await import("@shared/schema");
@@ -355,8 +372,8 @@ export function setupAuth(app: Express) {
       const normalizedEmail = email?.trim().toLowerCase();
 
       // Domain check
-      if (normalizedEmail && !normalizedEmail.endsWith('@mtcone.net')) {
-        return res.status(400).json({ message: "Зөвхөн @mtcone.net хаягаар бүртгүүлэх боломжтой" });
+      if (normalizedEmail && !isAllowedEmailDomain(normalizedEmail)) {
+        return res.status(400).json({ message: "Энэ имэйл домэйнээр бүртгүүлэх боломжгүй байна" });
       }
 
       // Check for existing username (global check)

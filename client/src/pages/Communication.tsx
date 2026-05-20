@@ -911,7 +911,7 @@ const ChatTab = () => {
                 const formData = new FormData();
                 formData.append("file", selectedFile);
 
-                const uploadRes = await fetch("/api/upload", {
+                const uploadRes = await fetch("/api/upload?module=chat", {
                     method: "POST",
                     body: formData
                 });
@@ -921,7 +921,7 @@ const ChatTab = () => {
                 fileUrl = uploadData.url;
 
                 // Determine type based on mimetype
-                if (uploadData.mimetype.startsWith("image/")) {
+                if (uploadData.mimeType?.startsWith("image/")) {
                     type = "image";
                 } else {
                     type = "file";

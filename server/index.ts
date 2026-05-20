@@ -75,8 +75,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-serveUploads(app);
-
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -153,7 +151,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      if (capturedJsonResponse && process.env.NODE_ENV !== "production") {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
@@ -167,6 +165,7 @@ app.use((req, res, next) => {
 (async () => {
   // энд registerRoutes дотор чинь db-г ашигладаг бол бүгд local Postgres руу явна
   await registerRoutes(httpServer, app);
+  serveUploads(app);
 
   // AI routes нь Passport/session-аас хамааралтай тул registerRoutes дараа mount хийнэ
   const { default: aiRoutes } = await import("./routes/ai");

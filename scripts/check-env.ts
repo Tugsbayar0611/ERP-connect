@@ -18,6 +18,17 @@ const OPTIONAL_ENV_VARS = [
   "SSL_KEY_PATH",
   "SSL_CERT_PATH",
   "QR_SECRET",
+  "SESSION_HASH_SECRET",
+  "UPLOAD_DIR",
+  "PUBLIC_BASE_URL",
+  "APP_URL",
+  "ALLOWED_EMAIL_DOMAINS",
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "SMTP_USER",
+  "SMTP_FROM",
+  "GOOGLE_CLIENT_ID",
+  "WEATHER_API_KEY",
 ] as const;
 
 function isSensitiveEnvVar(varName: string) {
@@ -78,6 +89,24 @@ function checkEnv() {
       console.warn("CORS_ORIGIN should be set to specific domains in production");
     } else {
       console.log("CORS_ORIGIN configured");
+    }
+
+    if (!process.env.UPLOAD_DIR) {
+      console.warn("UPLOAD_DIR is not set; uploads will be stored inside the app working directory");
+    } else {
+      console.log("UPLOAD_DIR configured");
+    }
+
+    if (!process.env.APP_URL || process.env.APP_URL.includes("localhost")) {
+      console.warn("APP_URL should be set to the public production URL");
+    } else {
+      console.log("APP_URL configured");
+    }
+
+    if (!process.env.PUBLIC_BASE_URL || process.env.PUBLIC_BASE_URL.includes("localhost")) {
+      console.warn("PUBLIC_BASE_URL should be set to the public production URL for QR/payment callbacks");
+    } else {
+      console.log("PUBLIC_BASE_URL configured");
     }
   }
 

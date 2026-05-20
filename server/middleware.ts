@@ -61,8 +61,10 @@ export const checkPermission = async (req: any, res: any, next: any) => {
         // Use originalUrl to get the full path including /api prefix, but strip query params
         const fullPath = req.originalUrl.split('?')[0];
         const permission = getRoutePermission(req.method, fullPath);
-        console.log("fullPath", fullPath);
-        console.log("permission", getRoutePermission(req.method, fullPath));
+        if (process.env.NODE_ENV !== "production") {
+            console.log("fullPath", fullPath);
+            console.log("permission", permission);
+        }
         if (!permission) {
             // No explicit permission mapping = DENY by default
             return res.status(403).json({

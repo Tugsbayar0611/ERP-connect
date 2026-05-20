@@ -1,8 +1,7 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-
-const uploadDir = path.join(process.cwd(), "uploads");
+import { uploadDir } from "./upload-paths";
 
 function isBlockedUploadPath(requestPath: string) {
   let decodedPath = requestPath;
@@ -37,9 +36,20 @@ export function serveUploads(app: Express) {
   app.use(
     "/uploads",
     (req, res, next) => {
+      if (!req.isAuthenticated?.()) {
+        return res.sendStatus(401);
+      }
+
       if (isBlockedUploadPath(req.path)) {
         return res.status(404).json({ message: "File not found" });
       }
+
+      const firstSegment = getUploadPathSegments(req.path)[0];
+      const userTenantId = (req.user as any)?.tenantId;
+      if (isUuid(firstSegment) && firstSegment !== userTenantId) {
+        return res.status(404).json({ message: "File not found" });
+      }
+
       next();
     },
     express.static(uploadDir, {
@@ -51,6 +61,24 @@ export function serveUploads(app: Express) {
       },
     }),
   );
+}
+
+function getUploadPathSegments(requestPath: string) {
+  let decodedPath = requestPath;
+  try {
+    decodedPath = decodeURIComponent(requestPath);
+  } catch {
+    return [];
+  }
+
+  return decodedPath
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter(Boolean);
+}
+
+function isUuid(value: string | undefined) {
+  return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 export function serveStatic(app: Express) {

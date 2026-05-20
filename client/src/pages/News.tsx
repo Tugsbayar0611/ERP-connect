@@ -132,7 +132,7 @@ export default function News() {
       for (const file of selectedFiles) {
         const formData = new FormData();
         formData.append('file', file);
-        const res = await fetch('/api/upload', {
+        const res = await fetch('/api/upload?module=news', {
           method: 'POST',
           body: formData,
         });
@@ -142,7 +142,7 @@ export default function News() {
             name: file.name,
             url: data.url,
             size: data.size,
-            type: data.mimetype
+            type: data.mimeType
           });
         }
       }

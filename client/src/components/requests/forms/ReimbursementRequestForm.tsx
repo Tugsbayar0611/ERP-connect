@@ -272,7 +272,7 @@ export function ReimbursementRequestForm({ onSuccess, onCancel }: Props) {
                                     const formData = new FormData();
                                     formData.append("file", file);
 
-                                    const res = await fetch("/api/upload", {
+                                    const res = await fetch("/api/upload?module=receipts", {
                                         method: "POST",
                                         body: formData,
                                     });

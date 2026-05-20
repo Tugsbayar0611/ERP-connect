@@ -7,21 +7,24 @@ import { requireTenant, requireTenantAndPermission } from "../middleware";
 import { createAuditLog, getAuditContext } from "../audit-log";
 import multer from "multer";
 import fs from "fs";
-import path from "path";
 import { isEmployee, isPrivileged, isManager, normalizeRole } from "../../shared/roles";
 import { type DbInsertDocument } from "@shared/schema";
+import { getUploadDestination, getUploadRelativeDir, uploadDir, uploadUrlFor } from "../upload-paths";
 
 const router = Router();
 
 // Configure Multer
-const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
+    fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 const storageConfig = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, uploadDir)
+        const relativeDir = getUploadRelativeDir((req as any).tenantId, "documents");
+        const destination = getUploadDestination(relativeDir);
+        fs.mkdirSync(destination, { recursive: true });
+        (req as any).uploadRelativeDir = relativeDir;
+        cb(null, destination);
     },
     filename: function (req, file, cb) {
         // sanitize filename to avoid issues
@@ -106,14 +109,18 @@ router.post("/documents/:id/read", requireTenant, async (req: any, res) => {
     }
 });
 
-router.post("/documents", requireTenant, upload.single('file'), requireTenantAndPermission, async (req: any, res) => {
+router.post("/documents", requireTenantAndPermission, upload.single('file'), async (req: any, res) => {
     try {
-        console.log("DEBUG: POST /documents body:", req.body);
-        console.log("DEBUG: POST /documents file:", req.file);
+        if (process.env.NODE_ENV !== "production") {
+            console.log("DEBUG: POST /documents body:", req.body);
+            console.log("DEBUG: POST /documents file:", req.file);
+        }
 
         const rawParentId = req.body.parentId;
         const parentId = (rawParentId === 'null' || rawParentId === '') ? null : rawParentId;
-        console.log("DEBUG: Resolved parentId:", parentId);
+        if (process.env.NODE_ENV !== "production") {
+            console.log("DEBUG: Resolved parentId:", parentId);
+        }
 
         let docData: any = {
             name: req.body.name,
@@ -147,7 +154,7 @@ router.post("/documents", requireTenant, upload.single('file'), requireTenantAnd
                 ...docData,
                 mimeType: req.file.mimetype,
                 size: req.file.size,
-                path: `/uploads/${req.file.filename}`,
+                path: uploadUrlFor(`${req.uploadRelativeDir}/${req.file.filename}`),
                 uploadedBy: req.user.id,
             };
         }
@@ -242,7 +249,7 @@ router.post("/documents/upload", requireTenantAndPermission, upload.single('file
         if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
         const body = req.body;
-        const fileUrl = `/uploads/${req.file.filename}`;
+        const fileUrl = uploadUrlFor(`${req.uploadRelativeDir}/${req.file.filename}`);
 
         const input = {
             tenantId: req.tenantId,
@@ -385,7 +392,9 @@ async function getForwardRecipientsForUser(tenantId: string, user: any) {
     let isUserPrivileged = user.isAdmin || user.isHR;
 
     const allUsers = await storage.getUsers(tenantId);
-    console.log(`DEBUG: getForwardRecipientsForUser tenant=${tenantId} user=${user.email} role=${user.role} isPrivileged=${isUserPrivileged} totalUsers=${allUsers.length}`);
+    if (process.env.NODE_ENV !== "production") {
+        console.log(`DEBUG: getForwardRecipientsForUser tenant=${tenantId} user=${user.email} role=${user.role} isPrivileged=${isUserPrivileged} totalUsers=${allUsers.length}`);
+    }
 
     // For Admins/HR: Return everyone
     if (isUserPrivileged) {

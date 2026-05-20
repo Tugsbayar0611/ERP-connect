@@ -103,7 +103,7 @@ export function EvidenceModal({ goalId, initialEvidence = [], readOnly = false, 
                 const formData = new FormData();
                 formData.append("file", selectedFile);
 
-                const res = await fetch("/api/upload", {
+                const res = await fetch("/api/upload?module=performance", {
                     method: "POST",
                     headers: {
                         // "Content-Type": "multipart/form-data" - DO NOT SET THIS MANUALLY with fetch + FormData

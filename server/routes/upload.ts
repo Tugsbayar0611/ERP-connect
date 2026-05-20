@@ -1,14 +1,13 @@
 
 import { Router } from "express";
 import multer from "multer";
-import path from "path";
 import fs from "fs";
 import { requireTenant } from "../middleware";
+import { getUploadDestination, getUploadRelativeDir, uploadDir, uploadUrlFor } from "../upload-paths";
 
 const router = Router();
 
 // Ensure upload directory exists
-const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -16,7 +15,12 @@ if (!fs.existsSync(uploadDir)) {
 // Configure storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, uploadDir)
+        const moduleName = typeof req.query.module === "string" ? req.query.module : "receipts";
+        const relativeDir = getUploadRelativeDir((req as any).tenantId, moduleName);
+        const destination = getUploadDestination(relativeDir);
+        fs.mkdirSync(destination, { recursive: true });
+        (req as any).uploadRelativeDir = relativeDir;
+        cb(null, destination);
     },
     filename: function (req, file, cb) {
         // Sanitize and ensure uniqueness
@@ -51,7 +55,8 @@ router.post("/", requireTenant, upload.single('file'), (req: any, res) => {
             return res.status(400).json({ message: "No file uploaded" });
         }
 
-        const fileUrl = `/uploads/${req.file.filename}`;
+        const relativeDir = req.uploadRelativeDir || getUploadRelativeDir(req.tenantId, "receipts");
+        const fileUrl = uploadUrlFor(`${relativeDir}/${req.file.filename}`);
 
         // Return simple JSON with URL
         res.status(201).json({

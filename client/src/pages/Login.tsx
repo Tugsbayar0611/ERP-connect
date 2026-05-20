@@ -25,7 +25,7 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  email: z.string().email("Имэйл хаяг буруу байна").min(1, "Имэйл хаяг оруулна уу").refine(val => val.toLowerCase().endsWith('@mtcone.net'), { message: "Зөвхөн @mtcone.net хаягаар бүртгүүлэх боломжтой" }),
+  email: z.string().email("Имэйл хаяг буруу байна").min(1, "Имэйл хаяг оруулна уу"),
   username: z.string().min(3, "Нэвтрэх нэр 3-аас багагүй байх ёстой").max(50, "Нэвтрэх нэр хэт урт байна"),
   password: z.string()
     .min(8, "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой")
@@ -44,7 +44,7 @@ const registerSchema = z.object({
 
 // Schema for joining an existing company
 const joinRegisterSchema = z.object({
-  email: z.string().email("Имэйл хаяг буруу байна").min(1, "Имэйл хаяг оруулна уу").refine(val => val.toLowerCase().endsWith('@mtcone.net'), { message: "Зөвхөн @mtcone.net хаягаар бүртгүүлэх боломжтой" }),
+  email: z.string().email("Имэйл хаяг буруу байна").min(1, "Имэйл хаяг оруулна уу"),
   username: z.string().min(3, "Нэвтрэх нэр 3-аас багагүй байх ёстой").max(50, "Нэвтрэх нэр хэт урт байна"),
   password: z.string()
     .min(8, "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой")
@@ -194,7 +194,7 @@ export default function Login() {
         toast({
           variant: "destructive",
           title: "Нэвтрэх боломжгүй",
-          description: "Зөвхөн @mtcone.net хаягаар нэвтрэх боломжтой.",
+          description: "Энэ имэйл домэйнээр нэвтрэх боломжгүй байна.",
         });
       }, 100);
       window.history.replaceState({}, document.title, window.location.pathname);
