@@ -56,10 +56,13 @@ app.use(helmet({
           "script-src": ["'self'", "'unsafe-inline'"],
           "connect-src": ["'self'", "ws:", "wss:"],
           "worker-src": ["'self'", "blob:"],
+          "upgrade-insecure-requests": null,
         },
       }
     : false,
   crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  originAgentCluster: false,
 }));
 
 // CORS Configuration

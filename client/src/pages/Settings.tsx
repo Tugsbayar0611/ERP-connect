@@ -45,7 +45,6 @@ const companySchema = z.object({
   regNo: z.string().optional(),
   vatNo: z.string().optional(),
   googleAuthDomains: z.string().optional(),
-  logo: z.string().optional(),
   address: z.string().optional(),
   district: z.string().optional(),
   city: z.string().optional(),
@@ -1133,7 +1132,7 @@ export default function Settings() {
     queryKey: ["/api/company"],
     queryFn: async () => {
       const res = await fetch("/api/company");
-      if (!res.ok) return { name: "Миний Байгууллага", logo: "", address: "", phone: "", email: "" };
+      if (!res.ok) return { name: "Миний Байгууллага", address: "", phone: "", email: "" };
       return res.json();
     },
   });
@@ -1158,7 +1157,6 @@ export default function Settings() {
       regNo: "",
       vatNo: "",
       googleAuthDomains: "",
-      logo: "",
       address: "",
       district: "",
       city: "Улаанбаатар",
@@ -1175,7 +1173,6 @@ export default function Settings() {
         regNo: company.regNo ?? "",
         vatNo: company.vatNo ?? "",
         googleAuthDomains: Array.isArray(company.googleAuthDomains) ? company.googleAuthDomains.join(", ") : "",
-        logo: company.logo ?? "",
         address: company.address ?? "",
         district: company.district ?? "",
         city: company.city ?? "Улаанбаатар",

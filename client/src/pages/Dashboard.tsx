@@ -213,9 +213,9 @@ export default function Dashboard() {
   // Memoize greeting to avoid recalculation on every render
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Өглөө";
-    if (hour < 18) return "Өдөр";
-    return "Орой";
+    if (hour < 12) return "Өглөөний мэнд";
+    if (hour < 18) return "Өдрийн мэнд";
+    return "Оройн мэнд";
   }, []); // Empty deps - only calculate once per component mount
   const [showUtilityWidgets, setShowUtilityWidgets] = useState(true); // Toggle for weather/currency
   const [activityFilter, setActivityFilter] = useState<"all" | "sales" | "purchase" | "hr" | "inventory">("all");

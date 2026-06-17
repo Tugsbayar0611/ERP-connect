@@ -410,9 +410,9 @@ export const WIDGET_REGISTRY: Record<WidgetKey, (ctx: WidgetContext) => React.Re
                             {((ctx.weatherData.main?.temp || ctx.weatherData.temp) < 0) ? <CloudSnow className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                         </div>
                     </div>
-                    <div className="relative z-10 text-[10px] text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-900/50 px-2 py-1 rounded inline-block self-start">
+                    {/* <div className="relative z-10 text-[10px] text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-900/50 px-2 py-1 rounded inline-block self-start">
                         Мэдрэгдэх: {Math.round(ctx.weatherData.main?.feels_like || ctx.weatherData.feelsLike || 0)}°C
-                    </div>
+                    </div> */}
                 </>
             ) : (
                 <div className="flex items-center justify-center h-full">

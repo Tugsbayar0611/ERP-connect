@@ -1,13 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   /* Premium Mongolian ERP Theme */
-  --font-sans: 'Inter', 'Roboto', 'Noto Sans', 'Arial', sans-serif;
-  --font-display: 'Outfit', 'Roboto', 'Noto Sans', 'Arial', sans-serif;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Arial, sans-serif;
+  --font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Arial, sans-serif;
 
   --background: 220 25% 97%;
   --foreground: 222 47% 11%;
