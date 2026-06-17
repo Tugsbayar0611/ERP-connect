@@ -55,3 +55,68 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+let unauthorizedHandlerInstalled = false;
+let unauthorizedRedirectStarted = false;
+
+function isApiRequest(input: RequestInfo | URL) {
+  const url = typeof input === "string"
+    ? input
+    : input instanceof URL
+      ? input.pathname
+      : input.url;
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.pathname.startsWith("/api/");
+  } catch {
+    return String(url).startsWith("/api/");
+  }
+}
+
+function shouldHandleUnauthorized(input: RequestInfo | URL) {
+  if (!isApiRequest(input)) return false;
+
+  const url = typeof input === "string"
+    ? input
+    : input instanceof URL
+      ? input.pathname
+      : input.url;
+  const parsed = new URL(url, window.location.origin);
+
+  return ![
+    "/api/auth/login",
+    "/api/auth/logout",
+    "/api/auth/register",
+    "/api/auth/forgot-password",
+    "/api/auth/reset-password",
+    "/api/auth/accept-invitation",
+    "/api/auth/google",
+    "/api/auth/google/callback",
+  ].includes(parsed.pathname);
+}
+
+export function installUnauthorizedFetchHandler() {
+  if (unauthorizedHandlerInstalled || typeof window === "undefined") return;
+
+  unauthorizedHandlerInstalled = true;
+  const originalFetch = window.fetch.bind(window);
+
+  window.fetch = async (input, init) => {
+    const response = await originalFetch(input, init);
+
+    if (
+      response.status === 401 &&
+      shouldHandleUnauthorized(input) &&
+      window.location.pathname !== "/login" &&
+      !unauthorizedRedirectStarted
+    ) {
+      unauthorizedRedirectStarted = true;
+      queryClient.clear();
+      sessionStorage.setItem("session-expired", "true");
+      window.location.assign("/login?error=session_expired");
+    }
+
+    return response;
+  };
+}

@@ -1,5 +1,5 @@
 import { Switch, Route, Redirect } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { installUnauthorizedFetchHandler, queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -65,6 +65,8 @@ import BiometricAdmin from "@/pages/admin/BiometricAdmin";
 import UniformAdmin from "@/pages/admin/UniformAdmin";
 import MyUniforms from "@/pages/assets/MyUniforms";
 import AIKnowledgeBaseAdmin from "@/pages/admin/AIKnowledgeBase";
+
+installUnauthorizedFetchHandler();
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();

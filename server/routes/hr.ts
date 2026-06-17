@@ -1009,6 +1009,55 @@ router.post("/departments/:id/assign-employees", requireTenantAndPermission, asy
 // ATTENDANCE
 // ==========================================
 
+const nonWorkingAttendanceStatuses = new Set(["absent", "sick", "vacation"]);
+
+class AttendanceValidationError extends Error {}
+
+function toAttendanceDate(value: unknown): Date | null {
+    if (!value) return null;
+    const date = value instanceof Date ? value : new Date(value as string);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function normalizeAttendanceInput(
+    input: Partial<DbInsertAttendanceDay>,
+    existing?: Partial<DbInsertAttendanceDay>
+): Partial<DbInsertAttendanceDay> {
+    const status = String(input.status ?? existing?.status ?? "present").toLowerCase();
+    const normalized: Partial<DbInsertAttendanceDay> = { ...input, status };
+    const checkIn = input.checkIn !== undefined ? toAttendanceDate(input.checkIn) : toAttendanceDate(existing?.checkIn);
+    const checkOut = input.checkOut !== undefined ? toAttendanceDate(input.checkOut) : toAttendanceDate(existing?.checkOut);
+
+    if (nonWorkingAttendanceStatuses.has(status)) {
+        normalized.checkIn = null;
+        normalized.checkOut = null;
+        normalized.minutesWorked = 0;
+        normalized.checkInPhoto = null;
+        normalized.checkOutPhoto = null;
+        return normalized;
+    }
+
+    if (checkOut && !checkIn) {
+        throw new AttendanceValidationError("Check-out requires check-in time");
+    }
+
+    if (checkIn && checkOut) {
+        const minutesWorked = Math.floor((checkOut.getTime() - checkIn.getTime()) / 60000);
+        if (minutesWorked <= 0) {
+            throw new AttendanceValidationError("Check-out time must be after check-in time");
+        }
+        normalized.minutesWorked = minutesWorked;
+    } else if (input.minutesWorked !== undefined && input.minutesWorked !== null) {
+        const minutesWorked = Number(input.minutesWorked);
+        if (!Number.isFinite(minutesWorked) || minutesWorked < 0 || minutesWorked > 1440) {
+            throw new AttendanceValidationError("Minutes worked must be between 0 and 1440");
+        }
+        normalized.minutesWorked = Math.round(minutesWorked);
+    }
+
+    return normalized;
+}
+
 router.get("/attendance", requireTenant, async (req: any, res) => {
     let { employeeId, startDate, endDate } = req.query;
 
@@ -1047,7 +1096,8 @@ router.get("/attendance", requireTenant, async (req: any, res) => {
 
 router.post("/attendance", requireTenantAndPermission, async (req: any, res) => {
     try {
-        const input = { ...insertAttendanceDaySchema.parse(req.body), tenantId: req.tenantId } as DbInsertAttendanceDay;
+        const parsed = insertAttendanceDaySchema.parse(req.body);
+        const input = { ...normalizeAttendanceInput(parsed), tenantId: req.tenantId } as DbInsertAttendanceDay;
         const att = await storage.createAttendance(input);
 
         // TODO: Extract gamification helpers
@@ -1059,6 +1109,8 @@ router.post("/attendance", requireTenantAndPermission, async (req: any, res) => 
         if (err instanceof z.ZodError) {
             console.error("Validation error:", err.errors);
             res.status(400).json({ message: "Validation Error", details: err.errors });
+        } else if (err instanceof AttendanceValidationError) {
+            res.status(400).json({ message: err.message });
         } else {
             console.error(err);
             res.status(500).json({ message: "Internal Server Error" });
@@ -1073,7 +1125,8 @@ router.put("/attendance/:id", requireTenantAndPermission, async (req: any, res) 
             return res.status(404).json({ message: "Attendance record not found" });
         }
 
-        const input = insertAttendanceDaySchema.partial().parse(req.body);
+        const parsed = insertAttendanceDaySchema.partial().parse(req.body);
+        const input = normalizeAttendanceInput(parsed, existing);
         const att = await storage.updateAttendance(req.params.id, input);
 
         // TODO: Extract gamification helpers
@@ -1087,6 +1140,8 @@ router.put("/attendance/:id", requireTenantAndPermission, async (req: any, res) 
         if (err instanceof z.ZodError) {
             console.error("Validation error:", err.errors);
             res.status(400).json({ message: "Validation Error", details: err.errors });
+        } else if (err instanceof AttendanceValidationError) {
+            res.status(400).json({ message: err.message });
         } else {
             console.error(err);
             res.status(500).json({ message: "Internal Server Error" });

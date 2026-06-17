@@ -28,7 +28,7 @@ const I18N = {
         checkOut: "Гарах",
         checkOutStart: "Ирц хаах", // Alternative if needed
         doneForToday: "Өнөөдөр бүртгүүлсэн",
-        office: "Гол оффис",
+        office: "Төв оффис",
         distanceAway_m: "Оффисоос {{m}} м зайтай",
         distanceAway_km: "Оффисоос {{km}} км зайтай",
         outOfRangeTitle: "Оффисоос хол байна",
@@ -94,6 +94,26 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
     return R * c;
 }
 
+function canUseBrowserLocation(): boolean {
+    return window.isSecureContext ||
+        location.protocol === "https:" ||
+        location.hostname === "localhost" ||
+        location.hostname === "127.0.0.1" ||
+        location.hostname === "::1";
+}
+
+function getLocationErrorMessage(error?: GeolocationPositionError): string {
+    if (!canUseBrowserLocation()) {
+        return "GPS авахын тулд HTTPS эсвэл localhost ашиглана уу. IP хаягаар нээсэн HTTP дээр browser байршил өгөхгүй.";
+    }
+
+    if (!error) return "Байршил тодорхойлох боломжгүй байна.";
+    if (error.code === error.PERMISSION_DENIED) return "Байршлын зөвшөөрөл хаалттай байна.";
+    if (error.code === error.POSITION_UNAVAILABLE) return "Төхөөрөмжийн байршил олдсонгүй.";
+    if (error.code === error.TIMEOUT) return "Байршил авах хугацаа хэтэрлээ.";
+    return error.message || "Байршил тодорхойлох боломжгүй байна.";
+}
+
 export default function EmployeeAttendanceView() {
     const { user } = useAuth();
     const { checkIn, checkOut } = useAttendance();
@@ -103,11 +123,13 @@ export default function EmployeeAttendanceView() {
     const [now, setNow] = useState(new Date());
     const [locationStatus, setLocationStatus] = useState<{
         inRadius: boolean;
-        distance: number;
+        distance: number | null;
         branchName: string;
         loading: boolean;
+        latitude?: number;
+        longitude?: number;
         error?: string;
-    }>({ inRadius: false, distance: 0, branchName: "", loading: false });
+    }>({ inRadius: false, distance: null, branchName: "", loading: false });
 
     // Fetch branches for geofencing
     const { data: branches = [] } = useQuery<any[]>({
@@ -145,12 +167,30 @@ export default function EmployeeAttendanceView() {
 
     // Location Check Function
     const checkLocation = () => {
-        if (!navigator.geolocation) {
-            setLocationStatus(prev => ({ ...prev, loading: false, error: "Geolocation not supported" }));
+        if (!canUseBrowserLocation()) {
+            const message = getLocationErrorMessage();
+            setLocationStatus({
+                inRadius: false,
+                distance: null,
+                branchName: "",
+                loading: false,
+                error: message,
+            });
             return;
         }
 
-        setLocationStatus(prev => ({ ...prev, loading: true, error: undefined }));
+        if (!navigator.geolocation) {
+            setLocationStatus(prev => ({
+                ...prev,
+                inRadius: false,
+                distance: null,
+                loading: false,
+                error: "Таны төхөөрөмж browser GPS дэмжихгүй байна.",
+            }));
+            return;
+        }
+
+        setLocationStatus(prev => ({ ...prev, inRadius: false, distance: null, loading: true, error: undefined }));
 
         navigator.geolocation.getCurrentPosition(
             (pos) => {
@@ -166,10 +206,10 @@ export default function EmployeeAttendanceView() {
                 if (validBranches.length === 0) {
                     setLocationStatus({
                         inRadius: false,
-                        distance: 0,
+                        distance: null,
                         branchName: "",
                         loading: false,
-                        error: "No branches with location configured."
+                        error: "Оффисын координат тохируулаагүй байна."
                     });
                     return;
                 }
@@ -188,13 +228,22 @@ export default function EmployeeAttendanceView() {
                         inRadius: minDistance <= radius,
                         distance: minDistance, // keep raw for formatting logic
                         branchName: (nearest as any).name,
+                        latitude,
+                        longitude,
                         loading: false
                     });
                 }
             },
             (err) => {
-                setLocationStatus(prev => ({ ...prev, loading: false, error: err.message }));
-                toast({ title: I18N.attendance.errorTitle, description: err.message, variant: "destructive" });
+                const message = getLocationErrorMessage(err);
+                setLocationStatus(prev => ({
+                    ...prev,
+                    inRadius: false,
+                    distance: null,
+                    loading: false,
+                    error: message,
+                }));
+                toast({ title: I18N.attendance.errorTitle, description: message, variant: "destructive" });
             },
             { enableHighAccuracy: true, timeout: 10000 }
         );
@@ -211,13 +260,18 @@ export default function EmployeeAttendanceView() {
     // Handlers
     const handleCheckIn = async () => {
         if (!locationStatus.loading && !locationStatus.inRadius) {
-            toast({ title: I18N.attendance.outOfRangeTitle, description: I18N.attendance.outOfRangeDesc, variant: "destructive" });
+            toast({
+                title: locationStatus.error ? "Байршил шалгах боломжгүй" : I18N.attendance.outOfRangeTitle,
+                description: locationStatus.error || I18N.attendance.outOfRangeDesc,
+                variant: "destructive"
+            });
             return;
         }
 
         try {
             await checkIn.mutateAsync({
-                latitude: undefined,
+                latitude: locationStatus.latitude,
+                longitude: locationStatus.longitude,
             });
             toast({ title: "Success", description: I18N.attendance.successCheckIn });
             refetch();
@@ -237,17 +291,13 @@ export default function EmployeeAttendanceView() {
     };
 
     // Construct distance text
-    const distanceText = locationStatus.loading
-        ? I18N.attendance.checkingGPS
-        : (I18N.attendance.distanceAway_m
-            .replace("{{m}}", Math.round(locationStatus.distance).toString())
-            .replace("{{km}}", (locationStatus.distance / 1000).toFixed(1)));
-
-    // Better logic: if > 1km show KM text, else show M text manually if template logic is simple
-    // Or just use our helper:
     const displayDistance = locationStatus.loading
         ? I18N.attendance.checkingGPS
-        : `Оффисоос ${formatDistance(locationStatus.distance)} зайтай`;
+        : locationStatus.error
+            ? locationStatus.error
+            : locationStatus.distance != null
+                ? `Оффисоос ${formatDistance(locationStatus.distance)} зайтай`
+                : "Байршил шалгаагүй";
 
     return (
         <TooltipProvider>
@@ -271,7 +321,7 @@ export default function EmployeeAttendanceView() {
                             </div>
                             <div>
                                 <p className="font-semibold text-base">
-                                    {locationStatus.loading ? I18N.attendance.locating : locationStatus.branchName || I18N.attendance.unknownLocation}
+                                    {locationStatus.loading ? I18N.attendance.locating : locationStatus.branchName || (locationStatus.error ? "GPS боломжгүй" : I18N.attendance.unknownLocation)}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
                                     {displayDistance}
@@ -350,10 +400,10 @@ export default function EmployeeAttendanceView() {
                         <Alert variant="default" className="border-orange-200 bg-orange-50 text-orange-800 dark:bg-orange-900/20 dark:border-orange-900/50 dark:text-orange-300">
                             <AlertCircle className="h-5 w-5 stroke-orange-600 dark:stroke-orange-400" />
                             <AlertTitle className="ml-2 font-semibold">
-                                {I18N.attendance.outOfRangeTitle}
+                                {locationStatus.error ? "Байршил шалгах боломжгүй" : I18N.attendance.outOfRangeTitle}
                             </AlertTitle>
                             <AlertDescription className="ml-2 mt-1 text-orange-700/90 dark:text-orange-300/90">
-                                {I18N.attendance.outOfRangeDesc}
+                                {locationStatus.error || I18N.attendance.outOfRangeDesc}
                             </AlertDescription>
                         </Alert>
                     )}

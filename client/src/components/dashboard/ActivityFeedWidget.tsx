@@ -257,21 +257,21 @@ export function ActivityFeedWidget({ activities = [], className, userRole = "Emp
     return (
         <GlassCard className={cn("h-full flex flex-col overflow-hidden", className)}>
             <GlassCardHeader className="pb-2 flex-shrink-0 space-y-2">
-                <div className="flex items-center justify-between">
-                    <GlassCardTitle className="flex items-center gap-2 text-lg">
+                <div className="flex items-start justify-between gap-2">
+                    <GlassCardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base sm:text-lg">
                         <Activity className="h-5 w-5 text-indigo-500 animate-pulse" />
-                        Компанийн зүрхний цохилт
+                        <span className="truncate">Үйл ажиллагаа</span>
                         {unreadCount > 0 && (
-                            <Badge variant="destructive" className="ml-2 text-xs animate-pulse">
-                                Шинэ: {unreadCount}
+                            <Badge variant="destructive" className="text-xs animate-pulse">
+                                Шинэ {unreadCount}
                             </Badge>
                         )}
                     </GlassCardTitle>
-                    <div className="flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={markAllAsSeen}>
+                                    <Button variant="ghost" size="icon" className="hidden h-8 w-8 sm:inline-flex" onClick={markAllAsSeen}>
                                         <Eye className="h-4 w-4 text-slate-400" />
                                     </Button>
                                 </TooltipTrigger>
@@ -283,7 +283,7 @@ export function ActivityFeedWidget({ activities = [], className, userRole = "Emp
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsPaused(!isPaused)}>
+                                    <Button variant="ghost" size="icon" className="hidden h-8 w-8 sm:inline-flex" onClick={() => setIsPaused(!isPaused)}>
                                         {isPaused ? <Play className="h-4 w-4 text-green-500" /> : <Pause className="h-4 w-4 text-slate-400" />}
                                     </Button>
                                 </TooltipTrigger>
@@ -295,7 +295,7 @@ export function ActivityFeedWidget({ activities = [], className, userRole = "Emp
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleExport}>
+                                    <Button variant="ghost" size="icon" className="hidden h-8 w-8 sm:inline-flex" onClick={handleExport}>
                                         <Download className="h-4 w-4 text-slate-400" />
                                     </Button>
                                 </TooltipTrigger>
@@ -316,25 +316,25 @@ export function ActivityFeedWidget({ activities = [], className, userRole = "Emp
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                        <Badge variant="outline" className="ml-1 text-[10px] bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
+                        <Badge variant="outline" className="ml-1 hidden text-[10px] bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 md:inline-flex">
                             Live
                         </Badge>
                     </div>
                 </div>
 
                 {/* Filters Row */}
-                <div className="flex gap-2 items-center">
-                    <div className="relative flex-1">
+                <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:items-center">
+                    <div className="relative col-span-2 sm:col-span-1 sm:flex-1">
                         <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                         <Input
-                            placeholder="Хайх..."
+                            placeholder="Үйлдэл, ажилтан, баримтаар хайх..."
                             className="h-8 pl-8 text-xs bg-muted/50 border-none"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                     <Select value={filterType} onValueChange={setFilterType}>
-                        <SelectTrigger className="h-8 w-[110px] text-xs border-dashed">
+                        <SelectTrigger className="h-8 w-full text-xs border-dashed sm:w-[120px]">
                             <SelectValue placeholder="Төрөл" />
                         </SelectTrigger>
                         <SelectContent>
@@ -347,7 +347,7 @@ export function ActivityFeedWidget({ activities = [], className, userRole = "Emp
                         </SelectContent>
                     </Select>
                     <Select value={filterSeverity} onValueChange={setFilterSeverity}>
-                        <SelectTrigger className="h-8 w-[30px] px-0 justify-center border-dashed">
+                        <SelectTrigger className="h-8 w-10 px-0 justify-center border-dashed">
                             <Filter className="h-3.5 w-3.5" />
                         </SelectTrigger>
                         <SelectContent align="end">

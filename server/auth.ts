@@ -8,10 +8,10 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool, db } from "./db";
 import { storage } from "./storage";
-import { type User, userSessions } from "@shared/schema";
+import { tenants, type User, userSessions } from "@shared/schema";
 import { validatePasswordStrength, updateSessionActivity, createRateLimiter } from "./security";
 import { isAdmin as isAdminRole, isHR as isHRRole, isManager as isManagerRole } from "../shared/roles";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, asc } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 const PgSession = connectPg(session);
@@ -32,6 +32,67 @@ function isAllowedEmailDomain(email: string | undefined | null) {
   if (allowedDomains.includes("*")) return true;
 
   return allowedDomains.some((domain) => normalizedEmail.endsWith(`@${domain}`));
+}
+
+function normalizeEmailDomain(domain: string | undefined | null) {
+  return domain?.trim().toLowerCase().replace(/^@/, "") || "";
+}
+
+function getEmailDomain(email: string) {
+  const normalized = email.trim().toLowerCase();
+  const atIndex = normalized.lastIndexOf("@");
+  return atIndex >= 0 ? normalized.slice(atIndex + 1) : "";
+}
+
+function normalizeGoogleDomains(domains: unknown): string[] {
+  if (!Array.isArray(domains)) return [];
+  return Array.from(new Set(
+    domains
+      .map((domain) => normalizeEmailDomain(String(domain)))
+      .filter(Boolean)
+  ));
+}
+
+async function findTenantForGoogleEmail(email: string) {
+  const domain = getEmailDomain(email);
+  if (!domain) return null;
+
+  const tenantRows = await db.select().from(tenants).orderBy(asc(tenants.createdAt));
+  const matches = tenantRows.filter((tenant) => {
+    const allowedDomains = normalizeGoogleDomains((tenant as any).googleAuthDomains);
+    return allowedDomains.includes("*") || allowedDomains.includes(domain);
+  });
+
+  if (matches.length > 1) {
+    throw new Error("duplicate_google_domain");
+  }
+
+  if (matches.length === 1) {
+    return matches[0];
+  }
+
+  if (isAllowedEmailDomain(email)) {
+    return tenantRows[0] || null;
+  }
+
+  return null;
+}
+
+async function ensureGoogleEmployee(user: User, tenantId: string, email: string, profile: any) {
+  await storage.linkUserToEmployeeByEmail(user.id, email, tenantId);
+
+  const existingEmployee = await storage.getEmployeeByUserId(user.id);
+  if (existingEmployee) return existingEmployee;
+
+  return await storage.createEmployee({
+    tenantId,
+    userId: user.id,
+    firstName: profile.name?.givenName || profile.displayName?.split(" ")[0] || email.split("@")[0],
+    lastName: profile.name?.familyName || profile.displayName?.split(" ").slice(1).join(" ") || "",
+    email,
+    hireDate: new Date().toISOString().split("T")[0],
+    status: "active",
+  });
 }
 
 function authDebug(...args: unknown[]) {
@@ -264,36 +325,20 @@ export function setupAuth(app: Express) {
             if (isEmailVerified === false) {
               return done(new Error("google_email_not_verified"), undefined);
             }
-            if (!isAllowedEmailDomain(googleEmail)) {
+            const googleTenant = await findTenantForGoogleEmail(googleEmail);
+            if (!googleTenant) {
               return done(new Error("unauthorized_domain"), undefined);
             }
 
-            // Check if user exists
-            let user = await storage.getUserByEmail(googleEmail);
+            // Check if user exists in the tenant selected by the email domain.
+            let user = await storage.getUserByEmailInTenant(googleEmail, googleTenant.id);
 
             if (!user) {
-              // Find the existing company tenant.
-              // Look up the first active tenant instead of relying on DEFAULT_TENANT_ID env
-              const { db } = await import("./db");
-              const { tenants } = await import("@shared/schema");
-              const { asc } = await import("drizzle-orm");
-
-              const [firstTenant] = await db
-                .select()
-                .from(tenants)
-                .orderBy(asc(tenants.createdAt))
-                .limit(1);
-
-              if (!firstTenant) {
-                console.error("Google OAuth: No tenant found in database. Please create a company first.");
-                return done(new Error("no_tenant"), undefined);
-              }
-
               const dummyPassword = randomBytes(32).toString("hex");
               const hashedPassword = await hashPassword(dummyPassword);
 
               user = await storage.createUser({
-                tenantId: firstTenant.id,
+                tenantId: googleTenant.id,
                 email: googleEmail,
                 username: googleEmail,
                 passwordHash: hashedPassword,
@@ -301,27 +346,14 @@ export function setupAuth(app: Express) {
                 isActive: true,
                 status: "active",
               });
-
-              // Auto-link to Employee record if email matches
-              await storage.linkUserToEmployeeByEmail(user.id, googleEmail, firstTenant.id);
-
-              // Check if employee was linked. If not, auto-create one.
-              const existingEmployee = await storage.getEmployeeByUserId(user.id);
-              if (!existingEmployee) {
-                await storage.createEmployee({
-                  tenantId: firstTenant.id,
-                  userId: user.id,
-                  firstName: profile.name?.givenName || profile.displayName?.split(' ')[0] || googleEmail.split('@')[0],
-                  lastName: profile.name?.familyName || profile.displayName?.split(' ').slice(1).join(' ') || '',
-                  email: googleEmail,
-                  hireDate: new Date().toISOString().split('T')[0],
-                  status: "active",
-                });
-                console.log(`Google OAuth: Created new employee profile for ${googleEmail}`);
-              }
-
-              console.log(`Google OAuth: Created new user ${googleEmail} under tenant ${firstTenant.name}`);
+              console.log(`Google OAuth: Created new user ${googleEmail} under tenant ${googleTenant.name}`);
             }
+
+            if (!user.isActive || user.status !== "active") {
+              return done(new Error("user_not_active"), undefined);
+            }
+
+            await ensureGoogleEmployee(user, googleTenant.id, googleEmail, profile);
 
             return done(null, user);
           } catch (err: any) {
@@ -998,6 +1030,12 @@ export function setupAuth(app: Express) {
             }
             if (err.message === "no_tenant") {
               return res.redirect("/login?error=no_tenant");
+            }
+            if (err.message === "duplicate_google_domain") {
+              return res.redirect("/login?error=duplicate_domain");
+            }
+            if (err.message === "user_not_active") {
+              return res.redirect("/login?error=inactive");
             }
             console.error("Google OAuth error:", err);
             return res.redirect("/login?error=google_auth_failed");

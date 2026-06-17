@@ -12,7 +12,8 @@ async function checkTables() {
 
   try {
     await client.connect();
-    console.log("✅ Database connected\n");
+    console.log("Database connected\n");
+    let hasMissingObjects = false;
 
     // Check accounting tables
     const tables = [
@@ -35,7 +36,7 @@ async function checkTables() {
       "period_locks",
     ];
 
-    console.log("📋 Checking accounting tables...\n");
+    console.log("Checking accounting tables...\n");
     
     for (const table of tables) {
       const result = await client.query(
@@ -48,10 +49,13 @@ async function checkTables() {
       );
       
       const exists = result.rows[0].exists;
-      console.log(`${exists ? "✅" : "❌"} ${table}`);
+      console.log(`${exists ? "OK" : "MISSING"} ${table}`);
+      if (!exists) {
+        hasMissingObjects = true;
+      }
     }
 
-    console.log("\n📋 Checking triggers...\n");
+    console.log("\nChecking triggers...\n");
     
     const triggers = [
       "check_double_entry_on_post_trigger",
@@ -73,11 +77,20 @@ async function checkTables() {
       );
       
       const exists = result.rows[0].exists;
-      console.log(`${exists ? "✅" : "❌"} ${trigger}`);
+      console.log(`${exists ? "OK" : "MISSING"} ${trigger}`);
+      if (!exists) {
+        hasMissingObjects = true;
+      }
     }
 
+    if (hasMissingObjects) {
+      throw new Error("Database readiness check failed: required accounting objects are missing");
+    }
+
+    console.log("\nDatabase readiness check passed");
+
   } catch (error: any) {
-    console.error("❌ Error:", error.message);
+    console.error("Error:", error.message);
     process.exit(1);
   } finally {
     await client.end();

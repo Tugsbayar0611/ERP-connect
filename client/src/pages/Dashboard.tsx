@@ -213,9 +213,9 @@ export default function Dashboard() {
   // Memoize greeting to avoid recalculation on every render
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Өглөөний мэнд";
-    if (hour < 18) return "Өдрийн мэнд";
-    return "Оройн мэнд";
+    if (hour < 12) return "Өглөө";
+    if (hour < 18) return "Өдөр";
+    return "Орой";
   }, []); // Empty deps - only calculate once per component mount
   const [showUtilityWidgets, setShowUtilityWidgets] = useState(true); // Toggle for weather/currency
   const [activityFilter, setActivityFilter] = useState<"all" | "sales" | "purchase" | "hr" | "inventory">("all");
@@ -410,7 +410,7 @@ export default function Dashboard() {
   return (
     <div
       ref={containerRef}
-      className="min-h-screen -m-4 md:-m-8 p-4 md:p-8"
+      className="min-h-screen -m-3 sm:-m-4 md:-m-8 p-3 sm:p-4 md:p-8 overflow-x-hidden"
     >
       {/* Show error message if stats failed to load but user is authenticated */}
       {statsError && (
@@ -428,11 +428,11 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-      {/* Header with Quick Actions & Zen Mode & Global Date Range */}
-      <div className="animate-slide-up flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+      {/* Header with quick actions and date range */}
+      <div className="animate-slide-up flex min-w-0 flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div className="flex-1 flex flex-col sm:flex-row sm:items-start lg:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight font-display bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight font-display bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent break-words">
               {greeting}, {user?.fullName || user?.email} 👋
             </h2>
             <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">
@@ -443,7 +443,7 @@ export default function Dashboard() {
                   <span className="text-orange-600 dark:text-orange-400">🔴 АНХААРАХ ЗҮЙЛ БАЙНА</span>
                 )
               ) : (
-                "Харахад таатай байна. Өнөөдрийн ажлын явцыг доорх хэсгээс харна уу."
+                "Өнөөдрийн хяналт"
               )}
             </p>
           </div>
@@ -467,22 +467,22 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="flex gap-2 items-center overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:pb-0 md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] shrink-0">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center shrink-0">
           {/* Quick Actions */}
           {!zenMode && (
             <>
-              <div className="flex items-center space-x-2 bg-muted/50 p-1.5 rounded-lg border border-border/50 shrink-0">
+              <div className="col-span-2 flex min-h-10 items-center justify-center space-x-2 bg-muted/50 p-1.5 rounded-lg border border-border/50 sm:col-span-1 sm:justify-start">
                 <Switch
                   id="demo-mode"
                   checked={isDemoMode}
                   onCheckedChange={setIsDemoMode}
                 />
-                <Label htmlFor="demo-mode" className="cursor-pointer text-sm font-medium whitespace-nowrap">Demo Mode</Label>
+                <Label htmlFor="demo-mode" className="cursor-pointer text-sm font-medium whitespace-nowrap">Туршилтын өгөгдөл</Label>
               </div>
 
               <Button
                 onClick={() => setLocation("/invoices?action=create")}
-                className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 shrink-0"
+                className="w-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 sm:w-auto"
               >
                 <Plus className="w-4 h-4 md:mr-2" />
                 <span className="hidden md:inline">Нэхэмжлэх үүсгэх</span>
@@ -491,7 +491,7 @@ export default function Dashboard() {
               <Button
                 onClick={() => setLocation("/employees?action=create")}
                 variant="outline"
-                className="hover:bg-muted/50 shrink-0"
+                className="w-full hover:bg-muted/50 sm:w-auto"
               >
                 <UserPlus className="w-4 h-4 md:mr-2" />
                 <span className="hidden md:inline">Ажилтан нэмэх</span>
@@ -501,7 +501,7 @@ export default function Dashboard() {
               {(userRole === "admin" || userRole === "manager" || userRole === "hr") ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="hover:bg-muted/50 shrink-0">
+                    <Button variant="outline" className="w-full hover:bg-muted/50 sm:w-auto">
                       <Calendar className="w-4 h-4 mr-2" />
                       Чөлөө & Амралт
                     </Button>
@@ -528,7 +528,7 @@ export default function Dashboard() {
                 <Button
                   onClick={() => setLocation("/leave")}
                   variant="outline"
-                  className="hover:bg-muted/50 shrink-0"
+                  className="w-full hover:bg-muted/50 sm:w-auto"
                 >
                   <Calendar className="w-4 h-4 mr-2" />
                   Чөлөө хүсэх
@@ -537,22 +537,22 @@ export default function Dashboard() {
             </>
           )}
 
-          {/* Zen Mode Toggle */}
+          {/* Focus view toggle */}
           <Button
             onClick={() => setZenMode(!zenMode)}
             variant={zenMode ? "default" : "outline"}
             size="sm"
-            className="shrink-0 h-10"
+            className="h-10 w-full sm:w-auto"
           >
             {zenMode ? (
               <>
                 <EyeOff className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline">Zen Mode</span>
+                <span className="hidden md:inline">Ердийн харагдац</span>
               </>
             ) : (
               <>
                 <Eye className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline">Zen</span>
+                <span className="hidden md:inline">Товч харагдац</span>
               </>
             )}
           </Button>
@@ -561,7 +561,7 @@ export default function Dashboard() {
 
       {/* Quick Stats Cards - 2x2 on mobile, 4 columns on desktop */}
       {!zenMode && (
-        <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
           {visibleWidgets.map(key => {
             const WidgetComponent = WIDGET_REGISTRY[key];
             if (!WidgetComponent) return null;
@@ -588,7 +588,7 @@ export default function Dashboard() {
 
 
 
-      {/* Zen Mode Status Card */}
+      {/* Focus status card */}
       {zenMode && (
         <Card className="glass-card animate-scale-in border-2 border-primary/50">
           <CardContent className="p-8 text-center">

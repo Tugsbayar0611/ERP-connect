@@ -68,17 +68,17 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
     });
 
     return (
-        <aside className="w-64 border-r bg-muted/30 h-full flex-shrink-0">
-            <ScrollArea className="h-full">
-                <div className="py-4">
-                    <div className="px-4 mb-4">
+        <aside className="w-full lg:w-64 border-b lg:border-b-0 lg:border-r bg-muted/30 flex-shrink-0">
+            <ScrollArea className="lg:h-full">
+                <div className="py-3 lg:py-4">
+                    <div className="px-4 mb-3 lg:mb-4">
                         <h2 className="text-lg font-semibold">Тохиргоо</h2>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="hidden sm:block text-sm text-muted-foreground">
                             Системийн тохиргоог удирдах
                         </p>
                     </div>
                     <Separator className="mb-2" />
-                    <nav className="space-y-1 px-2">
+                    <nav className="flex gap-2 overflow-x-auto px-3 pb-1 lg:block lg:space-y-1 lg:px-2 lg:pb-0">
                         {filteredItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = activeTab === item.id;
@@ -88,15 +88,15 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
                                     key={item.id}
                                     onClick={() => onTabChange(item.id)}
                                     className={cn(
-                                        "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                                        "flex min-h-10 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors lg:w-full lg:gap-3",
                                         isActive
                                             ? "bg-primary text-primary-foreground"
                                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                     )}
                                 >
-                                    <Icon className="w-4 h-4" />
-                                    <span className="flex-1 text-left">{item.label}</span>
-                                    {isActive && <ChevronRight className="w-4 h-4" />}
+                                    <Icon className="w-4 h-4 shrink-0" />
+                                    <span className="whitespace-nowrap lg:flex-1 lg:text-left">{item.label}</span>
+                                    {isActive && <ChevronRight className="hidden w-4 h-4 lg:block" />}
                                 </button>
                             );
                         })}

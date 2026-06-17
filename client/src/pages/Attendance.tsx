@@ -40,6 +40,14 @@ const attendanceFormSchema = z.object({
 });
 
 type AttendanceFormValues = z.infer<typeof attendanceFormSchema>;
+type AttendanceStatus = "present" | "absent" | "late" | "sick" | "vacation" | "business_trip" | "remote" | "half_day";
+
+const NON_WORKING_STATUSES: AttendanceStatus[] = ["absent", "sick", "vacation"];
+
+const toAttendanceStatus = (status: string): AttendanceStatus => {
+  const normalized = status.toLowerCase() as AttendanceStatus;
+  return normalized || "present";
+};
 
 // Geofencing: Calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -149,6 +157,8 @@ export default function Attendance() {
       workHours: "8",
     },
   });
+  const selectedStatus = toAttendanceStatus(form.watch("status") || "present");
+  const isNonWorkingStatus = NON_WORKING_STATUSES.includes(selectedStatus);
 
   // Helper: Convert time string to Date
   const formatTimeToISO = (dateStr: string, timeStr: string | undefined): Date | null => {
@@ -166,6 +176,34 @@ export default function Attendance() {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return "";
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const getMinutesWorked = (
+    status: AttendanceStatus,
+    checkIn: Date | null,
+    checkOut: Date | null,
+    workHours?: string,
+  ) => {
+    if (NON_WORKING_STATUSES.includes(status)) return 0;
+
+    if (checkIn && checkOut) {
+      const diffMinutes = Math.floor((checkOut.getTime() - checkIn.getTime()) / 60000);
+      if (diffMinutes <= 0) {
+        throw new Error("Гарсан цаг ирсэн цагаас хойш байх ёстой.");
+      }
+      return diffMinutes;
+    }
+
+    if (!checkIn && checkOut) {
+      throw new Error("Гарсан цаг оруулах бол ирсэн цагийг хамт оруулна уу.");
+    }
+
+    const hours = Number(workHours);
+    if (!Number.isFinite(hours) || hours < 0 || hours > 24) {
+      throw new Error("Ажилласан цаг 0-24 хооронд байх ёстой.");
+    }
+
+    return Math.round(hours * 60);
   };
 
   // Selfie Capture Function
@@ -323,18 +361,20 @@ export default function Attendance() {
   const onSubmit = async (values: AttendanceFormValues) => {
     try {
       const dateOnly = values.workDate;
-      const hours = Number(values.workHours) || 0;
+      const status = toAttendanceStatus(values.status);
+      const checkIn = NON_WORKING_STATUSES.includes(status) ? null : formatTimeToISO(dateOnly, values.checkIn);
+      const checkOut = NON_WORKING_STATUSES.includes(status) ? null : formatTimeToISO(dateOnly, values.checkOut);
 
       const payload: Partial<InsertAttendanceDay> = {
         employeeId: values.employeeId,
         workDate: dateOnly,
-        checkIn: formatTimeToISO(dateOnly, values.checkIn) || null,
-        checkOut: formatTimeToISO(dateOnly, values.checkOut) || null,
-        status: values.status.toLowerCase() as "present" | "absent" | "late" | "sick" | "vacation" | "business_trip" | "remote" | "half_day",
-        minutesWorked: Math.round(hours * 60),
+        checkIn,
+        checkOut,
+        status,
+        minutesWorked: getMinutesWorked(status, checkIn, checkOut, values.workHours),
         note: "",
-        checkInPhoto: checkInPhoto || null,
-        checkOutPhoto: checkOutPhoto || null,
+        checkInPhoto: checkIn ? checkInPhoto || null : null,
+        checkOutPhoto: checkOut ? checkOutPhoto || null : null,
       };
 
       if (editingRecord) {
@@ -380,7 +420,7 @@ export default function Attendance() {
       checkIn: dateToTimeString(record.checkIn),
       checkOut: dateToTimeString(record.checkOut),
       status: record.status || "present",
-      workHours: record.minutesWorked ? (record.minutesWorked / 60).toString() : "8",
+      workHours: record.minutesWorked != null ? (record.minutesWorked / 60).toString() : "8",
     });
     setOpen(true);
   };
@@ -577,24 +617,15 @@ export default function Attendance() {
     const currentTime = dateToTimeString(now);
     const currentDate = format(now, "yyyy-MM-dd");
 
-    // Find current user's employee record (you may need to get this from auth context)
-    if (employees.length > 0) {
-      form.reset({
-        employeeId: employees[0].id, // Default to first employee (or get from auth)
-        workDate: currentDate,
-        checkIn: currentTime,
-        checkOut: "",
-        status: "present",
-        workHours: "8",
-      });
-      setOpen(true);
-    } else {
-      toast({
-        title: "Анхаар",
-        description: "Ажилтны мэдээлэл олдсонгүй.",
-        variant: "default",
-      });
-    }
+    form.reset({
+      employeeId: "",
+      workDate: currentDate,
+      checkIn: currentTime,
+      checkOut: "",
+      status: "present",
+      workHours: "8",
+    });
+    setOpen(true);
   };
 
   // Calculate date range based on filter
@@ -854,7 +885,7 @@ export default function Attendance() {
                     <FormItem>
                       <FormLabel>Ирсэн цаг</FormLabel>
                       <FormControl>
-                        <Input type="time" {...field} value={field.value} />
+                        <Input type="time" {...field} value={field.value} disabled={isNonWorkingStatus} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -867,7 +898,7 @@ export default function Attendance() {
                     <FormItem>
                       <FormLabel>Явсан цаг</FormLabel>
                       <FormControl>
-                        <Input type="time" {...field} value={field.value} />
+                        <Input type="time" {...field} value={field.value} disabled={isNonWorkingStatus} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -916,6 +947,7 @@ export default function Attendance() {
                           step="0.5"
                           {...field}
                           value={field.value}
+                          disabled={isNonWorkingStatus}
                         />
                       </FormControl>
                       <FormMessage />

@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Building2, Users, Shield, LogOut, Upload, Loader2, X, QrCode, Eye, EyeOff, KeyRound, User, Receipt, MapPin, Navigation, Plus, PenTool, ChevronRight } from "lucide-react";
+import { Building2, Users, Shield, LogOut, Loader2, QrCode, Eye, EyeOff, KeyRound, User, Receipt, MapPin, Navigation, PenTool, ChevronRight } from "lucide-react";
 import { TwoFactorAuth } from "@/components/TwoFactorAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SettingsSidebar } from "@/components/settings/SettingsSidebar";
@@ -44,6 +44,7 @@ const companySchema = z.object({
   legalName: z.string().optional(),
   regNo: z.string().optional(),
   vatNo: z.string().optional(),
+  googleAuthDomains: z.string().optional(),
   logo: z.string().optional(),
   address: z.string().optional(),
   district: z.string().optional(),
@@ -52,6 +53,15 @@ const companySchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
 });
 type CompanyForm = z.infer<typeof companySchema>;
+
+function parseGoogleDomainInput(value?: string) {
+  return Array.from(new Set(
+    (value || "")
+      .split(/[\n,]+/)
+      .map((domain) => domain.trim().toLowerCase().replace(/^@/, ""))
+      .filter(Boolean)
+  ));
+}
 
 // User create schema
 const userSchema = z.object({
@@ -724,6 +734,24 @@ function BranchSettingsCard() {
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
+  const canUseBrowserLocation = () => window.isSecureContext ||
+    location.protocol === "https:" ||
+    location.hostname === "localhost" ||
+    location.hostname === "127.0.0.1" ||
+    location.hostname === "::1";
+
+  const getLocationErrorMessage = (error?: GeolocationPositionError) => {
+    if (!canUseBrowserLocation()) {
+      return "GPS авахын тулд HTTPS эсвэл localhost ашиглана уу. IP хаягаар нээсэн HTTP дээр browser байршил өгөхгүй.";
+    }
+
+    if (!error) return "Байршил авах боломжгүй байна.";
+    if (error.code === error.PERMISSION_DENIED) return "Байршлын зөвшөөрөл хаалттай байна.";
+    if (error.code === error.POSITION_UNAVAILABLE) return "Төхөөрөмжийн байршил олдсонгүй.";
+    if (error.code === error.TIMEOUT) return "Байршил авах хугацаа хэтэрлээ.";
+    return error.message || "Байршил авах боломжгүй байна.";
+  };
+
   // Fetch branches
   const { data: branches = [], isLoading: branchesLoading } = useQuery<any[]>({
     queryKey: ["/api/branches"],
@@ -736,6 +764,15 @@ function BranchSettingsCard() {
 
   // Get current location from browser
   const getCurrentLocation = () => {
+    if (!canUseBrowserLocation()) {
+      toast({
+        title: "Боломжгүй",
+        description: getLocationErrorMessage(),
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!navigator.geolocation) {
       toast({
         title: "Боломжгүй",
@@ -762,7 +799,7 @@ function BranchSettingsCard() {
         setIsGettingLocation(false);
         toast({
           title: "Боломжгүй",
-          description: error.message || "Байршлыг олох боломжгүй байна.",
+          description: getLocationErrorMessage(error),
           variant: "destructive",
         });
       }
@@ -871,8 +908,6 @@ function BranchLocationForm({
     latitude: branch?.latitude || "",
     longitude: branch?.longitude || "",
     geofenceRadius: branch?.geofenceRadius || 100,
-    wifiSsids: branch?.officeWifiSsid || [],
-    wifiSsidInput: "",
   });
 
   useEffect(() => {
@@ -883,8 +918,6 @@ function BranchLocationForm({
         latitude: branch.latitude || "",
         longitude: branch.longitude || "",
         geofenceRadius: branch.geofenceRadius || 100,
-        wifiSsids: branch.officeWifiSsid || [],
-        wifiSsidInput: "",
       });
     }
   }, [branch]);
@@ -949,7 +982,6 @@ function BranchLocationForm({
       latitude: lat.toString(),
       longitude: lon.toString(),
       geofenceRadius: formData.geofenceRadius,
-      officeWifiSsid: formData.wifiSsids && formData.wifiSsids.length > 0 ? formData.wifiSsids : null,
       isHq: true,
     });
   };
@@ -975,7 +1007,7 @@ function BranchLocationForm({
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Label>Координат (GPS)</Label>
           <Button
             type="button"
@@ -983,6 +1015,7 @@ function BranchLocationForm({
             size="sm"
             onClick={onGetLocation}
             disabled={isGettingLocation}
+            className="w-full sm:w-auto"
           >
             {isGettingLocation ? (
               <>
@@ -998,7 +1031,7 @@ function BranchLocationForm({
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>Latitude (Өргөрөг)</Label>
             <Input
@@ -1039,81 +1072,9 @@ function BranchLocationForm({
         </p>
       </div>
 
-      <div className="space-y-2">
-        <Label>Оффисын WiFi SSID (Сонголттой)</Label>
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Жишээ: Office-WiFi-5G"
-              value={formData.wifiSsidInput || ""}
-              onChange={(e) => setFormData({ ...formData, wifiSsidInput: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && formData.wifiSsidInput?.trim()) {
-                  e.preventDefault();
-                  const newSsid = formData.wifiSsidInput.trim();
-                  if (!formData.wifiSsids?.includes(newSsid)) {
-                    setFormData({
-                      ...formData,
-                      wifiSsids: [...(formData.wifiSsids || []), newSsid],
-                      wifiSsidInput: "",
-                    });
-                  }
-                }
-              }}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                if (formData.wifiSsidInput?.trim()) {
-                  const newSsid = formData.wifiSsidInput.trim();
-                  if (!formData.wifiSsids?.includes(newSsid)) {
-                    setFormData({
-                      ...formData,
-                      wifiSsids: [...(formData.wifiSsids || []), newSsid],
-                      wifiSsidInput: "",
-                    });
-                  }
-                }
-              }}
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
-          {formData.wifiSsids && formData.wifiSsids.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {formData.wifiSsids.map((ssid: string, idx: number) => (
-                <Badge key={idx} variant="secondary" className="flex items-center gap-1">
-                  {ssid}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({
-                        ...formData,
-                        wifiSsids: formData.wifiSsids?.filter((_: string, i: number) => i !== idx),
-                      });
-                    }}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Оффисын WiFi сүлжээний нэрүүд. Ирц өгөх үед WiFi шалгах боломжтой (Mobile app дээр илүү найдвартай).
-          <br />
-          <span className="text-orange-600 dark:text-orange-400">
-            ⚠️ Web browser дээр WiFi SSID шууд харах боломжгүй (security шалтгаанаар). Mobile app эсвэл backend IP validation ашиглана.
-          </span>
-        </p>
-      </div>
-
       {formData.latitude && formData.longitude && (
         <div className="p-4 bg-muted rounded-lg">
-          <p className="text-sm font-medium mb-2">Байршлын урьдчилсан харагдац:</p>
+          <p className="text-sm font-medium mb-2">Байршил харах</p>
           <a
             href={`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`}
             target="_blank"
@@ -1148,7 +1109,6 @@ export default function Settings() {
   const [activeTab, setActiveTabState] = useState("profile");
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(null);
 
   // Navigation Guard
   const { guardedNavigate } = useNavigationGuard({
@@ -1197,6 +1157,7 @@ export default function Settings() {
       legalName: "",
       regNo: "",
       vatNo: "",
+      googleAuthDomains: "",
       logo: "",
       address: "",
       district: "",
@@ -1213,6 +1174,7 @@ export default function Settings() {
         legalName: company.legalName ?? "",
         regNo: company.regNo ?? "",
         vatNo: company.vatNo ?? "",
+        googleAuthDomains: Array.isArray(company.googleAuthDomains) ? company.googleAuthDomains.join(", ") : "",
         logo: company.logo ?? "",
         address: company.address ?? "",
         district: company.district ?? "",
@@ -1230,12 +1192,19 @@ export default function Settings() {
 
   const updateCompany = useMutation({
     mutationFn: async (data: CompanyForm) => {
+      const { googleAuthDomains, ...companyData } = data;
       const res = await fetch("/api/company", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...companyData,
+          googleAuthDomains: parseGoogleDomainInput(googleAuthDomains),
+        }),
       });
-      if (!res.ok) throw new Error("Хадгалахад алдаа гарлаа");
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Хадгалахад алдаа гарлаа");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -1263,28 +1232,15 @@ export default function Settings() {
     onError: (e: any) => toast({ title: "Алдаа", description: e?.message ?? "Алдаа гарлаа" }),
   });
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = String(reader.result ?? "");
-      setCompanyLogoPreview(base64);
-      companyForm.setValue("logo", base64);
-    };
-    reader.readAsDataURL(file);
-  };
-
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col lg:h-[calc(100vh-4rem)] lg:flex-row">
       {/* Sidebar */}
       <SettingsSidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Content Area */}
       {activeTab === "roles" ? (
-        <div className="flex-1 overflow-hidden p-6 bg-muted/10">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+        <div className="flex-1 min-w-0 overflow-auto bg-muted/10 p-3 sm:p-4 lg:p-6">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 lg:mb-6">
             <span>Тохиргоо</span>
             <ChevronRight className="w-4 h-4" />
             <span className="text-foreground font-medium">Эрх & Permissions</span>
@@ -1292,10 +1248,10 @@ export default function Settings() {
           <RolesLayout />
         </div>
       ) : (
-        <ScrollArea className="flex-1 h-full">
-          <div className="p-6 max-w-4xl">
+        <ScrollArea className="flex-1 min-w-0 lg:h-full">
+          <div className="w-full max-w-4xl p-3 sm:p-4 lg:p-6">
             {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 lg:mb-6">
               <span>Тохиргоо</span>
               <ChevronRight className="w-4 h-4" />
               <span className="text-foreground font-medium">
@@ -1358,34 +1314,9 @@ export default function Settings() {
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={companyForm.handleSubmit((data) => updateCompany.mutate(data))} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label>Байгууллагын нэр</Label>
-                          <Input {...companyForm.register("name")} placeholder="Миний Байгууллага ХХК" />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Лого</Label>
-                          <div className="flex items-center gap-4">
-                            {(companyLogoPreview || company?.logo) && (
-                              <img
-                                src={companyLogoPreview || company?.logo}
-                                alt="Logo preview"
-                                className="w-20 h-20 object-contain rounded-lg border"
-                              />
-                            )}
-                            <label className="cursor-pointer">
-                              <Input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
-                              <Button type="button" variant="outline" size="sm">
-                                <Upload className="w-4 h-4 mr-2" />
-                                Upload
-                              </Button>
-                            </label>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            * Logo-г DB-д хадгалах бол schema дээр companies хүснэгтэнд logo column нэмэх хэрэгтэй.
-                          </p>
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Байгууллагын нэр</Label>
+                        <Input {...companyForm.register("name")} placeholder="Миний Байгууллага ХХК" />
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1406,7 +1337,7 @@ export default function Settings() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Утас</Label>
                             <Input {...companyForm.register("phone")} placeholder="9911-2233" />
@@ -1416,9 +1347,15 @@ export default function Settings() {
                             <Input {...companyForm.register("email")} type="email" placeholder="info@company.mn" />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                      </div>
+
+                      <details className="rounded-md border border-border/70 p-4">
+                        <summary className="cursor-pointer text-sm font-medium">
+                          Татварын мэдээлэл
+                        </summary>
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Байгууллагын нэр (Албан ёсны)</Label>
+                            <Label>Албан ёсны нэр</Label>
                             <Input {...companyForm.register("legalName")} placeholder="Албан ёсны нэр" />
                           </div>
                           <div className="space-y-2">
@@ -1426,6 +1363,28 @@ export default function Settings() {
                             <Input {...companyForm.register("vatNo")} placeholder="12345678" />
                           </div>
                         </div>
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          E-barimt, нэхэмжлэл, санхүүгийн баримтад шаардлагатай үед бөглөнө.
+                        </p>
+                      </details>
+
+                      <Separator />
+
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Google нэвтрэх домайн</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Эдгээр домайнтай Google имэйлээр нэвтрэхийг зөвшөөрнө.
+                          </p>
+                        </div>
+                        <Textarea
+                          {...companyForm.register("googleAuthDomains")}
+                          placeholder="mtcone.net, company.mn"
+                          rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Нэг буюу олон домайныг таслал эсвэл шинэ мөрөөр оруулна. Жишээ: mtcone.net
+                        </p>
                       </div>
 
                       <Button type="submit" disabled={updateCompany.isPending}>
@@ -1516,7 +1475,7 @@ export default function Settings() {
                       </div>
                       <Button type="submit" disabled={createUser.isPending}>
                         {createUser.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Шууд нэмэх
+                        Хэрэглэгч нэмэх
                       </Button>
                     </form >
 

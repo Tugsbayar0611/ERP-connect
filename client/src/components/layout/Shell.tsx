@@ -69,12 +69,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="min-h-screen bg-background flex flex-col md:flex-row">
+      <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-x-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 md:pl-64">
           <MobileNav />
-          <main className="flex-1 p-4 md:p-8 overflow-y-auto animate-in-fade">
-            <div className="w-full space-y-8">
+          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-8 animate-in-fade">
+            <div className="w-full min-w-0 space-y-6 md:space-y-8">
               {children}
             </div>
           </main>

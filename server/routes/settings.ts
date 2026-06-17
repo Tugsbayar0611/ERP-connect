@@ -2,18 +2,56 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { z } from "zod";
+import { db } from "../db";
 import {
     insertWeatherSettingsSchema,
     insertTenantSchema,
     insertPermissionSchema,
     insertBranchSchema,
     insertCompanySettingsSchema,
+    tenants,
     type InsertCompanySettings
 } from "@shared/schema";
 import { requireTenant, requireTenantAndPermission } from "../middleware";
 import { logRBACEvent } from "../rbac-audit";
 
 const router = Router();
+
+class GoogleDomainConfigError extends Error {}
+
+function normalizeGoogleAuthDomains(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+
+    return Array.from(new Set(
+        value
+            .map((domain) => String(domain).trim().toLowerCase().replace(/^@/, ""))
+            .filter(Boolean)
+    ));
+}
+
+function validateGoogleAuthDomain(domain: string) {
+    if (domain === "*") return true;
+    return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain);
+}
+
+async function ensureGoogleDomainsAreUnique(tenantId: string, domains: string[]) {
+    if (domains.length === 0) return;
+
+    const allTenants = await db.select().from(tenants);
+    const conflicts = allTenants
+        .filter((tenant) => tenant.id !== tenantId)
+        .flatMap((tenant) => {
+            const tenantDomains = normalizeGoogleAuthDomains((tenant as any).googleAuthDomains);
+            return domains
+                .filter((domain) => tenantDomains.includes(domain) || tenantDomains.includes("*") || domain === "*")
+                .map((domain) => ({ domain, tenantName: tenant.name }));
+        });
+
+    if (conflicts.length > 0) {
+        const conflict = conflicts[0];
+        throw new GoogleDomainConfigError(`Google домайн "${conflict.domain}" нь "${conflict.tenantName}" дээр бүртгэлтэй байна.`);
+    }
+}
 
 // --- Weather Widget ---
 router.get("/weather", requireTenant, async (req: any, res) => {
@@ -224,10 +262,27 @@ router.put("/company/settings", requireTenantAndPermission, async (req: any, res
 
 router.put("/company", requireTenantAndPermission, async (req: any, res) => {
     try {
-        const updateData = insertTenantSchema.partial().parse(req.body);
+        const body = { ...req.body };
+        if ("googleAuthDomains" in body) {
+            const domains = normalizeGoogleAuthDomains(body.googleAuthDomains);
+            const invalidDomain = domains.find((domain) => !validateGoogleAuthDomain(domain));
+            if (invalidDomain) {
+                return res.status(400).json({ message: `Google домайн буруу байна: ${invalidDomain}` });
+            }
+            await ensureGoogleDomainsAreUnique(req.tenantId, domains);
+            body.googleAuthDomains = domains;
+        }
+
+        const updateData = insertTenantSchema.partial().parse(body);
         const updated = await storage.updateTenant(req.tenantId, updateData);
         res.status(200).json(updated);
     } catch (err: any) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ message: "Validation Error", details: err.errors });
+        }
+        if (err instanceof GoogleDomainConfigError) {
+            return res.status(400).json({ message: err.message });
+        }
         console.error(err);
         res.status(500).json({ message: err.message || "Error updating company" });
     }

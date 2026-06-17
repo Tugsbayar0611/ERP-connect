@@ -8,6 +8,7 @@
     "build": "tsx script/build.ts",
     "start": "cross-env NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
+    "release:check": "npm run check && npm run build && npm run check:env && npm run db:check",
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx scripts/run-migration.ts",
     "db:check": "tsx scripts/check-tables.ts",

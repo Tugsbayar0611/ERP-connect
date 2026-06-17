@@ -68,7 +68,7 @@ export type WidgetKey =
     | "pendingRequests"
     | "payrollBudget"
     | "actionCenter"
-    | "activityFeed" // "Company Heartbeat" - Managers only
+    | "activityFeed"
     | "topEmployees"
     | "companyNews"  // "Company News" - Employees only
     | "birthday"
@@ -347,7 +347,6 @@ export const WIDGET_REGISTRY: Record<WidgetKey, (ctx: WidgetContext) => React.Re
     ),
 
     activityFeed: (ctx) => (
-        /* Renamed from ActivityFeed to Company Heartbeat (Ops Feed) */
         <div className="h-[400px] overflow-hidden rounded-xl border bg-card text-card-foreground shadow">
             <ActivityFeedWidget activities={ctx.stats?.activityFeed || []} userRole={ctx.userRole} />
         </div>

@@ -21,6 +21,7 @@ export const tenants = pgTable("tenants", {
   countryCode: text("country_code").notNull().default("MN"),
   timezone: text("timezone").notNull().default("Asia/Ulaanbaatar"),
   currencyCode: text("currency_code").notNull().default("MNT"),
+  googleAuthDomains: text("google_auth_domains").array().notNull().default(sql`ARRAY[]::text[]`),
   status: text("status").notNull().default("active"), // active/suspended
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

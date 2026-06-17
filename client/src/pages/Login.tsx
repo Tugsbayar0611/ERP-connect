@@ -189,7 +189,17 @@ export default function Login() {
       acceptInvitationForm.setValue("inviteToken", inviteToken);
     }
 
-    if (error === "domain") {
+    if (error === "session_expired") {
+      setTimeout(() => {
+        toast({
+          variant: "destructive",
+          title: "Нэвтрэлт дууссан",
+          description: "Аюулгүй байдлын үүднээс дахин нэвтэрнэ үү.",
+        });
+      }, 100);
+      sessionStorage.removeItem("session-expired");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error === "domain") {
       setTimeout(() => {
         toast({
           variant: "destructive",
@@ -213,6 +223,24 @@ export default function Login() {
           variant: "destructive",
           title: "Компани бүртгэгдээгүй байна",
           description: "Систем дээр компани бүртгэгдээгүй бөгөөд шинэ хэрэглэгч үүсгэх боломжгүй байна. Эхлээд системд компани бүртгүүлнэ үү.",
+        });
+      }, 100);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error === "duplicate_domain") {
+      setTimeout(() => {
+        toast({
+          variant: "destructive",
+          title: "Google домайн давхардсан",
+          description: "Энэ имэйл домайн нэгээс олон байгууллагад бүртгэлтэй байна. Админ тохиргооноос домайныг давхардуулалгүй засна уу.",
+        });
+      }, 100);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error === "inactive") {
+      setTimeout(() => {
+        toast({
+          variant: "destructive",
+          title: "Нэвтрэх боломжгүй",
+          description: "Таны хэрэглэгчийн эрх идэвхгүй байна. Админтай холбогдоно уу.",
         });
       }, 100);
       window.history.replaceState({}, document.title, window.location.pathname);

@@ -42,9 +42,9 @@ import { useEmployees } from "@/hooks/use-employees";
 type PayrollStatus = "pending" | "calculated" | "approved" | "paid";
 
 const STATUS_CONFIG: Record<PayrollStatus, { label: string; color: string; icon: React.ElementType; bgClass: string }> = {
-    pending: { label: "Хүлээгдэж буй", color: "text-gray-600 dark:text-gray-400", icon: Clock, bgClass: "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700" },
-    calculated: { label: "Тооцоолсон", color: "text-yellow-600 dark:text-yellow-400", icon: Calculator, bgClass: "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800" },
-    approved: { label: "Батлагдсан", color: "text-blue-600 dark:text-blue-400", icon: CheckCircle, bgClass: "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800" },
+    pending: { label: "Хүлээгдэж", color: "text-gray-600 dark:text-gray-400", icon: Clock, bgClass: "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700" },
+    calculated: { label: "Тооцсон", color: "text-yellow-600 dark:text-yellow-400", icon: Calculator, bgClass: "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800" },
+    approved: { label: "Баталсан", color: "text-blue-600 dark:text-blue-400", icon: CheckCircle, bgClass: "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800" },
     paid: { label: "Олгосон", color: "text-green-600 dark:text-green-400", icon: CreditCard, bgClass: "bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800" },
 };
 
@@ -84,6 +84,7 @@ interface EnhancedSalaryCardProps {
     isSelected: boolean;
     onSelect: (id: string | number) => void;
     formatMNT: (amount: number) => string;
+    selectable?: boolean;
 }
 
 // KPI Summary Component
@@ -141,7 +142,7 @@ function KPISummary({ employees, salaryDataMap, formatMNT }: {
 }
 
 // Enhanced Salary Card Component
-function EnhancedSalaryCard({ employee, salaryData, isSelected, onSelect, formatMNT }: EnhancedSalaryCardProps) {
+function EnhancedSalaryCard({ employee, salaryData, isSelected, onSelect, formatMNT, selectable = true }: EnhancedSalaryCardProps) {
     const [, setLocation] = useLocation();
     const status = normalizeStatus(salaryData?.status);
     const statusConfig = STATUS_CONFIG[status];
@@ -181,47 +182,47 @@ function EnhancedSalaryCard({ employee, salaryData, isSelected, onSelect, format
             case "pending":
                 return (
                     <>
-                        <Button size="sm" className="flex-1 text-xs h-7" onClick={() => setLocation(`/payroll?action=calculate&employeeId=${employee.id}`)}>
+                        <Button size="sm" className="flex-1 text-xs h-8 min-w-0 px-2" onClick={() => setLocation(`/payroll?action=calculate&employeeId=${employee.id}`)}>
                             <Calculator className="w-3 h-3 mr-1" />
-                            Тооцоолох
+                            <span className="truncate">Тооцоолох</span>
                         </Button>
-                        <Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => setLocation(`/employees/${employee.id}`)}>
+                        <Button size="sm" variant="outline" className="flex-1 text-xs h-8 min-w-0 px-2" onClick={() => setLocation(`/employees/${employee.id}`)}>
                             <Eye className="w-3 h-3 mr-1" />
-                            Дэлгэрэнгүй
+                            <span className="truncate">Дэлгэрэнгүй</span>
                         </Button>
                     </>
                 );
             case "calculated":
                 return (
                     <>
-                        <Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => setLocation(`/payroll?employeeId=${employee.id}`)}>
+                        <Button size="sm" variant="outline" className="flex-1 text-xs h-8 min-w-0 px-2" onClick={() => setLocation(`/payroll?employeeId=${employee.id}`)}>
                             <FileText className="w-3 h-3 mr-1" />
-                            Payslip
+                            <span className="truncate">Хуудас</span>
                         </Button>
-                        <Button size="sm" className="flex-1 text-xs h-7" onClick={() => setLocation(`/payroll?action=create&employeeId=${employee.id}`)}>
+                        <Button size="sm" className="flex-1 text-xs h-8 min-w-0 px-2" onClick={() => setLocation(`/payroll?action=create&employeeId=${employee.id}`)}>
                             <Plus className="w-3 h-3 mr-1" />
-                            Batch-д нэмэх
+                            <span className="truncate">Багцад нэмэх</span>
                         </Button>
                     </>
                 );
             case "approved":
                 return (
                     <>
-                        <Button size="sm" className="flex-1 text-xs h-7" onClick={() => setLocation(`/payroll?action=pay&employeeId=${employee.id}`)}>
+                        <Button size="sm" className="flex-1 text-xs h-8 min-w-0 px-2" onClick={() => setLocation(`/payroll?action=pay&employeeId=${employee.id}`)}>
                             <CreditCard className="w-3 h-3 mr-1" />
-                            Шилжүүлэх
+                            <span className="truncate">Олгох</span>
                         </Button>
-                        <Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => setLocation(`/payroll?employeeId=${employee.id}`)}>
+                        <Button size="sm" variant="outline" className="flex-1 text-xs h-8 min-w-0 px-2" onClick={() => setLocation(`/payroll?employeeId=${employee.id}`)}>
                             <FileText className="w-3 h-3 mr-1" />
-                            Payslip
+                            <span className="truncate">Хуудас</span>
                         </Button>
                     </>
                 );
             case "paid":
                 return (
-                    <Button size="sm" variant="outline" className="w-full text-xs h-7" onClick={() => setLocation(`/payroll?employeeId=${employee.id}`)}>
+                    <Button size="sm" variant="outline" className="w-full text-xs h-8 min-w-0 px-2" onClick={() => setLocation(`/payroll?employeeId=${employee.id}`)}>
                         <Download className="w-3 h-3 mr-1" />
-                        Payslip татах
+                        <span className="truncate">Цалингийн хуудас татах</span>
                     </Button>
                 );
         }
@@ -233,37 +234,29 @@ function EnhancedSalaryCard({ employee, salaryData, isSelected, onSelect, format
             isZeroAmount && "opacity-60",
             isSelected && "ring-2 ring-primary"
         )}>
-            {/* Selection Checkbox */}
-            <div
-                className="absolute top-2 left-2 z-10"
-                onClick={(e) => { e.stopPropagation(); onSelect(employee.id); }}
-            >
-                {isSelected ? (
-                    <CheckSquare className="w-5 h-5 text-primary cursor-pointer" />
-                ) : (
-                    <Square className="w-5 h-5 text-muted-foreground/50 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
-            </div>
+            {selectable && (
+                <div
+                    className="absolute top-2 left-2 z-10"
+                    onClick={(e) => { e.stopPropagation(); onSelect(employee.id); }}
+                >
+                    {isSelected ? (
+                        <CheckSquare className="w-5 h-5 text-primary cursor-pointer" />
+                    ) : (
+                        <Square className="w-5 h-5 text-muted-foreground/50 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                </div>
+            )}
 
-            <CardContent className="p-4 pt-3">
+            <CardContent className="p-3 sm:p-4 pt-3">
                 {/* Header: Name + Status + More Menu */}
-                <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0 pl-6">
+                <div className="mb-2 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className={cn("flex-1 min-w-0", selectable && "pl-6")}>
                         <p className="text-sm font-semibold truncate">{employee.firstName} {employee.lastName}</p>
                         <p className="text-[10px] text-muted-foreground truncate">
                             {employee.position || "Албан тушаал"} • {employee.employeeNo || ""}
                         </p>
                     </div>
-                    <div className="flex items-center gap-1">
-                        {/* Status Pill */}
-                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0.5", statusConfig.bgClass, statusConfig.color)}>
-                            <StatusIcon className="w-3 h-3 mr-0.5" />
-                            {statusConfig.label}
-                        </Badge>
-                        {/* Attendance Badge */}
-                        <Badge variant={isLate ? "destructive" : "secondary"} className="text-[10px] px-1.5 py-0.5">
-                            {daysWorked}/{totalDays}
-                        </Badge>
                         {/* More Menu */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -283,23 +276,34 @@ function EnhancedSalaryCard({ employee, salaryData, isSelected, onSelect, format
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
+                  </div>
+                  <div className={cn("flex items-center gap-1.5", selectable && "pl-6")}>
+                      {/* Status Pill */}
+                      <Badge variant="outline" className={cn("max-w-[9rem] truncate text-[10px] px-1.5 py-0.5", statusConfig.bgClass, statusConfig.color)} title={statusConfig.label}>
+                          <StatusIcon className="w-3 h-3 mr-0.5 shrink-0" />
+                          <span className="truncate">{statusConfig.label}</span>
+                      </Badge>
+                      {/* Attendance Badge */}
+                      <Badge variant={isLate ? "destructive" : "secondary"} className="text-[10px] px-1.5 py-0.5" title={`${daysWorked}/${totalDays} өдөр`}>
+                          {daysWorked}/{totalDays} өдөр
+                      </Badge>
                     </div>
                 </div>
 
                 {/* Main Amount */}
-                <div className="text-2xl font-bold mb-2">
+                <div className="text-2xl font-bold mb-2 break-words">
                     {formatMNT(currentNet)}
                 </div>
 
-                {/* Gross / Net / Deduction breakdown */}
+                {/* Gross / deduction summary. Net is already shown as the main amount. */}
                 <div className="grid grid-cols-2 gap-2 mb-2 text-xs">
                     <div className="p-1.5 rounded bg-green-50 dark:bg-green-950/30 border border-green-200/50 dark:border-green-800/50">
-                        <p className="text-[10px] text-muted-foreground">Gross</p>
+                        <p className="text-[10px] text-muted-foreground">Нийт</p>
                         <p className="font-semibold text-green-700 dark:text-green-300">{formatMNT(currentGross)}</p>
                     </div>
-                    <div className="p-1.5 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/50">
-                        <p className="text-[10px] text-muted-foreground">Net</p>
-                        <p className="font-semibold text-blue-700 dark:text-blue-300">{formatMNT(currentNet)}</p>
+                    <div className="p-1.5 rounded bg-orange-50 dark:bg-orange-950/30 border border-orange-200/50 dark:border-orange-800/50">
+                        <p className="text-[10px] text-muted-foreground">Суутгал</p>
+                        <p className="font-semibold text-orange-700 dark:text-orange-300">{formatMNT(totalDeductions)}</p>
                     </div>
                 </div>
 
@@ -308,7 +312,7 @@ function EnhancedSalaryCard({ employee, salaryData, isSelected, onSelect, format
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <div className="mb-2 p-2 rounded bg-orange-50 dark:bg-orange-950/30 border border-orange-200/50 dark:border-orange-800/50 cursor-help">
+                                <div className="mb-2 hidden sm:block p-2 rounded bg-orange-50 dark:bg-orange-950/30 border border-orange-200/50 dark:border-orange-800/50 cursor-help">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                                             Суутгал <Info className="w-3 h-3" />
@@ -342,7 +346,7 @@ function EnhancedSalaryCard({ employee, salaryData, isSelected, onSelect, format
                 )}
 
                 {/* Smart Actions */}
-                <div className="flex gap-2 mt-3">
+                <div className="flex min-w-0 gap-2 mt-3">
                     {renderActions()}
                 </div>
             </CardContent>
@@ -478,10 +482,22 @@ export function EnhancedSalaryCardsSection() {
         return { nonZeroEmployees: nonZero, zeroEmployees: zero };
     }, [processedEmployees, salaryDataMap]);
 
-    // Filter logic
-    const filteredList = hideZero ? nonZeroEmployees : processedEmployees;
-    const [showAll, setShowAll] = useState(false);
-    const displayEmployees = showAll ? filteredList : filteredList.slice(0, 6);
+    // Dashboard should surface only payroll items that need attention.
+    const attentionEmployees = useMemo(() => {
+        return processedEmployees.filter(emp => {
+            const data = salaryDataMap.get(emp.id);
+            if (!data) return false;
+
+            const status = normalizeStatus(data.status);
+            const net = Number(data.current?.netPay) || 0;
+            const gross = Number(data.current?.grossPay) || 0;
+            const deductions = Number(data.current?.totalDeductions) || 0;
+            const hasPayrollAmount = net > 0 || gross > 0 || deductions > 0;
+            const hasAttendanceIssue = (data.lateDays || 0) > 0;
+
+            return hasPayrollAmount || hasAttendanceIssue || (status !== "pending" && status !== "paid");
+        }).slice(0, 3);
+    }, [processedEmployees, salaryDataMap]);
 
     // Selection handlers
     const toggleSelect = (id: string | number) => {
@@ -494,7 +510,7 @@ export function EnhancedSalaryCardsSection() {
     };
 
     const selectAll = () => {
-        setSelectedIds(new Set(displayEmployees.map(e => e.id)));
+        setSelectedIds(new Set(attentionEmployees.map(e => e.id)));
     };
 
     const clearSelection = () => {
@@ -537,156 +553,38 @@ export function EnhancedSalaryCardsSection() {
             {/* KPI Summary */}
             <KPISummary employees={employees} salaryDataMap={salaryDataMap} formatMNT={formatMNT} />
 
-            {/* Filters & Search Row */}
-            <div className="flex flex-wrap gap-2 items-center">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                    <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Нэр, албан тушаал, код..."
-                        className="pl-9 h-9"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+            <div className="flex flex-col gap-3 rounded-lg border border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h3 className="text-sm font-semibold">Цалингийн хяналт</h3>
+                    <p className="text-xs text-muted-foreground">
+                        {attentionEmployees.length > 0
+                            ? `${attentionEmployees.length} анхаарах бичлэг`
+                            : "Анхаарах цалингийн бичлэг алга"}
+                    </p>
                 </div>
-
-                <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-                    <SelectTrigger className="w-[120px] h-9">
-                        <ArrowUpDown className="w-3 h-3 mr-1" />
-                        <SelectValue placeholder="Эрэмбэ" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="net">Net</SelectItem>
-                        <SelectItem value="gross">Gross</SelectItem>
-                        <SelectItem value="attendance">Ирц %</SelectItem>
-                        <SelectItem value="status">Төлөв</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setSortDir(d => d === "asc" ? "desc" : "asc")}>
-                    {sortDir === "desc" ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
-                </Button>
-
-                <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-                    <SelectTrigger className="w-[140px] h-9">
-                        <SelectValue placeholder="Төлөв" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Бүх төлөв</SelectItem>
-                        <SelectItem value="pending">Хүлээгдэж буй</SelectItem>
-                        <SelectItem value="calculated">Тооцоолсон</SelectItem>
-                        <SelectItem value="approved">Батлагдсан</SelectItem>
-                        <SelectItem value="paid">Олгосон</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                <Select value={attendanceFilter} onValueChange={(v: any) => setAttendanceFilter(v)}>
-                    <SelectTrigger className="w-[120px] h-9">
-                        <SelectValue placeholder="Ирц" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Бүх ирц</SelectItem>
-                        <SelectItem value="full">Бүтэн</SelectItem>
-                        <SelectItem value="partial">Дутуу</SelectItem>
-                        <SelectItem value="late">Хоцорсон</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                <Button
-                    variant={hideZero ? "secondary" : "outline"}
-                    size="sm"
-                    className="h-9"
-                    onClick={() => setHideZero(!hideZero)}
-                >
-                    {hideZero ? "0₮ харуулах" : "0₮ нуух"}
-                </Button>
+                <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setLocation("/payroll")}>
+                        Цалин руу очих
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setLocation("/employees")}>
+                        Ажилтнууд
+                    </Button>
+                </div>
             </div>
 
-            {/* Bulk Actions Bar */}
-            {selectedIds.size > 0 && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                    <span className="text-sm font-medium">{selectedIds.size} сонгосон</span>
-                    <Button size="sm" variant="default" onClick={() => setLocation(`/payroll?action=batch&ids=${Array.from(selectedIds).join(",")}`)}>
-                        <Layers className="w-3 h-3 mr-1" /> Batch-д нэмэх
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setLocation(`/payroll?action=download&ids=${Array.from(selectedIds).join(",")}`)}>
-                        <Download className="w-3 h-3 mr-1" /> Payslip татах
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={clearSelection}>
-                        Цуцлах
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={selectAll}>
-                        Бүгдийг сонгох
-                    </Button>
-                </div>
-            )}
-
-            {/* Cards Grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {displayEmployees.map((emp) => (
-                    <EnhancedSalaryCard
-                        key={emp.id}
-                        employee={emp}
-                        salaryData={salaryDataMap.get(emp.id) || null}
-                        isSelected={selectedIds.has(emp.id)}
-                        onSelect={toggleSelect}
-                        formatMNT={formatMNT}
-                    />
-                ))}
-            </div>
-
-            {!showAll && filteredList.length > 6 && (
-                <div className="flex justify-center mt-4">
-                    <Button
-                        variant="outline"
-                        onClick={() => setShowAll(true)}
-                        className="w-full md:w-auto min-w-[200px]"
-                    >
-                        Бүгдийг харах ({filteredList.length - 6} ажилтан)
-                        <ChevronDown className="w-4 h-4 ml-2" />
-                    </Button>
-                </div>
-            )}
-
-            {showAll && (
-                <div className="flex justify-center mt-4">
-                    <Button
-                        variant="ghost"
-                        onClick={() => setShowAll(false)}
-                        className="text-muted-foreground"
-                    >
-                        Хураах
-                        <ChevronUp className="w-4 h-4 ml-2" />
-                    </Button>
-                </div>
-            )}
-
-            {/* Zero Amount Collapsed Section */}
-            {!hideZero && zeroEmployees.length > 0 && (
-                <div className="border border-dashed rounded-lg">
-                    <Button
-                        variant="ghost"
-                        className="w-full justify-between p-3 h-auto"
-                        onClick={() => setZeroCollapsed(!zeroCollapsed)}
-                    >
-                        <span className="text-sm text-muted-foreground">
-                            0₮ ажилтнууд ({zeroEmployees.length})
-                        </span>
-                        {zeroCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                    </Button>
-                    {!zeroCollapsed && (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 p-4 pt-0">
-                            {zeroEmployees.map((emp) => (
-                                <EnhancedSalaryCard
-                                    key={emp.id}
-                                    employee={emp}
-                                    salaryData={salaryDataMap.get(emp.id) || null}
-                                    isSelected={selectedIds.has(emp.id)}
-                                    onSelect={toggleSelect}
-                                    formatMNT={formatMNT}
-                                />
-                            ))}
-                        </div>
-                    )}
+            {attentionEmployees.length > 0 && (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {attentionEmployees.map((emp) => (
+                        <EnhancedSalaryCard
+                            key={emp.id}
+                            employee={emp}
+                            salaryData={salaryDataMap.get(emp.id) || null}
+                            isSelected={false}
+                            onSelect={toggleSelect}
+                            formatMNT={formatMNT}
+                            selectable={false}
+                        />
+                    ))}
                 </div>
             )}
         </div>

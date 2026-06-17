@@ -74,7 +74,7 @@ export function Sidebar() {
             <h1 className="text-xl font-bold font-display tracking-tight text-foreground">
               MonERP
             </h1>
-            <p className="text-xs text-muted-foreground">Enterprise Edition</p>
+            <p className="text-xs text-muted-foreground">ERP</p>
           </div>
         </div>
         <div className="mt-4">
