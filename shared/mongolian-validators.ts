@@ -94,10 +94,9 @@ export function calculateMongolianIncomeTax(grossIncome: number): {
 } {
   // Progressive tax brackets (шатлал)
   const brackets = [
-    { min: 0, max: 1200000, rate: 0 },
-    { min: 1200000, max: 2400000, rate: 10 },
-    { min: 2400000, max: 4200000, rate: 20 },
-    { min: 4200000, max: Infinity, rate: 25 },
+    { min: 0, max: 10000000, rate: 10 },
+    { min: 10000000, max: 15000000, rate: 15 },
+    { min: 15000000, max: Infinity, rate: 20 },
   ];
 
   let totalTax = 0;
@@ -146,13 +145,7 @@ export function calculateMongolianIncomeTax(grossIncome: number): {
  * @returns Хөнгөлөлтийн дүн
  */
 export function calculatePITDeduction(grossSalary: number): number {
-  if (grossSalary <= 16000) {
-    return 16000;
-  } else if (grossSalary <= 20000) {
-    return 20000;
-  } else {
-    return 20000; // Max deduction
-  }
+  return grossSalary > 0 ? 18000 : 0;
 }
 
 /**
@@ -171,7 +164,7 @@ export function calculatePITDeduction(grossSalary: number): number {
  */
 export function calculateMongolianSocialInsurance(
   grossSalary: number,
-  employeeRate: number = 11,
+  employeeRate: number = 11.5,
   employerRate: number = 12.5,
   minimumWage: number = 420000
 ): { 
@@ -182,7 +175,7 @@ export function calculateMongolianSocialInsurance(
   shiCap: number; // НДШ дээд хязгаар
 } {
   // НДШ дээд хязгаар: Хөдөлмөрийн хөлсний доод хэмжээ × 3
-  const shiCap = minimumWage * 3; // 1,260,000₮ (2024 он)
+  const shiCap = minimumWage * 10;
   
   // НДШ тооцоолох суурь (cap-тай)
   const shiBase = Math.min(grossSalary, shiCap);

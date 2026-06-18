@@ -95,19 +95,19 @@ export default function RosterTemplateBuilder() {
     }
 
     return (
-        <div className="space-y-6 h-full flex flex-col">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+        <div className="space-y-6 h-full flex flex-col min-w-0">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between min-w-0">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <Link href="/admin/rosters">
-                        <Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="icon" className="shrink-0"><ArrowLeft className="h-4 w-4" /></Button>
                     </Link>
-                    <div>
-                        <h2 className="text-2xl font-bold tracking-tight">{roster.name} Template</h2>
+                    <div className="min-w-0">
+                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight break-words">{roster.name} Template</h2>
                         <p className="text-muted-foreground">{roster.cycleDays} Day Cycle</p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
                     <Button variant="outline" onClick={() => rosterDaysQuery.refetch()} disabled={updateTemplateMutation.isPending}>
                         <Undo2 className="mr-2 h-4 w-4" /> Reset
                     </Button>
@@ -118,9 +118,9 @@ export default function RosterTemplateBuilder() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-6 flex-1 min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 flex-1 min-h-0">
                 {/* SIDE PALETTE */}
-                <Card className="col-span-3 h-full overflow-auto">
+                <Card className="lg:col-span-3 h-auto lg:h-full overflow-auto">
                     <CardHeader>
                         <CardTitle className="text-sm uppercase text-muted-foreground">Palette</CardTitle>
                     </CardHeader>
@@ -161,9 +161,9 @@ export default function RosterTemplateBuilder() {
                 </Card>
 
                 {/* MAIN GRID */}
-                <Card className="col-span-9 h-full overflow-auto bg-slate-50/50">
-                    <CardContent className="p-6">
-                        <div className="grid grid-cols-7 gap-3">
+                <Card className="lg:col-span-9 h-full overflow-auto bg-slate-50/50">
+                    <CardContent className="p-3 sm:p-6">
+                        <div className="grid grid-cols-[repeat(7,minmax(4.25rem,1fr))] gap-2 sm:gap-3 min-w-[34rem]">
                             {Array.from({ length: roster.cycleDays }).map((_, idx) => {
                                 const dayData = draftDays[idx];
                                 const shift = dayData?.shiftId ? shiftsQuery.data?.find(s => s.id === dayData.shiftId) : null;
@@ -174,7 +174,7 @@ export default function RosterTemplateBuilder() {
                                         key={idx}
                                         onClick={() => handleDayClick(idx)}
                                         className={cn(
-                                            "aspect-square rounded-xl border p-3 flex flex-col justify-between cursor-pointer transition-all hover:ring-2 hover:ring-ring hover:ring-offset-2 bg-white",
+                                            "aspect-square rounded-xl border p-2 sm:p-3 flex flex-col justify-between cursor-pointer transition-all hover:ring-2 hover:ring-ring hover:ring-offset-2 bg-white",
                                             isOff ? "bg-slate-100 border-slate-200" :
                                                 shift ? "bg-white border-primary/20 shadow-sm" : "border-dashed border-slate-300"
                                         )}

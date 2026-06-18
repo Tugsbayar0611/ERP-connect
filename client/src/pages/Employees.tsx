@@ -58,7 +58,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { exportToCSV, formatDateForCSV, formatNumberForCSV } from "@/lib/export-utils";
 import { printTable } from "@/lib/print-utils";
-import { calculateMongolianSocialInsurance, calculateMongolianIncomeTax } from "@shared/mongolian-validators";
+import { calculateMongolianPayroll } from "@shared/payroll-calculator";
 import { z } from "zod";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -328,13 +328,15 @@ export default function Employees(): JSX.Element {
   // Calculate taxes when baseSalary changes
   React.useEffect(() => {
     if (baseSalaryValue && !isNaN(Number(baseSalaryValue))) {
-      const gross = Number(baseSalaryValue);
-      const shi = calculateMongolianSocialInsurance(gross, 11, 12.5);
-      const shiAmount = shi.employee;
-      const taxableIncome = gross - shiAmount;
-      const incomeTax = calculateMongolianIncomeTax(taxableIncome);
-      const pitAmount = incomeTax.tax;
-      const net = gross - shiAmount - pitAmount;
+      const calculation = calculateMongolianPayroll({
+        baseSalary: Number(baseSalaryValue),
+        minimumWage: 550000,
+        employeeSHIRate: 11.5,
+        employerSHIRate: 12.5,
+      });
+      const shiAmount = calculation.shi.employee;
+      const pitAmount = calculation.pit.tax;
+      const net = calculation.netPay;
 
       salaryForm.setValue("socialInsurance", shiAmount.toString());
       salaryForm.setValue("tax", pitAmount.toString());
@@ -1087,9 +1089,9 @@ export default function Employees(): JSX.Element {
       )}
 
       {/* Export & Print Buttons */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex-1" />
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
@@ -1181,17 +1183,19 @@ export default function Employees(): JSX.Element {
       </div>
 
       {/* Search + Department Filter */}
-      <div className="flex items-center gap-4 bg-card p-4 rounded-xl border shadow-sm">
-        <Search className="w-5 h-5 text-muted-foreground" />
-        <Input
-          placeholder="Ажилтнаар хайх (нэр, овог, код)..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
-        />
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 bg-card p-4 rounded-xl border shadow-sm">
+        <div className="flex items-center gap-3 min-w-0 flex-1 w-full">
+          <Search className="w-5 h-5 text-muted-foreground shrink-0" />
+          <Input
+            placeholder="Ажилтнаар хайх (нэр, овог, код)..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-0 border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
+          />
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Хэлтсээр шүүх" />
             </SelectTrigger>
             <SelectContent>
@@ -1207,8 +1211,8 @@ export default function Employees(): JSX.Element {
       </div>
 
       {/* Table */}
-      <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-        <Table>
+      <div className="bg-card rounded-xl border shadow-sm overflow-x-auto">
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="w-[50px]">

@@ -9,8 +9,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Employee } from "@shared/schema";
 import { z } from "zod";
 import { api } from "@shared/routes";
-import { calculateMongolianSocialInsurance, calculateMongolianIncomeTax, calculatePITDeduction } from "@shared/mongolian-validators";
 import { calculateMongolianPayroll, type Allowance, type SalaryAdvance } from "@shared/payroll-calculator";
+import { cn } from "@/lib/utils";
 
 // UI Components
 import {
@@ -71,6 +71,35 @@ const payrollFormSchema = z.object({
 });
 
 type PayrollFormValues = z.infer<typeof payrollFormSchema>;
+
+function CompactDateInput({
+  value,
+  onChange,
+  className,
+}: {
+  value?: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <div className="relative">
+      <Input
+        type="text"
+        value={value || ""}
+        readOnly
+        className={cn("pointer-events-none font-mono text-sm", className)}
+        placeholder="YYYY-MM-DD"
+      />
+      <input
+        type="date"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        aria-label="Date"
+      />
+    </div>
+  );
+}
 
 export default function Payroll() {
   const { user } = useAuth();
@@ -617,7 +646,7 @@ export default function Payroll() {
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="periodStart"
@@ -625,7 +654,7 @@ export default function Payroll() {
                       <FormItem>
                         <FormLabel>Хугацааны эхлэл</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} className="h-11" />
+                          <CompactDateInput value={field.value} onChange={field.onChange} className="h-11" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -638,7 +667,7 @@ export default function Payroll() {
                       <FormItem>
                         <FormLabel>Хугацааны төгсгөл</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} className="h-11" />
+                          <CompactDateInput value={field.value} onChange={field.onChange} className="h-11" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -752,7 +781,7 @@ export default function Payroll() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="overtimeHours"
@@ -864,7 +893,7 @@ export default function Payroll() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="socialInsurance"
@@ -905,7 +934,7 @@ export default function Payroll() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="paymentDate"
@@ -913,7 +942,7 @@ export default function Payroll() {
                       <FormItem>
                         <FormLabel>Төлбөрийн огноо</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} className="h-11" />
+                          <CompactDateInput value={field.value} onChange={field.onChange} className="h-11" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

@@ -265,15 +265,15 @@ export default function RosterCalendar() {
     }, [days, assignments, rostersMap, rosterPatternsMap, shiftsMap]);
 
     return (
-        <div className="space-y-6 h-full flex flex-col">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-3xl font-bold tracking-tight">Ээлжийн хуанли</h2>
-                    <div className="flex items-center border rounded-md bg-background">
+        <div className="space-y-6 h-full flex flex-col min-w-0">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between min-w-0">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 min-w-0">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight break-words">Ээлжийн хуанли</h2>
+                    <div className="flex items-center border rounded-md bg-background w-full sm:w-auto">
                         <Button variant="ghost" size="icon" onClick={() => setCurrentDate(addDays(currentDate, viewMode === 'week' ? -7 : -30))}>
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <div className="px-4 font-medium min-w-[140px] text-center">
+                        <div className="px-2 sm:px-4 font-medium min-w-0 flex-1 sm:min-w-[140px] text-center text-sm sm:text-base">
                             {format(currentDate, viewMode === 'week' ? "MMM yyyy ('7 хоног' w)" : "MMMM yyyy")}
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => setCurrentDate(addDays(currentDate, viewMode === 'week' ? 7 : 30))}>
@@ -282,9 +282,9 @@ export default function RosterCalendar() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-1 sm:flex sm:items-center gap-2">
                     <Select value={viewMode} onValueChange={(v: any) => setViewMode(v)}>
-                        <SelectTrigger className="w-[120px]">
+                        <SelectTrigger className="w-full sm:w-[120px]">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -293,7 +293,7 @@ export default function RosterCalendar() {
                         </SelectContent>
                     </Select>
                     <Select value={selectedDepartmentId} onValueChange={setSelectedDepartmentId}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-full sm:w-[180px]">
                             <Filter className="mr-2 h-4 w-4" />
                             <SelectValue placeholder="Баг шүүх" />
                         </SelectTrigger>
@@ -306,15 +306,16 @@ export default function RosterCalendar() {
                             ))}
                         </SelectContent>
                     </Select>
-                    <Button onClick={() => setIsAssignOpen(true)}>
+                    <Button onClick={() => setIsAssignOpen(true)} className="w-full sm:w-auto">
                         <User className="mr-2 h-4 w-4" />
                         Ээлж оноох
                     </Button>
                 </div>
             </div>
 
-            <Card className="flex-1 min-h-0 bg-background/50 border-border">
-                <CardContent className="p-0 h-full flex flex-col">
+            <Card className="flex-1 min-h-0 bg-background/50 border-border overflow-hidden">
+                <CardContent className="p-0 h-full overflow-x-auto">
+                    <div className="min-w-[640px] h-full flex flex-col">
                     {/* Header Row */}
                     <div className="grid grid-cols-7 border-b bg-muted/40 text-muted-foreground">
                         {days.slice(0, 7).map((day, i) => (
@@ -474,6 +475,7 @@ export default function RosterCalendar() {
                                 </Popover>
                             );
                         })}
+                    </div>
                     </div>
                 </CardContent>
             </Card>

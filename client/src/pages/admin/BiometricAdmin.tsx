@@ -145,9 +145,9 @@ export default function BiometricAdmin() {
                         <Fingerprint className="h-8 w-8 text-primary" />
                         Биометрийн удирдлага
                     </h2>
-                    <p className="text-muted-foreground mt-1">
+                    {/* <p className="text-muted-foreground mt-1">
                         Царай унших төхөөрөмжийн тохиргоо ба событийн бүртгэл
-                    </p>
+                    </p> */}
                 </div>
                 <Button onClick={() => setShowAddDevice(true)}>
                     <Plus className="w-4 h-4 mr-2" />

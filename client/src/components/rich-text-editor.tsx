@@ -63,6 +63,8 @@ export function RichTextEditor({
           "[&_.ql-editor]:min-h-[200px]",
           "[&_.ql-editor]:text-foreground",
           "[&_.ql-toolbar]:border-border [&_.ql-toolbar]:rounded-t-md",
+          "[&_.ql-toolbar]:flex [&_.ql-toolbar]:flex-wrap [&_.ql-toolbar]:gap-y-1 [&_.ql-toolbar]:overflow-x-auto",
+          "[&_.ql-formats]:mr-2 [&_.ql-formats]:whitespace-nowrap",
           "[&_.ql-container]:border-border [&_.ql-container]:rounded-b-md",
           "[&_.ql-editor.ql-blank::before]:text-muted-foreground [&_.ql-editor.ql-blank::before]:italic",
           disabled && "[&_.ql-toolbar]:hidden [&_.ql-container]:border-t"

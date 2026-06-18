@@ -459,7 +459,7 @@ export async function getND7Report(
 
     for (const payslip of employeePayslips) {
       const gross = parseFloat(payslip.grossPay?.toString() || "0");
-      const shi = calculateMongolianSocialInsurance(gross, 11, 12.5);
+      const shi = calculateMongolianSocialInsurance(gross, 11.5, 12.5);
       totalShiBase += shi.shiBase;
       totalShiEmp += shi.employee;
       totalShiEmpr += shi.employer;
@@ -561,7 +561,7 @@ export async function getND8Report(
     const net = parseFloat(payslip.netPay?.toString() || "0");
 
     // Calculate SHI
-    const shi = calculateMongolianSocialInsurance(gross, 11, 12.5);
+    const shi = calculateMongolianSocialInsurance(gross, 11.5, 12.5);
 
     lines.push({
       employeeNo: employee.employeeNo || undefined,

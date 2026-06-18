@@ -110,8 +110,8 @@ const FileManagerTab = ({
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900/50">
       {/* Breadcrumbs & Actions */}
-      <div className="flex items-center justify-between p-4 border-b bg-white dark:bg-slate-950/50 backdrop-blur sticky top-0 z-10">
-        <div className="flex items-center gap-2 overflow-x-auto">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border-b bg-white dark:bg-slate-950/50 backdrop-blur sticky top-0 z-10">
+        <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
           {folderHistory.map((item: any, index: number) => (
             <div key={item.id || 'root'} className="flex items-center">
               {index > 0 && <ChevronRight className="w-4 h-4 text-muted-foreground mx-1" />}
@@ -128,7 +128,7 @@ const FileManagerTab = ({
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <input
             type="file"
             ref={fileInputRef}
@@ -156,7 +156,7 @@ const FileManagerTab = ({
             </>
           )}
 
-          <div className="flex items-center space-x-2 border-l pl-3 ml-1">
+          <div className="flex items-center space-x-2 sm:border-l sm:pl-3 sm:ml-1">
             <Switch id="show-archived" checked={showArchived} onCheckedChange={setShowArchived} />
             <Label htmlFor="show-archived" className="text-sm text-muted-foreground whitespace-nowrap">Архив</Label>
           </div>
@@ -164,8 +164,8 @@ const FileManagerTab = ({
       </div>
 
       {/* Grid View */}
-      <ScrollArea className="flex-1 p-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+      <ScrollArea className="flex-1 p-3 sm:p-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 sm:gap-4">
           {/* Folders */}
           {documents
             .filter((d: Document) => d.type === 'folder')
@@ -305,8 +305,87 @@ const DocumentListTab = ({
 }) => {
   return (
     <Card className="border-border bg-card shadow-sm">
-      <div className="rounded-md border p-0">
-        <Table>
+      <div className="md:hidden p-3 space-y-3">
+        {documents.length === 0 ? (
+          <div className="min-h-[180px] flex flex-col items-center justify-center gap-2 rounded-lg border text-center text-muted-foreground px-4">
+            <FileText className="w-10 h-10 opacity-20" />
+            <p className="text-sm">Одоогоор танд хамаарах баримт алга байна.</p>
+          </div>
+        ) : (
+          documents.map((doc) => {
+            const deadline = doc.deadline ? new Date(doc.deadline) : null;
+            const isOverdue = deadline ? new Date() > deadline && doc.status !== 'completed' : false;
+            const isUnread = !(doc as any).isRead;
+
+            return (
+              <div
+                role="button"
+                tabIndex={0}
+                key={doc.id}
+                className={cn(
+                  "w-full rounded-lg border bg-background p-3 text-left shadow-sm transition-colors hover:bg-muted/50",
+                  isUnread && "border-blue-300 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-900/10"
+                )}
+                onClick={() => onViewClick(doc)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") onViewClick(doc);
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      {isUnread && <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />}
+                      <span className="font-mono text-xs text-muted-foreground truncate">{doc.docNumber || '-'}</span>
+                    </div>
+                    <div className="mt-1 font-semibold text-sm leading-tight break-words">{doc.name}</div>
+                    {doc.description && (
+                      <div className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">{doc.description}</div>
+                    )}
+                  </div>
+                  <Badge variant="outline" className={cn("shrink-0", getPriorityColor(doc.priority))}>
+                    {getPriorityLabel(doc.priority)}
+                  </Badge>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary" className={getStatusColor(doc.status)}>{getStatusLabel(doc.status)}</Badge>
+                  {deadline && (
+                    <span className={cn("inline-flex items-center gap-1 text-xs", isOverdue ? "text-red-600 font-bold" : "text-muted-foreground")}>
+                      {isOverdue && <AlertCircle className="w-3 h-3" />}
+                      {format(deadline, "yyyy-MM-dd")}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Avatar className="w-6 h-6">
+                      <AvatarFallback className="text-[10px]">{getHolderName(doc.currentHolderId, users).substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="truncate text-xs text-muted-foreground">{getHolderName(doc.currentHolderId, users)}</span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onViewClick(doc)}>
+                      <Eye className="w-4 h-4 text-blue-500" />
+                    </Button>
+                    {(user as any)?.permissions?.includes("document.forward") && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onForwardClick(doc)}>
+                        <Send className="w-4 h-4 text-green-600" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onArchiveToggle(doc)}>
+                      {doc.isArchived ? <RotateCcw className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="hidden md:block rounded-md border p-0 overflow-x-auto">
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className="hover:bg-muted/50">
               <TableHead>Баримт №</TableHead>
@@ -715,22 +794,22 @@ export default function DocumentsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-slate-900/50">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-foreground">Албан хэрэг хөтлөлт</h1>
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 flex flex-col h-full min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-900/50">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 min-w-0">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground break-words">Албан хэрэг хөтлөлт</h1>
         {(user as any)?.permissions?.includes("document.create") && (
-          <Button onClick={() => setIsCreateOpen(true)} className="bg-primary hover:bg-primary/90">
+          <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto bg-primary hover:bg-primary/90">
             <Plus className="mr-2 h-4 w-4" /> Шинэ бичиг
           </Button>
         )}
       </div>
 
-      <Tabs defaultValue="incoming" value={currentTab} onValueChange={setCurrentTab} className="w-full flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid w-full grid-cols-4 bg-muted">
-          <TabsTrigger value="incoming">📥 Ирсэн ({incomingDocs.length})</TabsTrigger>
-          <TabsTrigger value="outgoing">📤 Явсан ({outgoingDocs.length})</TabsTrigger>
-          <TabsTrigger value="internal">🏢 Дотоод ({internalDocs.length})</TabsTrigger>
-          <TabsTrigger value="files">📂 Архив / Файл ({repositoryDocs.length})</TabsTrigger>
+      <Tabs defaultValue="incoming" value={currentTab} onValueChange={setCurrentTab} className="w-full flex-1 flex flex-col overflow-hidden min-w-0">
+        <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-4 gap-1 bg-muted p-1">
+          <TabsTrigger value="incoming" className="h-9 px-2 text-xs sm:text-sm whitespace-nowrap">📥 Ирсэн ({incomingDocs.length})</TabsTrigger>
+          <TabsTrigger value="outgoing" className="h-9 px-2 text-xs sm:text-sm whitespace-nowrap">📤 Явсан ({outgoingDocs.length})</TabsTrigger>
+          <TabsTrigger value="internal" className="h-9 px-2 text-xs sm:text-sm whitespace-nowrap">🏢 Дотоод ({internalDocs.length})</TabsTrigger>
+          <TabsTrigger value="files" className="h-9 px-2 text-xs sm:text-sm whitespace-nowrap">📂 Архив / Файл ({repositoryDocs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="incoming" className="mt-4 flex-1 overflow-auto">

@@ -4,7 +4,7 @@ import {
   UserCircle, ShoppingCart, ShoppingBag, Warehouse, Receipt, BookOpen,
   FileSpreadsheet, BookMarked, BarChart3, FileCheck, Banknote, History,
   Bell, TrendingUp, AlertTriangle, MessageSquare, CalendarDays, Clock,
-  Bus, Inbox, Shield, Utensils, Wallet, Bot, Fingerprint, Shirt, Brain, PackageCheck
+  Bus, Inbox, Shield, Utensils, Wallet, Fingerprint, Shirt, Brain, PackageCheck
 } from "lucide-react";
 import { type Resource, type Action } from "@shared/permissions";
 
@@ -29,7 +29,8 @@ export const originalNavGroups: NavGroup[] = [
       { href: "/me/workwear", label: "Миний хувцас", icon: Shirt },
       { href: "/reports", label: "Тайлангууд", icon: BarChart3 },
       { href: "/news", label: "Мэдээлэл", icon: Bell },
-      { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
+      // AI Туслагчийг түр нуусан.
+      // { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
     ],
   },
   {
@@ -77,7 +78,7 @@ export const originalNavGroups: NavGroup[] = [
     items: [
       { href: "/documents", label: "Баримтууд", icon: FileText },
       { href: "/audit-logs", label: "Хяналтын бүртгэл", icon: History },
-      { href: "/admin/ai-kb", label: "AI Сургалт", icon: Brain },
+      // { href: "/admin/ai-kb", label: "AI Сургалт", icon: Brain },
       { href: "/admin/biometric", label: "Царай уншигч", icon: Fingerprint },
       { href: "/settings", label: "Тохиргоо", icon: SettingsIcon },
     ],
@@ -91,7 +92,8 @@ export const warehouseNavGroups: NavGroup[] = [
     items: [
       { href: "/settings", label: "Тохиргоо (Профайл)", icon: UserCircle },
       { href: "/", label: "Хянах самбар", icon: LayoutDashboard },
-      { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
+      // AI Туслагчийг түр нуусан.
+      // { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
       { href: "/action-center", label: "Мэдэгдэл", icon: Bell },
       { href: "/communication", label: "Чат", icon: MessageSquare },
     ],
@@ -119,7 +121,8 @@ export const employeeNavGroups: NavGroup[] = [
     items: [
       { href: "/settings", label: "Тохиргоо (Профайл)", icon: UserCircle },
       { href: "/", label: "Хянах самбар", icon: LayoutDashboard },
-      { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
+      // AI Туслагчийг түр нуусан.
+      // { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
       { href: "/action-center", label: "Мэдэгдэл", icon: Bell },
       { href: "/communication", label: "Чат", icon: MessageSquare },
       { href: "/me/sessions", label: "Сешнүүд", icon: Shield },

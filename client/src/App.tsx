@@ -60,7 +60,6 @@ import MyRequests from "@/pages/requests/MyRequests";
 import NewRequest from "@/pages/requests/NewRequest";
 import RequestInbox from "@/pages/requests/RequestInbox";
 import RequestDetails from "@/pages/requests/RequestDetails";
-import AIAssistant from "@/pages/AIAssistant";
 import BiometricAdmin from "@/pages/admin/BiometricAdmin";
 import UniformAdmin from "@/pages/admin/UniformAdmin";
 import MyUniforms from "@/pages/assets/MyUniforms";
@@ -321,9 +320,11 @@ function Router() {
         </Route>
 
         {/* 🤖 AI Assistant */}
+        {/* AI Туслагчийг түр нуусан.
         <Route path="/ai-assistant">
           <ProtectedRoute component={AIAssistant} />
         </Route>
+        */}
 
         {/* 📷 Biometric Devices */}
         <Route path="/admin/biometric">

@@ -926,10 +926,10 @@ export default function Dashboard() {
           {
             !zenMode && (userRole === "Admin" || userRole === "HR" || userRole === "Manager") && (
               <div className="space-y-4 md:space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <h3 className="text-base md:text-lg font-semibold shrink-0">Энэ сарын орлого (Ажилтнууд)</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+                  <h3 className="text-base md:text-lg font-semibold min-w-0 break-words">Энэ сарын орлого (Ажилтнууд)</h3>
                   {/* Quick Actions for HR */}
-                  <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden shrink-0">
+                  <div className="flex w-full sm:w-auto gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
                     <Button
                       variant="outline"
                       size="sm"

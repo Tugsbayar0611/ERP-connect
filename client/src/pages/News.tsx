@@ -397,7 +397,7 @@ export default function News() {
         </div>
 
         {canCreatePost && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={() => generateDemoNews.mutate()}
@@ -413,12 +413,12 @@ export default function News() {
                   Мэдээлэл нийтлэх
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-[700px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                   <DialogTitle>Шинэ мэдээлэл нийтлэх</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleCreatePost} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Төрөл</Label>
                       <Select value={postType} onValueChange={setPostType}>
@@ -492,10 +492,10 @@ export default function News() {
                   </div>
 
                   {/* Action Builder */}
-                  <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                  <div className="space-y-2 p-3 sm:p-4 bg-muted/50 rounded-lg">
                     <Label>Товчлуур нэмэх (Actions)</Label>
-                    <div className="flex gap-2 items-end">
-                      <div className="grid gap-2 flex-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_8rem_auto] gap-2 items-end">
+                      <div className="grid gap-2 min-w-0">
                         <Label className="text-xs">Товчлуурын нэр</Label>
                         <Input
                           value={newAction.label}
@@ -503,7 +503,7 @@ export default function News() {
                           placeholder="Жишээ: Бүртгүүлэх"
                         />
                       </div>
-                      <div className="grid gap-2 flex-1">
+                      <div className="grid gap-2 min-w-0">
                         <Label className="text-xs">URL (Холбоос)</Label>
                         <Input
                           value={newAction.url}
@@ -511,7 +511,7 @@ export default function News() {
                           placeholder="https://..."
                         />
                       </div>
-                      <div className="grid gap-2 w-32">
+                      <div className="grid gap-2">
                         <Label className="text-xs">Төрөл</Label>
                         <Select value={newAction.style} onValueChange={(v: any) => setNewAction({ ...newAction, style: v })}>
                           <SelectTrigger>
@@ -526,6 +526,7 @@ export default function News() {
                       </div>
                       <Button
                         type="button"
+                        className="w-full sm:w-10"
                         onClick={() => {
                           if (newAction.label && newAction.url) {
                             setPostActions([...postActions, newAction]);
@@ -556,7 +557,7 @@ export default function News() {
                     )}
                   </div>
 
-                  <div className="flex justify-end gap-2">
+                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
                     <Button
                       type="button"
                       variant="outline"

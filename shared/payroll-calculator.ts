@@ -154,10 +154,14 @@ export function calculateMongolianPayroll(input: PayrollCalculationInput): Payro
 
   // Хөнгөлөлт
   const pitDeduction = calculatePITDeduction(pitCalculationBase);
-  const taxableIncome = Math.max(0, pitCalculationBase - pitDeduction);
+  const taxableIncome = Math.max(0, pitCalculationBase);
 
   // ХХОАТ тооцоолол (шатлал)
-  const pitResult = calculateMongolianIncomeTax(taxableIncome);
+  const grossPitResult = calculateMongolianIncomeTax(taxableIncome);
+  const pitResult = {
+    ...grossPitResult,
+    tax: Math.max(0, grossPitResult.tax - pitDeduction),
+  };
 
   // ==========================================
   // 4. УРЬДЧИЛГАА/ЗЭЭЛ СУУТГАЛ
