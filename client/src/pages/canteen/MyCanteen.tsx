@@ -90,7 +90,7 @@ export default function MyCanteen() {
                         <DialogDescription>
                             Та маргаашийн эсвэл өнөөдрийн хоолоо урьдчилж бүртгүүлээрэй.
                         </DialogDescription>
-                        <p className="text-xs text-muted-foreground mt-2 bg-yellow-50 border border-yellow-200 rounded p-2">
+                        <p className="text-xs text-muted-foreground mt-2 rounded border border-yellow-200 bg-yellow-50 p-2 dark:border-yellow-900/60 dark:bg-yellow-950/30">
                             💡 Захиалга нь зөвхөн тооцооллын зорилготой. Мөнгө зөвхөн хоол олгох үед суутгагдана.
                         </p>
                     </DialogHeader>
@@ -156,7 +156,7 @@ export default function MyCanteen() {
 
             {/* Active Orders Alert/Section */}
             {activeOrders.length > 0 && (
-                <Card className="border-l-4 border-l-blue-500 bg-blue-50/50">
+                <Card className="border-l-4 border-l-blue-500 bg-blue-50/70 dark:bg-blue-950/20">
                     <CardHeader className="py-4">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
@@ -169,7 +169,7 @@ export default function MyCanteen() {
                     <CardContent className="pb-4">
                         <div className="space-y-2">
                             {activeOrders.map((order: any) => (
-                                <div key={order.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border shadow-sm">
+                                <div key={order.id} className="flex items-center justify-between rounded border border-border bg-card p-2 text-sm text-card-foreground shadow-sm">
                                     <div className="flex gap-2">
                                         <span className="font-semibold">{order.date}</span>
                                         <Badge variant="outline" className="capitalize">{order.mealType === 'lunch' ? 'Өдөр' : 'Орой'}</Badge>
@@ -177,7 +177,7 @@ export default function MyCanteen() {
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2"
+                                        className="h-8 px-2 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                                         onClick={() => cancelOrderMutation.mutate(order.id)}
                                         disabled={cancelOrderMutation.isPending}
                                     >
@@ -192,18 +192,18 @@ export default function MyCanteen() {
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {/* Balance Card ... (unchanged) */}
-                <Card className="md:col-span-1 bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200">
+                <Card className="md:col-span-1 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 dark:border-orange-900/60 dark:from-orange-950/35 dark:to-amber-950/20">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-orange-900">
+                        <CardTitle className="text-sm font-medium text-orange-900 dark:text-orange-200">
                             Дансны үлдэгдэл
                         </CardTitle>
-                        <Wallet className="h-4 w-4 text-orange-600" />
+                        <Wallet className="h-4 w-4 text-orange-600 dark:text-orange-300" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-orange-700">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                             {wallet?.balance?.toLocaleString()}₮
                         </div>
-                        <p className="text-xs text-orange-600/80 mt-1">
+                        <p className="mt-1 text-xs text-orange-600/80 dark:text-orange-200/80">
                             {wallet?.creditLimit ? `Зээлийн эрх: ${wallet.creditLimit.toLocaleString()}₮` : "Урьдчилсан төлбөрт"}
                         </p>
                     </CardContent>
@@ -215,8 +215,8 @@ export default function MyCanteen() {
                         <CardTitle>Миний мэдээлэл</CardTitle>
                         <CardDescription>Хоолны эрхийн дэлгэрэнгүй</CardDescription>
                     </CardHeader>
-                    <CardContent className="text-sm text-gray-600 space-y-2">
-                        <div className="flex justify-between border-b pb-2">
+                    <CardContent className="space-y-2 text-sm text-muted-foreground">
+                        <div className="flex justify-between border-b border-border pb-2">
                             <span>Статус:</span>
                             <Badge variant={wallet?.status === 'active' ? 'default' : 'destructive'}>
                                 {wallet?.status === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
@@ -267,25 +267,27 @@ export default function MyCanteen() {
                             {isTxLoading ? (
                                 <TableRow>
                                     <TableCell colSpan={4} className="h-24 text-center">
-                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400" />
+                                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                                     </TableCell>
                                 </TableRow>
                             ) : filteredTransactions.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center text-gray-500">
+                                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                                         Гүйлгээ олдсонгүй
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filteredTransactions.map((tx: any) => (
                                     <TableRow key={tx.id}>
-                                        <TableCell className="font-mono text-xs text-gray-600">
+                                        <TableCell className="font-mono text-xs text-muted-foreground">
                                             {format(new Date(tx.createdAt), "yyyy-MM-dd HH:mm")}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className={cn(
                                                 "capitalize",
-                                                tx.type === 'credit' ? "bg-green-50 text-green-700 border-green-200" : "bg-orange-50 text-orange-700 border-orange-200"
+                                                tx.type === 'credit'
+                                                    ? "border-green-200 bg-green-50 text-green-700 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-300"
+                                                    : "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-300"
                                             )}>
                                                 {tx.referenceType === 'meal_serving' ? 'Хоол'
                                                     : tx.referenceType === 'manual_topup' ? 'Цэнэглэлт'
@@ -295,15 +297,15 @@ export default function MyCanteen() {
                                                                     : 'Бусад'}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-gray-600 font-medium">
+                                        <TableCell className="font-medium text-muted-foreground">
                                             {tx.description}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <span className={cn(
                                                 "font-bold flex items-center justify-end gap-1",
-                                                tx.type === 'credit' ? "text-green-600" : "text-gray-700"
+                                                tx.type === 'credit' ? "text-green-600 dark:text-green-400" : "text-foreground"
                                             )}>
-                                                {tx.type === 'credit' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownLeft className="w-3 h-3 text-orange-400" />}
+                                                {tx.type === 'credit' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownLeft className="w-3 h-3 text-orange-400 dark:text-orange-300" />}
                                                 {tx.type === 'credit' ? '+' : '-'}{Math.abs(tx.amount).toLocaleString()}₮
                                             </span>
                                         </TableCell>

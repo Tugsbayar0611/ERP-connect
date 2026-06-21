@@ -63,13 +63,13 @@ function EmployeeRow({
     const initials = `${employee.firstName?.[0] || ""}${employee.lastName?.[0] || ""}`.toUpperCase();
 
     return (
-        <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors">
+        <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors">
             {/* Rank Badge */}
             {rank && rank <= 3 && (
                 <div className={cn(
                     "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
                     rank === 1 && "bg-amber-500/20 text-amber-400",
-                    rank === 2 && "bg-slate-400/20 text-slate-300",
+                    rank === 2 && "bg-slate-200 text-slate-700 dark:bg-slate-400/20 dark:text-slate-300",
                     rank === 3 && "bg-amber-700/20 text-amber-600"
                 )}>
                     {rank}
@@ -77,7 +77,7 @@ function EmployeeRow({
             )}
 
             {/* Avatar */}
-            <Avatar className="h-9 w-9 border border-white/10">
+            <Avatar className="h-9 w-9 border border-border dark:border-white/10">
                 <AvatarImage src={employee.avatar} />
                 <AvatarFallback className="bg-primary/10 text-primary text-xs">
                     {initials}
@@ -86,10 +86,10 @@ function EmployeeRow({
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-200 truncate">
+                <p className="text-sm font-medium text-foreground truncate">
                     {fullName}
                 </p>
-                <p className="text-xs text-slate-500 truncate">
+                <p className="text-xs text-muted-foreground truncate">
                     {employee.position || employee.departmentName || "—"}
                 </p>
             </div>
@@ -107,9 +107,9 @@ function EmployeeRow({
                                 )}
                             </div>
                         </TooltipTrigger>
-                        <TooltipContent side="left" className="bg-slate-900 border-white/10 text-slate-200">
+                        <TooltipContent side="left" className="bg-popover text-popover-foreground border-border">
                             <div className="text-xs space-y-1">
-                                <p className="font-semibold border-b border-white/10 pb-1 mb-1">Онооны задаргаа</p>
+                                <p className="font-semibold border-b border-border pb-1 mb-1">Онооны задаргаа</p>
                                 {employee.breakdown ? (
                                     <>
                                         <div className="flex justify-between gap-4">
@@ -192,29 +192,29 @@ function EmployeesDrawer({
     return (
         <div className="flex flex-col h-full">
             {/* Search & Sort */}
-            <div className="p-4 border-b border-white/10 space-y-3">
+            <div className="p-4 border-b border-border dark:border-white/10 space-y-3">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <Input
                         placeholder="Хайх..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9 bg-slate-900/50 border-white/10"
+                        className="pl-9 bg-background/80 border-border dark:bg-slate-900/50 dark:border-white/10"
                     />
                     {search && (
                         <button
                             onClick={() => setSearch("")}
                             className="absolute right-3 top-1/2 -translate-y-1/2"
                         >
-                            <X className="h-4 w-4 text-slate-500 hover:text-slate-300" />
+                            <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                         </button>
                     )}
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <SortAsc className="h-4 w-4 text-slate-500" />
+                    <SortAsc className="h-4 w-4 text-muted-foreground" />
                     <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-                        <SelectTrigger className="w-[180px] bg-slate-900/50 border-white/10">
+                        <SelectTrigger className="w-[180px] bg-background/80 border-border dark:bg-slate-900/50 dark:border-white/10">
                             <SelectValue placeholder="Эрэмбэлэх" />
                         </SelectTrigger>
                         <SelectContent>
@@ -223,7 +223,7 @@ function EmployeesDrawer({
                             <SelectItem value="department">Хэлтсээр</SelectItem>
                         </SelectContent>
                     </Select>
-                    <span className="text-xs text-slate-500 ml-auto">
+                    <span className="text-xs text-muted-foreground ml-auto">
                         {filteredEmployees.length} ажилтан
                     </span>
                 </div>
@@ -308,7 +308,7 @@ export function EmployeesWidget({
                 </span>
                 <div className="ml-auto">
                     <Select value={timeRange} onValueChange={setTimeRange}>
-                        <SelectTrigger className="h-7 w-[110px] text-xs bg-slate-900/50 border-white/10">
+                        <SelectTrigger className="h-7 w-[110px] text-xs bg-background/80 border-border dark:bg-slate-900/50 dark:border-white/10">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -354,15 +354,15 @@ export function EmployeesWidget({
                         <SheetTrigger asChild>
                             <Button
                                 variant="ghost"
-                                className="w-full justify-center gap-2 text-slate-400 hover:text-slate-200"
+                                className="w-full justify-center gap-2 text-muted-foreground hover:text-foreground"
                             >
                                 Бүгдийг харах ({employees.length})
                                 <ChevronRight className="h-4 w-4" />
                             </Button>
                         </SheetTrigger>
-                        <SheetContent className="w-[400px] sm:w-[540px] bg-slate-900 border-white/10 p-0">
-                            <SheetHeader className="p-6 border-b border-white/10">
-                                <SheetTitle className="text-slate-100 flex items-center gap-2">
+                        <SheetContent className="w-[400px] sm:w-[540px] bg-background dark:bg-slate-900 border-border dark:border-white/10 p-0">
+                            <SheetHeader className="p-6 border-b border-border dark:border-white/10">
+                                <SheetTitle className="text-foreground flex items-center gap-2">
                                     <Trophy className="h-5 w-5 text-amber-400" />
                                     {title}
                                 </SheetTitle>

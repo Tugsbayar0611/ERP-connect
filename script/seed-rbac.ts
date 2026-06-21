@@ -107,6 +107,13 @@ const DEFAULT_PERMISSIONS = [
   { resource: "safety", action: "update", description: "Update safety records" },
   { resource: "safety", action: "delete", description: "Delete safety records" },
 
+  // Workwear
+  { resource: "workwear", action: "read", description: "View workwear entitlements and items" },
+  { resource: "workwear", action: "write", description: "Fulfill collected workwear items" },
+  { resource: "workwear", action: "approve", description: "Manage workwear norms and grant entitlements" },
+  { resource: "workwear", action: "export", description: "View and export workwear reports" },
+  { resource: "workwear", action: "delete", description: "Delete workwear configuration or records" },
+
   // Settings
   { resource: "settings", action: "view", description: "View settings" },
   { resource: "settings", action: "update", description: "Update settings" },
@@ -191,8 +198,23 @@ const DEFAULT_ROLES = [
       "dashboard.view",
       "product.view",
       "inventory.*",
+      "workwear.read",
+      "workwear.write",
       "sales_order.view",
       "purchase_order.view",
+    ],
+  },
+  {
+    name: "Нярав",
+    description: "Агуулах болон нормын хувцас олгох эрх",
+    isSystem: true,
+    permissions: [
+      "dashboard.view",
+      "product.view",
+      "inventory.view",
+      "inventory.adjust",
+      "workwear.read",
+      "workwear.write",
     ],
   },
   {

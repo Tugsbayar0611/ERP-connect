@@ -42,6 +42,8 @@ async function runMigration() {
       "022_add_department_manager.sql",
       "023_add_user_id_to_employees.sql",
       "024_add_google_auth_domains.sql",
+      "025_add_workwear_permissions.sql",
+      "026_add_workwear_warehouse_role.sql",
     ];
 
     for (const migrationFile of migrationFiles) {

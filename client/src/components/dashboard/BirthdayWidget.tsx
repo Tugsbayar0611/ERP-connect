@@ -60,7 +60,7 @@ export function BirthdayWidget({ birthdays, isLoading = false }: BirthdayWidgetP
                         <Cake className="w-5 h-5 text-pink-400" />
                         Өнөөдрийн төрсөн өдөр
                         {hasBirthdays && (
-                            <Badge variant="secondary" className="ml-2 bg-pink-500/20 text-pink-300 border-pink-400/30">
+                            <Badge variant="secondary" className="ml-2 bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-500/20 dark:text-pink-300 dark:border-pink-400/30">
                                 {birthdays.length}
                             </Badge>
                         )}
@@ -69,7 +69,7 @@ export function BirthdayWidget({ birthdays, isLoading = false }: BirthdayWidgetP
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-pink-400 hover:text-pink-300 hover:bg-pink-500/10"
+                            className="text-pink-600 hover:text-pink-700 hover:bg-pink-50 dark:text-pink-400 dark:hover:text-pink-300 dark:hover:bg-pink-500/10"
                             onClick={() => setLocation("/employees")}
                         >
                             <ExternalLink className="w-4 h-4" />
@@ -91,11 +91,11 @@ export function BirthdayWidget({ birthdays, isLoading = false }: BirthdayWidgetP
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate text-slate-100">
+                                    <p className="font-medium text-sm truncate text-foreground">
                                         {emp.firstName} {emp.lastName}
                                     </p>
                                     {emp.position && (
-                                        <p className="text-xs text-slate-400 truncate">{emp.position}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{emp.position}</p>
                                     )}
                                 </div>
                                 <Gift className="w-5 h-5 text-pink-400 animate-bounce" />
@@ -105,7 +105,7 @@ export function BirthdayWidget({ birthdays, isLoading = false }: BirthdayWidgetP
                 ) : (
                     <div className="text-center py-6">
                         <div className="text-4xl mb-2">🎂</div>
-                        <p className="text-sm text-slate-400">Өнөөдөр төрсөн өдөр байхгүй</p>
+                        <p className="text-sm text-muted-foreground">Өнөөдөр төрсөн өдөр байхгүй</p>
                     </div>
                 )}
             </GlassCardContent>

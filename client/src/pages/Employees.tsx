@@ -77,6 +77,31 @@ const employeeFormSchema = insertEmployeeSchema.extend({
 
 type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
 
+const defaultRoleOptions = [
+  { name: "User", label: "Ажилтан (Employee)" },
+  { name: "Manager", label: "Менежер (Manager)" },
+  { name: "HR", label: "Хүний нөөц (HR)" },
+  { name: "Нярав", label: "Нярав" },
+  { name: "Admin", label: "Админ (Admin)" },
+];
+
+function getEmployeeSystemRole(employee: Employee): string {
+  return String((employee as any).role || (employee as any).userRole || "User");
+}
+
+function getRoleLabel(roleName: string): string {
+  const labels: Record<string, string> = {
+    user: "Ажилтан (Employee)",
+    employee: "Ажилтан (Employee)",
+    manager: "Менежер (Manager)",
+    hr: "Хүний нөөц (HR)",
+    admin: "Админ (Admin)",
+    "нярав": "Нярав",
+    warehouse: "Агуулах / Нярав (Warehouse)",
+  };
+  return labels[roleName.toLowerCase()] || roleName;
+}
+
 export default function Employees(): JSX.Element {
   const { employees = [], isLoading, createEmployee, updateEmployee, deleteEmployee, deleteEmployees } =
     useEmployees();
@@ -108,6 +133,16 @@ export default function Employees(): JSX.Element {
   const [pageSize] = useState(10); // Items per page
   const [salaryVisible, setSalaryVisible] = useState(false); // Цалин нуух/харуулах
   const [departmentFilter, setDepartmentFilter] = useState<string>("all"); // Хэлтсээр шүүх
+
+  const roleOptions = useMemo(() => {
+    const source = roles.length > 0
+      ? roles.map((role) => ({ name: role.name, label: getRoleLabel(role.name) }))
+      : defaultRoleOptions;
+
+    return Array.from(
+      new Map(source.map((role) => [role.name.toLowerCase(), role])).values()
+    );
+  }, [roles]);
 
   // Status badge тохиргоо
   const statusConfig: Record<string, { label: string; className: string }> = {
@@ -191,7 +226,7 @@ export default function Employees(): JSX.Element {
       position: (employee as any).position || "",
       jobTitleId: (employee as any).jobTitleId || undefined,
       createUser: true,
-      role: "User",
+      role: getEmployeeSystemRole(employee),
     } as any);
     setIsEditOpen(true);
   }, [form]);
@@ -852,17 +887,18 @@ export default function Employees(): JSX.Element {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Системийн эрх</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value || "User"}>
+                          <Select onValueChange={field.onChange} value={field.value || "User"}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Эрх сонгох" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="User">Ажилтан (Employee)</SelectItem>
-                              <SelectItem value="Manager">Менежер (Manager)</SelectItem>
-                              <SelectItem value="HR">Хүний нөөц (HR)</SelectItem>
-                              <SelectItem value="Admin">Админ (Admin)</SelectItem>
+                              {roleOptions.map((role) => (
+                                <SelectItem key={role.name} value={role.name}>
+                                  {role.label}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <FormMessage />

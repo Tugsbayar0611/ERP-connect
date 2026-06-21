@@ -37,7 +37,7 @@ function NotificationRow({ item }: { item: NotificationItem }) {
 
     return (
         <Link href={item.href}>
-            <div className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
+            <div className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer group">
                 <div className="flex items-center gap-3">
                     <div className={cn(
                         "w-9 h-9 rounded-lg flex items-center justify-center border",
@@ -45,7 +45,7 @@ function NotificationRow({ item }: { item: NotificationItem }) {
                     )}>
                         <Icon className="h-4 w-4" />
                     </div>
-                    <span className="text-sm text-slate-300 group-hover:text-slate-100 transition-colors">
+                    <span className="text-sm text-foreground transition-colors">
                         {item.label}
                     </span>
                 </div>
@@ -58,7 +58,7 @@ function NotificationRow({ item }: { item: NotificationItem }) {
                     )}>
                         {item.count}
                     </span>
-                    <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </div>
             </div>
         </Link>

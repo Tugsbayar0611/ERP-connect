@@ -539,7 +539,7 @@ const router = Router();
   const purchaseOrderSchema = z.object({
     supplierId: z.string(),
     branchId: z.string().optional(),
-    warehouseId: z.string().optional(),
+    warehouseId: z.string().min(1, "Warehouse is required"),
     orderDate: z.string(),
     expectedDate: z.string().optional().transform(val => val === "" ? undefined : val),
     notes: z.string().optional(),
@@ -561,6 +561,8 @@ const router = Router();
       const orderNumber = `PO-${new Date().getFullYear()}-${String(orderCount + 1).padStart(4, '0')}`;
 
       let subtotal = 0;
+      let taxAmount = 0;
+      let totalAmount = 0;
       const lines: Omit<DbInsertPurchaseOrderLine, 'purchaseOrderId'>[] = data.lines.map((line: any) => {
         const qty = Number(line.quantity);
         const price = Number(line.unitPrice);
@@ -572,6 +574,8 @@ const router = Router();
         const lineTotal = lineSubtotal + lineTax;
 
         subtotal += lineSubtotal;
+        taxAmount += lineTax;
+        totalAmount += lineTotal;
 
         return {
           tenantId: req.tenantId,
@@ -586,9 +590,6 @@ const router = Router();
           description: line.description
         };
       });
-
-      const taxAmount = subtotal * 0.1;
-      const totalAmount = subtotal + taxAmount;
 
       const order = await storage.createPurchaseOrder({
         tenantId: req.tenantId,

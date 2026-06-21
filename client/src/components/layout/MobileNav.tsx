@@ -12,9 +12,9 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { useNotifications } from "@/hooks/use-notifications";
 import { isEmployee, isPrivileged, isManager } from "@shared/roles";
 import { hasWarehouseAccess } from "@shared/roles";
-import { hasPermission } from "@shared/permissions";
 import { originalNavGroups, employeeNavGroups, warehouseNavGroups } from "@/config/navigation";
 import { Separator } from "@/components/ui/separator";
+import { userHasPermission } from "@/lib/permissions";
 
 export function MobileNav() {
   const [location] = useLocation();
@@ -47,10 +47,10 @@ export function MobileNav() {
       ...group,
       items: group.items.filter(item => {
         if (!item.requiredPermission) return true;
-        return hasPermission(role, item.requiredPermission.resource, item.requiredPermission.action);
+        return userHasPermission(user, item.requiredPermission.resource, item.requiredPermission.action);
       })
     })).filter(group => group.items.length > 0);
-  }, [user?.role]);
+  }, [user]);
 
   return (
     <div className="md:hidden flex items-center justify-between p-4 bg-card border-b border-border sticky top-0 z-30">

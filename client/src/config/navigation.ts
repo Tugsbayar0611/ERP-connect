@@ -27,7 +27,7 @@ export const originalNavGroups: NavGroup[] = [
       { href: "/", label: "Хянах самбар", icon: LayoutDashboard },
       { href: "/me/canteen", label: "Хоолны эрх", icon: Wallet },
       { href: "/me/workwear", label: "Миний хувцас", icon: Shirt },
-      { href: "/reports", label: "Тайлангууд", icon: BarChart3 },
+      // { href: "/reports", label: "Тайлангууд", icon: BarChart3 },
       { href: "/news", label: "Мэдээлэл", icon: Bell },
       // AI Туслагчийг түр нуусан.
       // { href: "/ai-assistant", label: "AI Туслагч", icon: Bot },
@@ -54,12 +54,12 @@ export const originalNavGroups: NavGroup[] = [
       { href: "/attendance", label: "Ирц бүртгэл", icon: CalendarCheck },
       { href: "/requests", label: "Хүсэлтүүд", icon: Inbox },
       { href: "/payroll", label: "Цалин", icon: CreditCard },
-      { href: "/performance", label: "Гүйцэтгэл", icon: TrendingUp },
+      // { href: "/performance", label: "Гүйцэтгэл", icon: TrendingUp },
       { href: "/safety", label: "Аюулгүй ажиллагаа", icon: AlertTriangle },
       { href: "/communication", label: "Дотоод харилцаа", icon: MessageSquare },
       { href: "/canteen/admin", label: "Цайны газар", icon: Utensils },
-      { href: "/admin/workwear", label: "Нормын хувцас", icon: Shirt, requiredPermission: { resource: 'assets', action: 'write' } },
-      { href: "/admin/workwear/reports", label: "Хувцасны тайлан", icon: BarChart3, requiredPermission: { resource: 'assets', action: 'write' } },
+      { href: "/admin/workwear", label: "Нормын хувцас", icon: Shirt, requiredPermission: { resource: 'workwear', action: 'approve' } },
+      { href: "/admin/workwear/reports", label: "Хувцасны тайлан", icon: BarChart3, requiredPermission: { resource: 'workwear', action: 'export' } },
     ],
   },
   {
@@ -101,7 +101,7 @@ export const warehouseNavGroups: NavGroup[] = [
   {
     title: "АГУУЛАХ",
     items: [
-      { href: "/warehouse/workwear", label: "Хувцас олгох", icon: PackageCheck },
+      { href: "/warehouse/workwear", label: "Хувцас олгох", icon: PackageCheck, requiredPermission: { resource: 'workwear', action: 'write' } },
     ],
   },
   {

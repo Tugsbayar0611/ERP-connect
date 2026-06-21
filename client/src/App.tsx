@@ -64,14 +64,25 @@ import BiometricAdmin from "@/pages/admin/BiometricAdmin";
 import UniformAdmin from "@/pages/admin/UniformAdmin";
 import MyUniforms from "@/pages/assets/MyUniforms";
 import AIKnowledgeBaseAdmin from "@/pages/admin/AIKnowledgeBase";
+import { userHasPermission } from "@/lib/permissions";
+import type { Action, Resource } from "@shared/permissions";
 
 installUnauthorizedFetchHandler();
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+function ProtectedRoute({
+  component: Component,
+  requiredPermission,
+}: {
+  component: React.ComponentType;
+  requiredPermission?: { resource: Resource; action: Action };
+}) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) return null;
   if (!user) return <Redirect to="/login" />;
+  if (requiredPermission && !userHasPermission(user, requiredPermission.resource, requiredPermission.action)) {
+    return <Redirect to="/" />;
+  }
 
   return <Component />;
 }
@@ -213,10 +224,10 @@ function Router() {
         </Route>
 
         <Route path="/admin/workwear">
-          <ProtectedRoute component={WorkwearManagement} />
+          <ProtectedRoute component={WorkwearManagement} requiredPermission={{ resource: "workwear", action: "approve" }} />
         </Route>
         <Route path="/me/workwear">
-          <ProtectedRoute component={MyWorkwear} />
+          <ProtectedRoute component={MyWorkwear} requiredPermission={{ resource: "workwear", action: "read" }} />
         </Route>
 
         {/* Requests (Phase 5) */}
@@ -259,11 +270,11 @@ function Router() {
 
         {/* Нормын хувцас */}
         <Route path="/admin/workwear/reports">
-          <ProtectedRoute component={WorkwearReports} />
+          <ProtectedRoute component={WorkwearReports} requiredPermission={{ resource: "workwear", action: "export" }} />
         </Route>
 
         <Route path="/warehouse/workwear">
-          <ProtectedRoute component={WarehouseWorkwear} />
+          <ProtectedRoute component={WarehouseWorkwear} requiredPermission={{ resource: "workwear", action: "write" }} />
         </Route>
 
         <Route path="/me/roster">

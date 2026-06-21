@@ -10,9 +10,9 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { isEmployee, isPrivileged, isManager, canViewTeamPerformance } from "@shared/roles";
 import { hasWarehouseAccess } from "@shared/roles";
-import { hasPermission } from "@shared/permissions";
 import { originalNavGroups, employeeNavGroups, warehouseNavGroups } from "@/config/navigation";
 import { GlobalSearch } from "./GlobalSearch";
+import { userHasPermission } from "@/lib/permissions";
 
 import { useFavorites } from "@/hooks/use-favorites";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -56,11 +56,11 @@ export function Sidebar() {
       ...group,
       items: group.items.filter(item => {
         if (!item.requiredPermission) return true;
-        return hasPermission(role, item.requiredPermission.resource, item.requiredPermission.action);
+        return userHasPermission(user, item.requiredPermission.resource, item.requiredPermission.action);
       })
     })).filter(group => group.items.length > 0);
 
-  }, [user?.role]);
+  }, [user]);
 
   return (
     <aside className="fixed inset-y-0 left-0 w-64 bg-card border-r border-border/50 shadow-lg flex flex-col z-20 hidden md:flex">

@@ -73,7 +73,7 @@ export function PendingRequestsWidget({ pendingCount = 0, isLoading = false }: P
                         <Clock className="w-5 h-5 text-orange-400" />
                         Шийдвэрлэх хүсэлтүүд
                         {hasPending && (
-                            <Badge variant="secondary" className="ml-2 bg-orange-500/20 text-orange-300 border-orange-400/30">
+                            <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-400/30">
                                 {totalPending}
                             </Badge>
                         )}
@@ -82,7 +82,7 @@ export function PendingRequestsWidget({ pendingCount = 0, isLoading = false }: P
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-500/10"
                             onClick={() => setLocation("/hr/requests")}
                         >
                             <ExternalLink className="w-4 h-4" />
@@ -102,20 +102,20 @@ export function PendingRequestsWidget({ pendingCount = 0, isLoading = false }: P
                                     <FileText className="w-4 h-4 text-orange-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate text-slate-100">
+                                    <p className="font-medium text-sm truncate text-foreground">
                                         {req.employeeFirstName} {req.employeeLastName}
                                     </p>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs text-slate-400">
+                                        <span className="text-xs text-muted-foreground">
                                             {leaveTypeLabels[req.type] || req.type}
                                         </span>
                                         <span className="text-xs text-slate-500">•</span>
-                                        <span className="text-xs text-slate-500">
+                                        <span className="text-xs text-muted-foreground">
                                             {new Date(req.startDate).toLocaleDateString("mn-MN", { month: "short", day: "numeric" })}
                                         </span>
                                     </div>
                                 </div>
-                                <Badge variant="outline" className="text-[10px] bg-yellow-500/20 text-yellow-300 border-yellow-400/30">
+                                <Badge variant="outline" className="text-[10px] bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-300 dark:border-yellow-400/30">
                                     Хүлээгдэж буй
                                 </Badge>
                             </div>
@@ -125,7 +125,7 @@ export function PendingRequestsWidget({ pendingCount = 0, isLoading = false }: P
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="w-full text-orange-400 border-orange-400/30 hover:bg-orange-500/10"
+                                className="w-full text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-400/30 dark:hover:bg-orange-500/10"
                                 onClick={() => setLocation("/hr/requests")}
                             >
                                 Бусад {totalPending - 3} хүсэлт харах

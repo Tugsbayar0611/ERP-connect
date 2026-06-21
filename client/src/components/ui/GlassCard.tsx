@@ -48,17 +48,17 @@ export function GlassCard({
         <div
             className={cn(
                 // Base glass effect
-                "bg-slate-900/40 dark:bg-slate-900/40",
+                "bg-card/95 dark:bg-slate-900/40",
                 "backdrop-blur-xl",
-                "border border-white/10",
+                "border border-border/70 dark:border-white/10",
                 "rounded-2xl",
-                "shadow-2xl",
+                "shadow-sm dark:shadow-2xl",
                 // Transition for smooth interactions
                 "transition-all duration-300",
                 // Optional glow effect
                 glow && "shadow-primary/20 hover:shadow-primary/30",
                 // Optional top highlight (simulates light reflection)
-                highlight && "border-t-white/20",
+                highlight && "border-t-primary/20 dark:border-t-white/20",
                 // Padding
                 paddingClasses[padding],
                 className
@@ -102,7 +102,7 @@ export function GlassCardTitle({
     return (
         <h3
             className={cn(
-                "text-sm font-semibold text-slate-200",
+                "text-sm font-semibold text-foreground",
                 className
             )}
             {...props}
@@ -138,7 +138,7 @@ export function GlassCardFooter({
     return (
         <div
             className={cn(
-                "mt-4 pt-4 border-t border-white/5",
+                "mt-4 pt-4 border-t border-border/60 dark:border-white/5",
                 "flex items-center justify-between",
                 className
             )}

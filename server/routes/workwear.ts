@@ -5,13 +5,43 @@ import {
   users, employees
 } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { hasPermission, type Action, type Role } from "@shared/permissions";
+
+function requireWorkwearPermission(action: Action) {
+  return (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated?.()) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(401).json({ error: "Unauthorized" });
+
+    const permissionKey = `workwear.${action}`;
+    const directPermissions: string[] = req.user?.permissions || [];
+    if (directPermissions.includes(permissionKey)) return next();
+
+    const primaryRole = (req.user?.role || "").toLowerCase() as Role;
+    const userRoles: Role[] = (req.user?.userRoles || [])
+      .map((role: any) => (typeof role === "string" ? role : role.name || "").toLowerCase())
+      .filter(Boolean);
+
+    const roles = [primaryRole, ...userRoles].filter(Boolean) as Role[];
+    if (roles.some((role) => hasPermission(role, "workwear", action))) return next();
+
+    return res.status(403).json({
+      error: "PERMISSION_DENIED",
+      message: `Permission denied: workwear.${action}`,
+      required: { resource: "workwear", action },
+    });
+  };
+}
 
 export function registerWorkwearRoutes(app: Express) {
   // ─────────────────────────────────────────────────────
   // WORKWEAR ITEMS
   // ─────────────────────────────────────────────────────
 
-  app.get("/api/workwear/items", async (req: any, res) => {
+  app.get("/api/workwear/items", requireWorkwearPermission("read"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       if (!tenantId) return res.status(401).json({ error: "Unauthorized" });
@@ -22,7 +52,7 @@ export function registerWorkwearRoutes(app: Express) {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/workwear/items", async (req: any, res) => {
+  app.post("/api/workwear/items", requireWorkwearPermission("approve"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       if (!tenantId) return res.status(401).json({ error: "Unauthorized" });
@@ -48,7 +78,7 @@ export function registerWorkwearRoutes(app: Express) {
   // WORKWEAR TEMPLATES (Position-based Norm Templates)
   // ─────────────────────────────────────────────────────
 
-  app.get("/api/workwear/templates", async (req: any, res) => {
+  app.get("/api/workwear/templates", requireWorkwearPermission("read"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       if (!tenantId) return res.status(401).json({ error: "Unauthorized" });
@@ -81,7 +111,7 @@ export function registerWorkwearRoutes(app: Express) {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/workwear/templates", async (req: any, res) => {
+  app.post("/api/workwear/templates", requireWorkwearPermission("approve"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       const userId = req.user?.id;
@@ -138,7 +168,7 @@ export function registerWorkwearRoutes(app: Express) {
   });
 
   // Apply template to employees in bulk
-  app.post("/api/workwear/templates/:id/apply", async (req: any, res) => {
+  app.post("/api/workwear/templates/:id/apply", requireWorkwearPermission("approve"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       const userId = req.user?.id;
@@ -225,7 +255,7 @@ export function registerWorkwearRoutes(app: Express) {
   // ─────────────────────────────────────────────────────
 
   // Bulk grant
-  app.post("/api/workwear/issuances/bulk", async (req: any, res) => {
+  app.post("/api/workwear/issuances/bulk", requireWorkwearPermission("approve"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       const userId = req.user?.id;
@@ -292,7 +322,7 @@ export function registerWorkwearRoutes(app: Express) {
   });
 
   // Get all issuances (HR/Admin view)
-  app.get("/api/workwear/issuances", async (req: any, res) => {
+  app.get("/api/workwear/issuances", requireWorkwearPermission("approve"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       if (!tenantId) return res.status(401).json({ error: "Unauthorized" });
@@ -372,7 +402,7 @@ export function registerWorkwearRoutes(app: Express) {
   });
 
   // Specific employee's workwear (HR/Warehouse view)
-  app.get("/api/workwear/employee/:id", async (req: any, res) => {
+  app.get("/api/workwear/employee/:id", requireWorkwearPermission("write"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       if (!tenantId) return res.status(401).json({ error: "Unauthorized" });
@@ -409,7 +439,7 @@ export function registerWorkwearRoutes(app: Express) {
   // WAREHOUSE: Fulfill (hand out item physically)
   // ─────────────────────────────────────────────────────
 
-  app.post("/api/workwear/fulfill", async (req: any, res) => {
+  app.post("/api/workwear/fulfill", requireWorkwearPermission("write"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       const userId = req.user?.id;
@@ -451,7 +481,7 @@ export function registerWorkwearRoutes(app: Express) {
   // REPORTS
   // ─────────────────────────────────────────────────────
 
-  app.get("/api/workwear/reports/summary", async (req: any, res) => {
+  app.get("/api/workwear/reports/summary", requireWorkwearPermission("export"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       if (!tenantId) return res.status(401).json({ error: "Unauthorized" });
@@ -511,7 +541,7 @@ export function registerWorkwearRoutes(app: Express) {
   // EXPIRE CHECK (called server-side or via cron)
   // ─────────────────────────────────────────────────────
 
-  app.post("/api/workwear/expire-check", async (req: any, res) => {
+  app.post("/api/workwear/expire-check", requireWorkwearPermission("write"), async (req: any, res) => {
     try {
       const tenantId = req.user?.tenantId;
       if (!tenantId) return res.status(401).json({ error: "Unauthorized" });

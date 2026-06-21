@@ -393,15 +393,17 @@ router.put("/employees/:id", requireTenantAndPermission, async (req: any, res) =
             await storage.updateUser(existing.userId, { role });
             userRoleUpdated = true;
 
-            // Шинэ RBAC систем рүү мөн адил синхрон хийх
+            // Шинэ RBAC систем дээр ажилтан засах modal нэг primary role сонгодог тул хуучин role-уудыг сольж синхрон байлгана.
             const roles = await storage.getRoles(req.tenantId);
             const matchedRole = roles.find((r: any) => r.name.toLowerCase() === role.toLowerCase());
             if (matchedRole) {
-                try {
-                    await storage.assignRoleToUser(existing.userId, matchedRole.id);
-                } catch (e) {
-                    // Аль хэдийн холбогдсон байвал алгасах
+                const currentRoles = await storage.getUserRoles(existing.userId);
+                for (const currentRole of currentRoles) {
+                    if (currentRole.id !== matchedRole.id) {
+                        await storage.removeRoleFromUser(existing.userId, currentRole.id);
+                    }
                 }
+                await storage.assignRoleToUser(existing.userId, matchedRole.id);
             }
         }
 

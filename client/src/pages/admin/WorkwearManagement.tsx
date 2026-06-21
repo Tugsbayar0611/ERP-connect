@@ -12,8 +12,7 @@ import WorkwearItemsDialog from "@/components/workwear/WorkwearItemsDialog";
 import IssueWorkwearDialog from "@/components/workwear/IssueWorkwearDialog";
 import BulkIssueWorkwearDialog from "@/components/workwear/BulkIssueWorkwearDialog";
 import { useAuth } from "@/hooks/use-auth";
-import { hasPermission } from "@shared/permissions";
-import type { Role } from "@shared/permissions";
+import { userHasPermission } from "@/lib/permissions";
 
 const STATUS_STYLE: Record<string, string> = {
   collected: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border-0",
@@ -26,8 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function WorkwearManagement() {
   const { user } = useAuth();
-  const userRole = (user?.role ?? "employee") as Role;
-  const canManage = hasPermission(userRole, "assets", "write");
+  const canManage = userHasPermission(user, "workwear", "approve");
 
   const [activeTab, setActiveTab] = useState("issuances");
   const [searchTerm, setSearchTerm] = useState("");

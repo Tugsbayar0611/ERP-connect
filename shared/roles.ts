@@ -27,13 +27,14 @@ export function isPrivileged(role?: string | null): boolean {
 }
 
 export function isWarehouse(role?: string | null): boolean {
-    return normalizeRole(role) === "warehouse";
+    const r = normalizeRole(role);
+    return r === "warehouse" || r === "нярав" || r === "агуулахын ажилтан";
 }
 
 // Check if user has warehouse access (via userRoles array or primary role)
 export function hasWarehouseAccess(primaryRole?: string | null, userRoles?: { name: string }[]): boolean {
     if (isWarehouse(primaryRole) || isPrivileged(primaryRole)) return true;
-    return userRoles?.some(r => normalizeRole(r.name) === "warehouse") ?? false;
+    return userRoles?.some(r => isWarehouse(r.name)) ?? false;
 }
 
 // Team-level access: Manager + Admin/HR

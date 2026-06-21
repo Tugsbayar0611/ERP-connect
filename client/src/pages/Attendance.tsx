@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2, ChevronLeft, ChevronRight, Search, Calendar, Table as TableIcon, Pencil, Trash2, MapPin, Navigation, CheckCircle2, AlertCircle, Camera, X, Image as ImageIcon } from "lucide-react";
+import { Plus, Loader2, ChevronLeft, ChevronRight, Search, Calendar, Table as TableIcon, Pencil, Trash2, MapPin, Navigation, CheckCircle2, AlertCircle, Camera, X, Image as ImageIcon, UserCheck } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -79,6 +79,7 @@ export default function Attendance() {
   const [viewMode, setViewMode] = useState<"calendar" | "table">("calendar");
   const [selectedDay, setSelectedDay] = useState<Date | null>(null); // For drill-down drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showMyAttendance, setShowMyAttendance] = useState(false);
   const { toast } = useToast();
 
   // Table filters
@@ -143,6 +144,10 @@ export default function Attendance() {
       if (!res.ok) throw new Error("Failed to fetch employees");
       return res.json();
     },
+  });
+  const attendanceEmployeeOptions = employees.filter((emp) => {
+    const role = String((emp as any).role || "").toLowerCase();
+    return role !== "admin";
   });
 
   // 2. Form Default Values
@@ -601,33 +606,6 @@ export default function Attendance() {
     );
   };
 
-  // Handle geofencing check-in
-  const handleGeofencingCheckIn = () => {
-    if (!geofenceStatus?.isWithinRadius) {
-      toast({
-        title: "Боломжгүй",
-        description: "Оффисын радиус дотор биш байна.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Auto-fill form with current date and time
-    const now = new Date();
-    const currentTime = dateToTimeString(now);
-    const currentDate = format(now, "yyyy-MM-dd");
-
-    form.reset({
-      employeeId: "",
-      workDate: currentDate,
-      checkIn: currentTime,
-      checkOut: "",
-      status: "present",
-      workHours: "8",
-    });
-    setOpen(true);
-  };
-
   // Calculate date range based on filter
   const getDateRange = () => {
     const today = new Date();
@@ -714,6 +692,23 @@ export default function Attendance() {
       }
     });
 
+  if (showMyAttendance) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight font-display">Миний ирц</h2>
+            <p className="text-muted-foreground mt-1">Өөрийн ирэх, гарах цагийг байршлаар баталгаажуулж бүртгэнэ.</p>
+          </div>
+          <Button variant="outline" onClick={() => setShowMyAttendance(false)}>
+            Админ харагдац
+          </Button>
+        </div>
+        <EmployeeAttendanceView />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -724,6 +719,15 @@ export default function Attendance() {
         </div>
 
         <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => setShowMyAttendance(true)}
+            className="shadow-md"
+          >
+            <UserCheck className="w-4 h-4 mr-2" />
+            Миний ирц
+          </Button>
+
           {/* Geofencing Check Location Button */}
           <Button
             variant="outline"
@@ -761,7 +765,7 @@ export default function Attendance() {
             }}
           >
             <Plus className="w-4 h-4 mr-2" />
-            Ирц бүртгэх
+            Бусад ирц
           </Button>
         </div>
       </div>
@@ -779,19 +783,11 @@ export default function Attendance() {
           </AlertTitle>
           <AlertDescription className={geofenceStatus.isWithinRadius ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"}>
             {geofenceStatus.isWithinRadius ? (
-              <div className="flex items-center justify-between">
+              <div>
                 <span>
                   <strong>{geofenceStatus.branchName}</strong>-ийн {geofenceStatus.radius}м радиуст байна.
                   Ойролцоогоор <strong>{Math.round(geofenceStatus.distance)}м</strong> зайд.
                 </span>
-                <Button
-                  size="sm"
-                  onClick={handleGeofencingCheckIn}
-                  className="ml-4 bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-1" />
-                  Ирц бүртгэх
-                </Button>
               </div>
             ) : (
               <div>
@@ -849,7 +845,7 @@ export default function Attendance() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {employees.map((emp) => (
+                        {attendanceEmployeeOptions.map((emp) => (
                           <SelectItem key={emp.id} value={emp.id}>
                             {emp.firstName} {emp.lastName} ({emp.employeeNo})
                           </SelectItem>

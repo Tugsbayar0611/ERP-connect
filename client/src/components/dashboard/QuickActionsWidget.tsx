@@ -57,8 +57,8 @@ function ActionCard({ action }: { action: QuickAction }) {
         <Link href={action.href}>
             <div className={cn(
                 "flex flex-col items-center justify-center p-4 rounded-xl",
-                "border border-white/5 hover:border-white/10",
-                "bg-white/[0.02] hover:bg-white/[0.05]",
+                "border border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
+                "bg-background/50 hover:bg-muted/50 dark:bg-white/[0.02] dark:hover:bg-white/[0.05]",
                 "transition-all duration-200 cursor-pointer group",
                 "min-h-[100px]"
             )}>
@@ -69,10 +69,10 @@ function ActionCard({ action }: { action: QuickAction }) {
                 )}>
                     <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-sm font-medium text-slate-200 group-hover:text-white transition-colors">
+                <span className="text-sm font-medium text-foreground transition-colors">
                     {action.label}
                 </span>
-                <span className="text-xs text-slate-500 group-hover:text-slate-400 transition-colors">
+                <span className="text-xs text-muted-foreground transition-colors">
                     {action.description}
                 </span>
             </div>

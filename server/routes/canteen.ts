@@ -623,6 +623,33 @@ router.post("/admin/wallet/adjust", requireTenant, async (req: any, res) => {
     }
 });
 
+router.post("/admin/wallet/adjust-bulk", requireTenant, async (req: any, res) => {
+    try {
+        if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
+
+        const schema = z.object({
+            walletIds: z.array(z.string().uuid()).min(1, "At least one wallet is required"),
+            amount: z.coerce.number().int().refine(val => val !== 0, "Amount cannot be 0"),
+            note: z.string().min(1, "Note is required")
+        });
+        const data = schema.parse(req.body);
+
+        const count = await (storage as any).bulkAdjustWallets({
+            tenantId: req.tenantId,
+            walletIds: data.walletIds,
+            amount: data.amount,
+            note: data.note,
+            actorId: req.user.id
+        });
+
+        res.json({ updatedCount: count, message: `${count} wallets updated` });
+    } catch (e: any) {
+        if (e instanceof z.ZodError) return res.status(400).json(e.errors);
+        console.error(e);
+        res.status(400).json({ message: e.message || "Failed to bulk adjust wallets" });
+    }
+});
+
 router.get("/admin/payroll-staging", requireTenant, async (req: any, res) => {
     try {
         if (!req.user.isAdmin && !req.user.isHR) return res.status(403).json({ message: "Forbidden" });
